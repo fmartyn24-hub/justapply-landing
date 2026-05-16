@@ -34,14 +34,17 @@ export default function Home() {
         <title>justapply.eu - Your AI-Powered Job Search OS</title>
         <meta name="description" content="Apply smarter. Land your next role with AI-tailored CVs, cover letters, and a job search operating system." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
 
       <body className="bg-white text-dark">
         {/* Navigation */}
         <nav className="fixed w-full bg-white border-b border-gray-100 z-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div className="text-2xl font-bold text-primary">justapply</div>
+            <div className="flex items-center gap-2">
+              <img src="/logo.svg" alt="justapply" className="w-8 h-8" />
+              <span className="text-lg font-bold text-dark">justapply</span>
+            </div>
             <a href="#waitlist" className="text-sm font-medium text-primary hover:text-blue-700">
               Get Early Access
             </a>
@@ -240,7 +243,10 @@ export default function Home() {
         <footer className="bg-dark text-white py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-              <div className="text-2xl font-bold mb-4 md:mb-0">justapply</div>
+              <div className="flex items-center gap-2 mb-4 md:mb-0">
+                <img src="/logo.svg" alt="justapply" className="w-8 h-8" />
+                <span className="text-lg font-bold">justapply</span>
+              </div>
               <div className="flex gap-6 text-sm">
                 <a href="#" className="hover:text-primary">Privacy</a>
                 <a href="#" className="hover:text-primary">Terms</a>
