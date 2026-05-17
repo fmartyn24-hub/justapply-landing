@@ -26,7 +26,8 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) })
+    const arrayBuffer = buffer.buffer as ArrayBuffer
+    const result = await mammoth.extractRawText({ arrayBuffer })
     return result.value
   } catch (error) {
     console.error('DOCX extraction error:', error)
