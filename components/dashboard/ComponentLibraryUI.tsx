@@ -127,7 +127,7 @@ export function ComponentLibraryUI({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.map((component) => {
             const config = typeConfig[component.type]
-            const isDeleting = isDeleting?.(component.id)
+            const isDeletingComponent = isDeleting?.(component.id)
 
             return (
               <div
@@ -153,7 +153,7 @@ export function ComponentLibraryUI({
                     </button>
                     <button
                       onClick={() => onDelete(component.id)}
-                      disabled={isDeleting}
+                      disabled={isDeletingComponent}
                       className="p-2 hover:bg-white rounded transition text-gray-600 hover:text-red-600 disabled:opacity-50"
                       title="Delete"
                     >

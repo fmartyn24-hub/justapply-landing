@@ -3,6 +3,7 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
 interface CareerComponent {
+  id?: string
   type: 'achievement' | 'skill' | 'role' | 'project' | 'kpi' | 'voice'
   title: string
   description?: string
@@ -10,6 +11,14 @@ interface CareerComponent {
   end_date?: string
   impact_metrics?: string
   tags: string[]
+}
+
+interface MergeResult {
+  updates: Array<{
+    id: string
+    changes: Partial<CareerComponent>
+  }>
+  newComponents: CareerComponent[]
 }
 
 interface AnalyzeResponse {
@@ -21,47 +30,62 @@ interface AnalyzeResponse {
 
 const client = new Anthropic()
 
-const ANALYZE_PROMPT = `You are an expert career coach and resume analyzer. Your task is to analyze the provided career information (CV, cover letter, or other career details) and extract meaningful career components.
+const MERGE_PROMPT = `You are an expert career coach helping someone maintain and enrich their career timeline.
 
-Extract and interpret the following types of components:
-- achievement: Accomplishments, awards, certifications, major milestones
-- skill: Technical skills, soft skills, languages, tools, frameworks (list the most important ones)
-- role: Job titles, positions, roles held
-- project: Significant projects, initiatives, or work you've led
-- kpi: Key performance indicators, metrics, quantifiable results
-- voice: Personal branding, unique value proposition, career philosophy (extract 1-2 key messages)
+Your task is to intelligently merge NEW career information with their EXISTING timeline.
 
-For each component, provide:
-- type: The category (achievement, skill, role, project, kpi, or voice)
-- title: A concise, impactful title
-- description: A detailed explanation (1-2 sentences)
-- start_date: ISO date if applicable (YYYY-MM-DD format)
-- end_date: ISO date if applicable (YYYY-MM-DD format)
-- impact_metrics: Quantifiable results or impact (e.g., "Increased sales by 30%")
-- tags: Array of relevant keywords/skills
+EXISTING COMPONENTS:
+{existing_components}
 
-Return the response as a valid JSON array of components. Only return the JSON array, no other text.
+NEW INFORMATION PROVIDED:
+{new_text}
+
+Your job is to:
+1. Identify which NEW information enriches or updates EXISTING components
+2. Identify which information is genuinely NEW and should be added
+3. Return a JSON object with two arrays:
+   - "updates": Components to update (include only the fields that changed)
+   - "new": Genuinely new components to add
+
+Rules for merging:
+- Same company + overlapping dates = same role (merge/enrich)
+- Same skill mentioned again = same skill component (add new details/tags)
+- Same achievement/project mentioned differently = same component (merge)
+- Different timeframe but same company = might be different role (assess context)
+- New metrics for existing role = update that role with impact_metrics
+- Additional tags for existing skill = merge tags
+
+For UPDATES, include:
+- "id": The index position of the existing component in the array above (0-based)
+- "changes": Only the fields that are being updated (title, description, impact_metrics, tags, dates, etc.)
+  - For tags, MERGE with existing (don't replace)
+  - For metrics, append or combine if both exist
+
+For NEW components, provide full structure like:
+- type, title, description, start_date, end_date, impact_metrics, tags
+
+Return ONLY valid JSON, no other text.
 
 Example format:
-[
-  {
-    "type": "achievement",
-    "title": "Led product launch",
-    "description": "Spearheaded cross-functional team to launch new feature that increased user retention by 25%",
-    "start_date": "2023-06-01",
-    "end_date": "2023-09-15",
-    "impact_metrics": "25% increase in user retention",
-    "tags": ["leadership", "product", "cross-functional"]
-  },
-  {
-    "type": "skill",
-    "title": "React & TypeScript",
-    "description": "Expert-level proficiency in modern React development with TypeScript, including hooks, state management, and performance optimization",
-    "tags": ["React", "TypeScript", "Frontend"]
-  }
-]
-
-Now analyze this career information and extract all relevant components:`
+{
+  "updates": [
+    {
+      "id": 0,
+      "changes": {
+        "impact_metrics": "Increased user engagement by 40%",
+        "tags": ["React", "TypeScript", "Performance"]
+      }
+    }
+  ],
+  "new": [
+    {
+      "type": "skill",
+      "title": "Python",
+      "description": "Strong Python proficiency for data analysis and scripting",
+      "tags": ["Python", "Data Analysis"]
+    }
+  ]
+}`
 
 export default async function handler(
   req: NextApiRequest,
@@ -108,6 +132,44 @@ export default async function handler(
 
     console.log('🔍 Analyzing text with Claude, length:', text.length)
 
+    // Fetch existing components
+    const { data: existingComponents, error: fetchError } = await serverSupabase
+      .from('career_components')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (fetchError) {
+      console.error('Error fetching existing components:', fetchError)
+      // Continue anyway, treat as first analysis
+    }
+
+    console.log('📊 Found', existingComponents?.length || 0, 'existing components')
+
+    // Build the merge prompt
+    let prompt: string
+    if (existingComponents && existingComponents.length > 0) {
+      const componentsStr = JSON.stringify(
+        existingComponents.map((c, idx) => ({
+          ...c,
+          _index: idx, // Include index for reference
+        })),
+        null,
+        2
+      )
+      prompt = MERGE_PROMPT.replace('{existing_components}', componentsStr).replace(
+        '{new_text}',
+        text
+      )
+    } else {
+      // No existing components, just extract fresh
+      prompt = `Extract all career components from this text. No existing timeline to merge with.
+
+${text}
+
+Return as JSON array of components with structure: type, title, description, start_date, end_date, impact_metrics, tags.`
+    }
+
     // Call Claude API
     const message = await client.messages.create({
       model: 'claude-opus-4-6',
@@ -115,7 +177,7 @@ export default async function handler(
       messages: [
         {
           role: 'user',
-          content: `${ANALYZE_PROMPT}\n\n---\n\n${text}`,
+          content: prompt,
         },
       ],
     })
@@ -126,21 +188,20 @@ export default async function handler(
       .map((block) => (block.type === 'text' ? block.text : ''))
       .join('')
 
-    console.log('✅ Claude response received, length:', responseText.length)
+    console.log('✅ Claude response received')
 
-    // Parse JSON from response (handle code blocks)
+    // Parse JSON from response
     let jsonStr = responseText
     const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (codeBlockMatch) {
       jsonStr = codeBlockMatch[1].trim()
     }
 
-    let components: CareerComponent[] = []
+    let result: any
     try {
-      components = JSON.parse(jsonStr)
+      result = JSON.parse(jsonStr)
     } catch (parseError) {
       console.error('Failed to parse Claude response:', parseError)
-      console.error('Response text:', responseText.substring(0, 500))
       return res.status(500).json({
         success: false,
         error: 'Failed to parse analysis results',
@@ -148,33 +209,141 @@ export default async function handler(
       })
     }
 
-    // Validate and sanitize components
-    if (!Array.isArray(components)) {
-      return res.status(500).json({
-        success: false,
-        error: 'Invalid response format',
-        details: 'Expected an array of components',
-      })
+    // Handle both formats: direct array (first analysis) or merge result
+    let finalComponents: CareerComponent[] = []
+    let updateCount = 0
+
+    if (Array.isArray(result)) {
+      // Direct extraction format (first analysis)
+      finalComponents = result
+        .filter((comp) => comp.title && comp.type)
+        .map((comp) => ({
+          type: comp.type,
+          title: String(comp.title).substring(0, 200),
+          description: comp.description ? String(comp.description).substring(0, 1000) : undefined,
+          start_date: comp.start_date || undefined,
+          end_date: comp.end_date || undefined,
+          impact_metrics: comp.impact_metrics
+            ? String(comp.impact_metrics).substring(0, 500)
+            : undefined,
+          tags: Array.isArray(comp.tags)
+            ? comp.tags.map((t) => String(t).substring(0, 50)).slice(0, 10)
+            : [],
+        }))
+
+      console.log('✅ First analysis, extracted', finalComponents.length, 'components')
+
+      // Insert all new components
+      if (finalComponents.length > 0) {
+        const { error: insertError } = await serverSupabase
+          .from('career_components')
+          .insert(
+            finalComponents.map((comp) => ({
+              user_id: user.id,
+              type: comp.type,
+              title: comp.title,
+              description: comp.description || null,
+              start_date: comp.start_date || null,
+              end_date: comp.end_date || null,
+              impact_metrics: comp.impact_metrics || null,
+              tags: comp.tags || [],
+              source: 'claude_analysis',
+            }))
+          )
+
+        if (insertError) {
+          console.error('Error inserting components:', insertError)
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to save components',
+            details: insertError.message,
+          })
+        }
+      }
+    } else if (result.updates || result.new) {
+      // Merge format (subsequent analyses)
+      const updates = result.updates || []
+      const newComps = result.new || []
+
+      // Apply updates
+      for (const update of updates) {
+        if (existingComponents && existingComponents[update.id]) {
+          const component = existingComponents[update.id]
+          const changes = update.changes
+
+          // Merge tags if present
+          let mergedTags = component.tags || []
+          if (changes.tags) {
+            mergedTags = [...new Set([...mergedTags, ...changes.tags])]
+          }
+
+          const { error: updateError } = await serverSupabase
+            .from('career_components')
+            .update({
+              title: changes.title ?? component.title,
+              description: changes.description ?? component.description,
+              start_date: changes.start_date ?? component.start_date,
+              end_date: changes.end_date ?? component.end_date,
+              impact_metrics: changes.impact_metrics ?? component.impact_metrics,
+              tags: mergedTags,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', component.id)
+
+          if (updateError) {
+            console.error('Error updating component:', updateError)
+          } else {
+            updateCount++
+          }
+        }
+      }
+
+      // Add new components
+      if (newComps.length > 0) {
+        const { error: insertError } = await serverSupabase
+          .from('career_components')
+          .insert(
+            newComps
+              .filter((comp) => comp.title && comp.type)
+              .map((comp) => ({
+                user_id: user.id,
+                type: comp.type,
+                title: String(comp.title).substring(0, 200),
+                description: comp.description
+                  ? String(comp.description).substring(0, 1000)
+                  : null,
+                start_date: comp.start_date || null,
+                end_date: comp.end_date || null,
+                impact_metrics: comp.impact_metrics
+                  ? String(comp.impact_metrics).substring(0, 500)
+                  : null,
+                tags: Array.isArray(comp.tags)
+                  ? comp.tags.map((t) => String(t).substring(0, 50)).slice(0, 10)
+                  : [],
+                source: 'claude_analysis',
+              }))
+          )
+
+        if (insertError) {
+          console.error('Error inserting new components:', insertError)
+        }
+      }
+
+      console.log(
+        `✅ Merge complete: ${updateCount} updated, ${newComps.length} new components`
+      )
     }
 
-    // Ensure all components have required fields
-    const validatedComponents = components
-      .filter((comp) => comp.title && comp.type)
-      .map((comp) => ({
-        type: comp.type as CareerComponent['type'],
-        title: String(comp.title).substring(0, 200),
-        description: comp.description ? String(comp.description).substring(0, 1000) : undefined,
-        start_date: comp.start_date || undefined,
-        end_date: comp.end_date || undefined,
-        impact_metrics: comp.impact_metrics ? String(comp.impact_metrics).substring(0, 500) : undefined,
-        tags: Array.isArray(comp.tags) ? comp.tags.map((t) => String(t).substring(0, 50)).slice(0, 10) : [],
-      }))
-
-    console.log('✅ Analysis complete, extracted', validatedComponents.length, 'components')
+    // Refetch all components to return
+    const { data: allComponents } = await serverSupabase
+      .from('career_components')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
     return res.status(200).json({
       success: true,
-      components: validatedComponents,
+      components: allComponents || [],
     })
   } catch (error) {
     console.error('Analysis handler error:', error)
