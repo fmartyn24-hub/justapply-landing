@@ -48,20 +48,22 @@ export default async function handler(
       })
     }
 
-    // Update user_profiles
-    const { error: updateError } = await serverSupabase
+    // Upsert user_profiles (update if exists, insert if not)
+    const { error: upsertError } = await serverSupabase
       .from('user_profiles')
-      .update({
+      .upsert({
+        id: user.id,
         first_name: firstName,
         last_name: lastName,
         phone: phone || null,
         address: address || null,
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'id',
       })
-      .eq('id', user.id)
 
-    if (updateError) {
-      console.error('Profile update error:', updateError)
+    if (upsertError) {
+      console.error('Profile upsert error:', upsertError)
       return res.status(500).json({
         success: false,
         error: 'Failed to save profile',
