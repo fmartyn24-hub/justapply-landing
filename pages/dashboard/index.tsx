@@ -44,6 +44,8 @@ function Dashboard() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deletingComponent, setDeletingComponent] = useState<string | null>(null)
+  const [deleteConfirmComponent, setDeleteConfirmComponent] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
@@ -205,6 +207,22 @@ function Dashboard() {
       alert('Failed to delete CV')
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleDeleteComponent = async (componentId: string) => {
+    if (!session?.user?.id) return
+
+    setDeletingComponent(componentId)
+    try {
+      await supabase.from('career_components').delete().eq('id', componentId)
+      setComponents(components.filter((c) => c.id !== componentId))
+      setDeleteConfirmComponent(null)
+    } catch (err) {
+      console.error('Delete error:', err)
+      alert('Failed to delete component')
+    } finally {
+      setDeletingComponent(null)
     }
   }
 
@@ -447,6 +465,22 @@ function Dashboard() {
                           <h3 className="font-semibold text-gray-900">{component.title}</h3>
                           <p className="text-xs text-gray-500 uppercase">{component.type}</p>
                         </div>
+                        {deleteConfirmComponent === component.id ? (
+                          <button
+                            onClick={() => handleDeleteComponent(component.id)}
+                            disabled={deletingComponent === component.id}
+                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingComponent === component.id ? '...' : 'Confirm'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirmComponent(component.id)}
+                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                       {component.description && (
                         <p className="text-sm text-gray-600 mb-2">{component.description}</p>
