@@ -116,13 +116,15 @@ export default async function handler(
       return res.status(400).json({ success: false, error: 'Filename is required' })
     }
 
-    // Extract text from file
-    let extractedText: string
+    // Extract text from file (optional - non-blocking)
+    let extractedText = ''
     try {
       extractedText = await extractText(fileBuffer, mimeType)
+      console.log('Text extraction successful')
     } catch (error) {
-      console.error('Text extraction failed:', error)
-      return res.status(500).json({ success: false, error: 'Failed to extract text from file' })
+      console.error('Text extraction failed (continuing without text):', error)
+      // Non-blocking - continue with empty text
+      extractedText = '[Text extraction failed - file uploaded but text not extracted]'
     }
 
     // Truncate text if too long (50k chars)
