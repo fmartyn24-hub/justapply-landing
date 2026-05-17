@@ -1,0 +1,208 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { createServerClient, Session } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import pdfParse from 'pdf-parse'
+import mammoth from 'mammoth'
+import { v4 as uuidv4 } from 'crypto'
+
+interface UploadResponse {
+  success: boolean
+  cvId?: string
+  filename?: string
+  extractedTextLength?: number
+  error?: string
+  status?: number
+}
+
+// Initialize text extraction
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  try {
+    const data = await pdfParse(buffer)
+    return data.text
+  } catch (error) {
+    console.error('PDF extraction error:', error)
+    throw new Error('Failed to extract text from PDF')
+  }
+}
+
+async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
+  try {
+    const result = await mammoth.extractRawText({ arrayBuffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) })
+    return result.value
+  } catch (error) {
+    console.error('DOCX extraction error:', error)
+    throw new Error('Failed to extract text from DOCX')
+  }
+}
+
+async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
+  if (mimeType === 'application/pdf') {
+    return extractTextFromPDF(buffer)
+  } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return extractTextFromDOCX(buffer)
+  }
+  throw new Error('Unsupported file type')
+}
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<UploadResponse>
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' })
+  }
+
+  try {
+    // Initialize Supabase client for server-side
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              // Handle errors during cookie setting
+            }
+          },
+        },
+      }
+    )
+
+    // Get user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError || !session?.user?.id) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+
+    const userId = session.user.id
+
+    // Parse form data manually (files come as buffer in body)
+    const contentType = req.headers['content-type']
+    if (!contentType?.includes('application/octet-stream')) {
+      return res.status(400).json({ success: false, error: 'Invalid content type' })
+    }
+
+    const fileBuffer = req.body as Buffer
+    const filename = req.headers['x-filename'] as string
+    const mimeType = req.headers['x-mime-type'] as string
+
+    // Validate file
+    const maxSize = 10 * 1024 * 1024 // 10 MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]
+
+    if (fileBuffer.length > maxSize) {
+      return res.status(413).json({ success: false, error: 'File must be under 10 MB' })
+    }
+
+    if (!allowedTypes.includes(mimeType)) {
+      return res.status(400).json({ success: false, error: 'Only PDF and DOCX files are supported' })
+    }
+
+    if (!filename) {
+      return res.status(400).json({ success: false, error: 'Filename is required' })
+    }
+
+    // Extract text from file
+    let extractedText: string
+    try {
+      extractedText = await extractText(fileBuffer, mimeType)
+    } catch (error) {
+      console.error('Text extraction failed:', error)
+      return res.status(500).json({ success: false, error: 'Failed to extract text from file' })
+    }
+
+    // Truncate text if too long (50k chars)
+    const maxTextLength = 50000
+    if (extractedText.length > maxTextLength) {
+      extractedText = extractedText.substring(0, maxTextLength)
+    }
+
+    // Generate storage path: /user_id/uuid-filename
+    const fileExtension = mimeType === 'application/pdf' ? 'pdf' : 'docx'
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 100)
+    const uuid = uuidv4()
+    const storagePath = `${userId}/${uuid}-${sanitizedFilename}.${fileExtension}`
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('cvs')
+      .upload(storagePath, fileBuffer, {
+        contentType: mimeType,
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      return res.status(500).json({ success: false, error: 'Failed to upload file to storage' })
+    }
+
+    // Save metadata to cvs table
+    const { data: cvRecord, error: dbError } = await supabase
+      .from('cvs')
+      .insert({
+        user_id: userId,
+        filename: sanitizedFilename,
+        storage_path: storagePath,
+        file_size_bytes: fileBuffer.length,
+        mime_type: mimeType,
+        extracted_text: extractedText,
+        metadata: {
+          originalFilename: filename,
+          uploadedAt: new Date().toISOString(),
+        },
+      })
+      .select('id')
+      .single()
+
+    if (dbError) {
+      console.error('Database insert error:', dbError)
+      // Attempt to clean up storage
+      await supabase.storage.from('cvs').remove([storagePath])
+      return res.status(500).json({ success: false, error: 'Failed to save CV metadata' })
+    }
+
+    // Update user_profiles to mark cv_uploaded = true
+    const { error: updateError } = await supabase
+      .from('user_profiles')
+      .update({ cv_uploaded: true, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    if (updateError) {
+      console.error('Profile update error:', updateError)
+      // Don't fail the upload if this fails, but log it
+    }
+
+    return res.status(200).json({
+      success: true,
+      cvId: cvRecord.id,
+      filename: sanitizedFilename,
+      extractedTextLength: extractedText.length,
+    })
+  } catch (error) {
+    console.error('Upload handler error:', error)
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+    })
+  }
+}
