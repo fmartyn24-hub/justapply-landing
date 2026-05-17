@@ -42,8 +42,8 @@ export default function Home() {
         <nav className="fixed w-full bg-white border-b border-gray-100 z-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
             <img src="/logo-light.svg" alt="justapply" className="h-12" />
-            <a href="#waitlist" className="text-sm font-medium text-primary hover:text-blue-700">
-              Get Early Access
+            <a href="#waitlist" className="text-sm font-medium text-white bg-primary px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+              Join the Waitlist
             </a>
           </div>
         </nav>
@@ -52,11 +52,11 @@ export default function Home() {
         <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-5xl sm:text-6xl font-bold mb-6 leading-tight">
-              Stop applying. Start getting results.
+              Your career deserves better than a blank page.
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Upload your CV. Post the job. Get a tailored CV and cover letter in minutes. 
-              justapply is the operating system for your job search.
+              Stop overthinking every CV and cover letter. Build a personal component library from your years of work.
+              Then generate tailored applications in seconds—using your voice, your achievements, your story.
             </p>
             <a href="#waitlist" className="inline-block bg-primary text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition">
               Join the Waitlist
@@ -64,138 +64,110 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works */}
+        {/* The Problem / The Reality */}
         <section className="py-20 bg-light px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-4xl font-bold mb-8">The Real Bottleneck</h2>
+            <div className="space-y-6">
+              <div>
+                <p className="text-2xl font-bold" style={{color: '#FE6F09'}}>43%</p>
+                <p className="text-lg text-gray-600">of candidates spend 30+ minutes on a single application</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold" style={{color: '#FE6F09'}}>51</p>
+                <p className="text-lg text-gray-600">resumes needed on average to secure one job offer</p>
+              </div>
+              <div className="pt-4 border-t border-gray-300">
+                <p className="text-lg text-gray-600 leading-relaxed">
+                  You're not applying for fewer jobs because you're lazy. You're applying for fewer jobs because every application feels like you have to craft something perfect from scratch.
+                </p>
+                <p className="text-lg text-gray-600 leading-relaxed mt-4">
+                  And women? They often don't apply at all unless they meet <span className="font-semibold">every single qualification</span>. Not because they're not qualified. Because the friction is real.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl font-bold text-center mb-16">How justapply Works</h2>
+            <h2 className="text-4xl font-bold text-center mb-4">Build Your Career Story Once</h2>
+            <p className="text-xl text-gray-600 text-center mb-16">
+              Then call upon it whenever you find a role that matters.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Step 1 */}
-              <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="bg-light p-8 rounded-lg border border-gray-200">
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   1
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Upload Your CV</h3>
+                <h3 className="text-xl font-semibold mb-2">Upload Your Career</h3>
                 <p className="text-gray-600">
-                  Add your past CVs and career history. justapply learns your voice, achievements, and professional story.
+                  Add past CVs and cover letters. justapply learns how you describe your achievements, your voice, your authentic professional story.
                 </p>
               </div>
 
               {/* Step 2 */}
-              <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="bg-light p-8 rounded-lg border border-gray-200">
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   2
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Paste the Job</h3>
+                <h3 className="text-xl font-semibold mb-2">Find a Role You Want</h3>
                 <p className="text-gray-600">
-                  Paste the job description you're applying for. justapply scans for keywords, tone, and requirements.
+                  See a job that excites you? Paste the job description. justapply matches your story with what they're looking for.
                 </p>
               </div>
 
               {/* Step 3 */}
-              <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="bg-light p-8 rounded-lg border border-gray-200">
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   3
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Get Documents</h3>
+                <h3 className="text-xl font-semibold mb-2">Apply—Right Now</h3>
                 <p className="text-gray-600">
-                  Download a tailored CV and cover letter in your voice. Ready to apply in minutes, not hours.
+                  Get a tailored CV and cover letter in seconds. No overthinking. No "perfect." Just your story, adapted for them. Apply.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Features */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl font-bold text-center mb-16">Why justapply</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">Voice-Trained AI</h3>
-                  <p className="text-gray-600">justapply learns from your past cover letters to write new ones in your authentic voice.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">Keyword Matching</h3>
-                  <p className="text-gray-600">AI analyzes job descriptions and crafts documents with the right keywords and tone.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">Application Tracker</h3>
-                  <p className="text-gray-600">Manage all your applications in one place. Track status, notes, and documents.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">One Free Application</h3>
-                  <p className="text-gray-600">Generate your first CV and cover letter free. Upgrade for unlimited applications.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing */}
+        {/* Why justapply */}
         <section className="py-20 bg-light px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-8">Simple Pricing</h2>
-            <p className="text-xl text-gray-600 mb-16">Start free. Upgrade when you're ready.</p>
-            
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-4xl font-bold text-center mb-16">Why justapply changes the game</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Free */}
-              <div className="bg-white p-8 rounded-lg border border-gray-200">
-                <h3 className="text-2xl font-bold mb-4">Free</h3>
-                <p className="text-4xl font-bold text-primary mb-6">€0</p>
-                <ul className="text-left space-y-3 mb-8">
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary">✓</span>
-                    <span>1 CV + cover letter per month</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary">✓</span>
-                    <span>AI voice training</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary">✓</span>
-                    <span>Application tracker</span>
-                  </li>
-                </ul>
-                <button className="w-full border-2 border-primary text-primary py-2 rounded-lg font-semibold hover:bg-blue-50 transition">
-                  Get Started
-                </button>
+              <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
+                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Everything you've achieved, always accessible</h3>
+                  <p className="text-gray-600">Stop forgetting the great things you've done. Your career dictionary lives in one place. All your past achievements, the projects you loved, the skills you learned. When a job excites you, it's all there to pull from.</p>
+                </div>
               </div>
 
-              {/* Pro */}
-              <div className="bg-primary text-white p-8 rounded-lg border-2 border-primary">
-                <h3 className="text-2xl font-bold mb-4">Pro</h3>
-                <p className="text-4xl font-bold mb-6">€9/mo</p>
-                <ul className="text-left space-y-3 mb-8">
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>Unlimited applications</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>Advanced analytics</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>Interview prep</span>
-                  </li>
-                </ul>
-                <button className="w-full bg-white text-primary py-2 rounded-lg font-semibold hover:bg-gray-100 transition">
-                  Coming Soon
-                </button>
+              <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #90055D', backgroundColor: 'rgba(144, 5, 93, 0.03)'}}>
+                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Apply in minutes, not hours</h3>
+                  <p className="text-gray-600">Stop spending an entire evening perfecting a cover letter. You've already done the work. justapply finds what's relevant from your career history and adapts it to the job. You're ready to apply while the role is still fresh in your mind.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
+                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Stop second-guessing whether you're qualified</h3>
+                  <p className="text-gray-600">You skip jobs because you don't meet every single requirement. Don't. justapply shows you exactly what you bring to that role. The skills, the projects, the achievements that matter. Your story speaks for itself.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #90055D', backgroundColor: 'rgba(144, 5, 93, 0.03)'}}>
+                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Feel relieved instead of anxious</h3>
+                  <p className="text-gray-600">You should feel confident that nothing's been left behind. That all your career moves are working for you. Not stressed that you forgot something important or didn't phrase it right. You built it once. It's there when you need it.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -204,9 +176,9 @@ export default function Home() {
         {/* Waitlist CTA */}
         <section id="waitlist" className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-6">Ready to transform your job search?</h2>
+            <h2 className="text-4xl font-bold mb-6">Ready to actually apply for the jobs you want?</h2>
             <p className="text-lg text-gray-600 mb-8">
-              Join early users getting tailored CVs and cover letters in minutes.
+              Join the early waitlist. We're building justapply for everyone tired of spending hours perfecting CVs instead of chasing opportunities.
             </p>
 
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4">
