@@ -4,7 +4,8 @@ import pdfParse from 'pdf-parse/lib/pdf-parse.js'
 /**
  * Robust PDF text extraction with multiple fallback strategies
  * 1. Fast path: pdf-parse for standard PDFs
- * 2. Fallback: OCR.Space API for scanned/complex PDFs (handles anything)
+ * 2. Fallback: OCR.Space API for complex PDFs
+ * 3. Final fallback: Tesseract.js OCR for scanned/encrypted PDFs
  * Works with any PDF format, including scanned documents
  */
 export async function extractTextFromPDFRobust(buffer: Buffer): Promise<string> {
@@ -26,24 +27,32 @@ export async function extractTextFromPDFRobust(buffer: Buffer): Promise<string> 
     console.warn('  ℹ️ pdf-parse not suitable for this PDF:', error instanceof Error ? error.message : error)
   }
 
-  // Strategy 2: Fall back to OCR.Space API (free, handles ANY PDF including scanned)
+  // Strategy 2: Fall back to OCR.Space API (free, handles complex PDFs)
   try {
-    console.log('  → Strategy 2: Using OCR.Space API (handles scanned PDFs, any format)')
+    console.log('  → Strategy 2: Using OCR.Space API')
     const text = await extractWithOCRSpace(buffer)
     console.log('  ✅ OCR.Space successful, extracted', text.length, 'characters')
     return text
   } catch (error) {
-    console.warn('  ❌ OCR.Space failed:', error instanceof Error ? error.message : error)
+    console.warn('  ℹ️ OCR.Space not suitable:', error instanceof Error ? error.message : error)
+  }
+
+  // Strategy 3: Final fallback - Tesseract.js OCR (handles scanned PDFs, encrypted PDFs, any format)
+  try {
+    console.log('  → Strategy 3: Using Tesseract.js OCR (comprehensive fallback)')
+    const text = await extractWithTesseract(buffer)
+    console.log('  ✅ Tesseract.js successful, extracted', text.length, 'characters')
+    return text
+  } catch (error) {
+    console.warn('  ❌ Tesseract.js failed:', error instanceof Error ? error.message : error)
   }
 
   // No extraction method succeeded
   throw new Error(
-    'PDF text extraction failed after trying multiple methods. This is rare and usually means:\n' +
-    '- The PDF is corrupted or malformed\n' +
-    '- The PDF is encrypted/password-protected\n\n' +
-    'Please try:\n' +
-    '1. Re-saving the PDF from the original source\n' +
-    '2. Converting to DOCX format'
+    'PDF text extraction exhausted all methods. This is extremely rare and usually means:\n' +
+    '- The PDF is severely corrupted\n' +
+    '- The PDF is encrypted with an unknown encryption method\n\n' +
+    'Please try converting the PDF from the original source (Word, Google Docs, etc.)'
   )
 }
 
@@ -85,6 +94,36 @@ async function extractWithOCRSpace(buffer: Buffer): Promise<string> {
   }
 
   return text
+}
+
+/**
+ * Extract text from PDF using Tesseract.js OCR (fallback)
+ * Handles scanned documents and complex PDFs
+ */
+async function extractWithTesseract(buffer: Buffer): Promise<string> {
+  // Use base64 image from PDF buffer for Tesseract
+  const base64 = buffer.toString('base64')
+  const imageUrl = `data:application/pdf;base64,${base64}`
+
+  try {
+    const Tesseract = await import('tesseract.js')
+    const { recognize } = Tesseract.default
+
+    const result = await recognize(imageUrl, 'eng', {
+      // @ts-ignore
+      langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v4/tesseract-core.wasm.js',
+    })
+
+    const text = result.data?.text || ''
+
+    if (!text.trim()) {
+      throw new Error('Tesseract.js extracted no text')
+    }
+
+    return text.trim()
+  } catch (error) {
+    throw new Error(`Tesseract.js OCR failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
