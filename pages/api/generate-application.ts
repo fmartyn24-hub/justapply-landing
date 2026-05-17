@@ -124,15 +124,11 @@ ${jobDescription}
 User's Career Context:
 ${careerContext}
 
-Please generate BOTH a CV and a cover letter. Format your response as follows:
+Generate a CV and a cover letter tailored to this job. Return the response as a JSON object with exactly these two fields:
+- "cv": The complete CV content (plain text, tailored to the job description. Highlight relevant experience, skills, and achievements. Keep it concise and focused.)
+- "coverLetter": The cover letter content (plain text, compelling and explains why this person is perfect for this role. Reference specific accomplishments. Keep tone professional but warm. Use the user's voice and values.)
 
----CV---
-[Complete CV tailored to the job description. Highlight relevant experience, skills, and achievements. Keep it concise and focused on what matters for this role.]
-
----COVER_LETTER---
-[A compelling cover letter that explains why this person is perfect for this role. Reference specific accomplishments and match them to job requirements. Keep the tone professional but warm and personal. Use the user's voice and values from the profile.]
-
-Both documents should be tailored to match the job requirements and highlight the most relevant experience. Use the user's background to create compelling narratives.`,
+Respond ONLY with valid JSON, no other text.`,
         },
       ],
     })
@@ -143,15 +139,19 @@ Both documents should be tailored to match the job requirements and highlight th
       throw new Error('Unexpected response type from Claude')
     }
 
-    const text = content.text
-    const cvMatch = text.match(/---CV---([\s\S]*?)---COVER_LETTER---/)
-    const coverLetterMatch = text.match(/---COVER_LETTER---([\s\S]*)$/)
+    let cv = ''
+    let coverLetter = ''
 
-    const cv = cvMatch ? cvMatch[1].trim() : ''
-    const coverLetter = coverLetterMatch ? coverLetterMatch[1].trim() : ''
+    try {
+      const parsed = JSON.parse(content.text)
+      cv = parsed.cv || ''
+      coverLetter = parsed.coverLetter || ''
+    } catch {
+      throw new Error('Failed to parse JSON response from Claude. Response was: ' + content.text.substring(0, 200))
+    }
 
     if (!cv || !coverLetter) {
-      throw new Error('Failed to parse CV and cover letter from Claude response')
+      throw new Error('CV or cover letter is empty in the response')
     }
 
     return res.status(200).json({
