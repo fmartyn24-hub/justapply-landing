@@ -1,3 +1,4 @@
+// @ts-ignore - pdf-parse lacks type definitions
 import pdfParse from 'pdf-parse/lib/pdf-parse.js'
 import { TextractClient, DetectDocumentTextCommand } from '@aws-sdk/client-textract'
 
