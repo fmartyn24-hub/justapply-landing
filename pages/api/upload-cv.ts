@@ -157,7 +157,6 @@ export default async function handler(
       console.error('Storage upload error:', {
         message: uploadError.message,
         statusCode: uploadError.statusCode,
-        error: uploadError.error,
         details: JSON.stringify(uploadError),
         storagePath,
         fileSize: fileBuffer.length,
