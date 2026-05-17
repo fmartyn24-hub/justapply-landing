@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import pdfParse from 'pdf-parse'
+import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 import { randomUUID } from 'crypto'
 
@@ -18,9 +18,24 @@ interface UploadResponse {
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
     console.log('Starting PDF extraction, buffer size:', buffer.length)
-    const data = await pdfParse(buffer)
-    console.log('PDF extraction successful, text length:', data.text.length)
-    return data.text
+
+    // Set worker source for pdfjs
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    let fullText = ''
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ')
+      fullText += pageText + '\n'
+    }
+
+    console.log('PDF extraction successful, text length:', fullText.length)
+    return fullText.trim()
   } catch (error) {
     console.error('PDF extraction error:', error instanceof Error ? error.message : error)
     throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
