@@ -16,23 +16,27 @@ interface UploadResponse {
 // Initialize text extraction
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
+    console.log('Starting PDF extraction, buffer size:', buffer.length)
     const data = await pdfParse(buffer)
+    console.log('PDF extraction successful, text length:', data.text.length)
     return data.text
   } catch (error) {
-    console.error('PDF extraction error:', error)
-    throw new Error('Failed to extract text from PDF')
+    console.error('PDF extraction error:', error instanceof Error ? error.message : error)
+    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
+    console.log('Starting DOCX extraction, buffer size:', buffer.length)
     const result = await mammoth.extractRawText({
       arrayBuffer: buffer as unknown as ArrayBuffer
     })
+    console.log('DOCX extraction successful, text length:', result.value.length)
     return result.value
   } catch (error) {
-    console.error('DOCX extraction error:', error)
-    throw new Error('Failed to extract text from DOCX')
+    console.error('DOCX extraction error:', error instanceof Error ? error.message : error)
+    throw new Error(`Failed to extract text from DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
