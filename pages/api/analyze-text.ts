@@ -158,6 +158,55 @@ function normalizeDate(dateStr: string | undefined): string | undefined {
   return undefined
 }
 
+// Helper function to compute similarity between two strings
+function stringSimilarity(a: string, b: string): number {
+  const aLower = a.toLowerCase().trim()
+  const bLower = b.toLowerCase().trim()
+
+  // Exact match
+  if (aLower === bLower) return 1.0
+
+  // Check if one contains the other
+  if (aLower.includes(bLower) || bLower.includes(aLower)) return 0.85
+
+  // Levenshtein-like distance (simplified)
+  let matches = 0
+  const aWords = aLower.split(/\s+/)
+  const bWords = bLower.split(/\s+/)
+
+  for (const aWord of aWords) {
+    for (const bWord of bWords) {
+      if (aWord === bWord) matches++
+    }
+  }
+
+  const similarity = (2 * matches) / (aWords.length + bWords.length)
+  return similarity
+}
+
+// Helper function to detect if two components are likely duplicates
+function areComponentsDuplicate(comp1: CareerComponent, comp2: CareerComponent): boolean {
+  // Must be same type
+  if (comp1.type !== comp2.type) return false
+
+  // Title similarity must be high
+  const titleSim = stringSimilarity(comp1.title, comp2.title)
+  if (titleSim < 0.75) return false
+
+  // For roles and projects, also check date overlap
+  if ((comp1.type === 'role' || comp1.type === 'project') && (comp1.start_date || comp2.start_date)) {
+    const start1 = comp1.start_date ? new Date(comp1.start_date).getTime() : 0
+    const end1 = comp1.end_date ? new Date(comp1.end_date).getTime() : Infinity
+    const start2 = comp2.start_date ? new Date(comp2.start_date).getTime() : 0
+    const end2 = comp2.end_date ? new Date(comp2.end_date).getTime() : Infinity
+
+    // If dates don't overlap significantly, probably different instances
+    if (Math.abs(start1 - start2) > 365 * 24 * 60 * 60 * 1000) return false // More than 1 year apart
+  }
+
+  return true
+}
+
 // Helper function to deduplicate components
 function deduplicateComponents(components: CareerComponent[]): CareerComponent[] {
   const seen = new Map<string, CareerComponent>()
@@ -166,33 +215,41 @@ function deduplicateComponents(components: CareerComponent[]): CareerComponent[]
     // Create a key from type and normalized title
     const key = `${comp.type}:${comp.title.toLowerCase().trim()}`
 
-    if (seen.has(key)) {
-      // Merge with existing component
-      const existing = seen.get(key)!
-      // Merge tags
-      const mergedTags = [...new Set([...(existing.tags || []), ...(comp.tags || [])])]
-      // Use description from new component if it's longer/more detailed
-      const description =
-        (comp.description?.length || 0) > (existing.description?.length || 0)
-          ? comp.description
-          : existing.description
-      // Use impact metrics from new if available
-      const impact_metrics = comp.impact_metrics || existing.impact_metrics
-      // Use earliest start date, latest end date
-      const start_date = [existing.start_date, comp.start_date]
-        .filter(Boolean)
-        .sort()[0]
-      const end_date = [existing.end_date, comp.end_date].filter(Boolean).sort().pop()
+    let foundDuplicate = false
 
-      seen.set(key, {
-        ...existing,
-        description,
-        impact_metrics,
-        tags: mergedTags,
-        start_date,
-        end_date,
-      })
-    } else {
+    // Check against all existing keys for similarity
+    for (const [existingKey, existingComp] of seen.entries()) {
+      if (areComponentsDuplicate(existingComp, comp)) {
+        // Merge with existing component
+        const mergedTags = [...new Set([...(existingComp.tags || []), ...(comp.tags || [])])]
+        const description =
+          (comp.description?.length || 0) > (existingComp.description?.length || 0)
+            ? comp.description
+            : existingComp.description
+        const impact_metrics = comp.impact_metrics || existingComp.impact_metrics
+        const start_date = [existingComp.start_date, comp.start_date]
+          .filter(Boolean)
+          .sort()[0]
+        const end_date = [existingComp.end_date, comp.end_date]
+          .filter(Boolean)
+          .sort()
+          .pop()
+
+        seen.set(existingKey, {
+          ...existingComp,
+          description,
+          impact_metrics,
+          tags: mergedTags,
+          start_date,
+          end_date,
+        })
+
+        foundDuplicate = true
+        break
+      }
+    }
+
+    if (!foundDuplicate) {
       seen.set(key, comp)
     }
   }
@@ -202,57 +259,68 @@ function deduplicateComponents(components: CareerComponent[]): CareerComponent[]
 
 const MERGE_PROMPT = `You are an expert career coach helping someone maintain and enrich their career timeline.
 
-Your task is to intelligently merge NEW career information with their EXISTING timeline.
+Your task is to intelligently merge NEW career information with their EXISTING timeline, avoiding duplicates.
 
-EXISTING COMPONENTS:
+EXISTING COMPONENTS (with index positions for reference):
 {existing_components}
 
 NEW INFORMATION PROVIDED:
 {new_text}
 
 Your job is to:
-1. Identify which NEW information enriches or updates EXISTING components
-2. Identify which information is genuinely NEW and should be added
-3. Return a JSON object with two arrays:
-   - "updates": Components to update (include only the fields that changed)
-   - "new": Genuinely new components to add
+1. CRITICALLY: Avoid creating duplicates. If you see the same title/company with same/overlapping dates, it's the SAME component
+2. Update existing components with new details, metrics, or tags
+3. Only add genuinely NEW components that don't already exist
 
-Rules for merging:
-- Same company + overlapping dates = same role (merge/enrich)
-- Same skill mentioned again = same skill component (add new details/tags)
-- Same achievement/project mentioned differently = same component (merge)
-- Different timeframe but same company = might be different role (assess context)
-- New metrics for existing role = update that role with impact_metrics
-- Additional tags for existing skill = merge tags
+STRICT MATCHING RULES:
+- ROLE: Same company + overlapping/same dates = SAME ROLE (UPDATE, don't create new)
+- SKILL: Same skill name/title = SAME SKILL (MERGE tags, add details)
+- PROJECT: Same project name or very similar title = SAME PROJECT (UPDATE with new metrics/details)
+- ACHIEVEMENT: Same achievement or milestone = SAME ACHIEVEMENT (MERGE details/tags)
+
+EXACT MATCHING KEYWORDS (most critical):
+- If new text mentions a company name that appears in existing roles, check if it's the same role or a different role
+- For skills: "Python" mentioned twice = same skill, not two Python entries
+- For projects: "Mobile App" and "Built mobile app" = SAME PROJECT
+
+CRITICAL: When in doubt about whether something is the same or different, ALWAYS PREFER UPDATE over NEW
+This prevents duplicate "Python" entries, duplicate "Senior Engineer at Company X" roles, etc.
 
 For UPDATES, include:
-- "id": The index position of the existing component in the array above (0-based)
-- "changes": Only the fields that are being updated (title, description, impact_metrics, tags, dates, etc.)
-  - For tags, MERGE with existing (don't replace)
-  - For metrics, append or combine if both exist
+- "id": The exact index position (0-based) of the component from the list above
+- "changes": Only the fields being updated
+  - For tags: MERGE (add new tags to existing, don't replace)
+  - For metrics: Combine if both exist
+  - For description: Use the more detailed version
+  - For dates: Extend the range if needed (earliest start, latest end)
 
-For NEW components, provide full structure like:
-- type, title, description, start_date, end_date, impact_metrics, tags
+For NEW components, only include if:
+- Different company AND role/skill not in list, OR
+- Same company but CLEARLY different role (different position, different timeframe with gap), OR
+- Completely new skill/achievement not mentioned before
 
-Return ONLY valid JSON, no other text.
+Return ONLY valid JSON, no markdown, no explanation.
 
-Example format:
+Example:
 {
   "updates": [
     {
-      "id": 0,
+      "id": 2,
       "changes": {
-        "impact_metrics": "Increased user engagement by 40%",
-        "tags": ["React", "TypeScript", "Performance"]
+        "tags": ["React", "TypeScript", "New tag"],
+        "impact_metrics": "50% performance improvement"
       }
     }
   ],
   "new": [
     {
       "type": "skill",
-      "title": "Python",
-      "description": "Strong Python proficiency for data analysis and scripting",
-      "tags": ["Python", "Data Analysis"]
+      "title": "Kubernetes",
+      "description": "Container orchestration",
+      "tags": ["Kubernetes", "DevOps"],
+      "start_date": null,
+      "end_date": null,
+      "impact_metrics": null
     }
   ]
 }`
@@ -350,9 +418,19 @@ Return as JSON array of components. Each component must have:
 - title: Concise, impactful title
 - description: Detailed explanation (1-2 sentences)
 - start_date: ISO date YYYY-MM-DD if applicable
-- end_date: ISO date YYYY-MM-DD if applicable
+- end_date: ISO date YYYY-MM-DD if applicable (use null if not mentioned)
 - impact_metrics: Quantifiable results if applicable
 - tags: Array of relevant keywords
+
+CRITICAL RULES FOR DATES:
+- For roles: Extract the exact dates the role was held (e.g., if it says "Senior Engineer 2018-2020", use those dates)
+- For achievements/projects: ONLY use dates if they are explicitly mentioned for that achievement/project
+  - Example: "In 2019, I led project X" → start_date: 2019
+  - Example: "During my time at Company Y (2018-2020), I achieved Z" → Z should have NO dates unless Z has its own date
+  - Example: "Built a mobile app" with no date mentioned → start_date: null, end_date: null
+- NEVER infer achievement dates from surrounding role dates unless the achievement explicitly says it happened during that role's dates
+- Skills have no dates (start_date: null, end_date: null always)
+- If a date is truly unknown, use null instead of guessing
 
 IMPORTANT: Only return valid JSON array, no other text.`
     }
@@ -454,7 +532,7 @@ IMPORTANT: Only return valid JSON array, no other text.`
     } else if (result.updates || result.new) {
       // Merge format (subsequent analyses)
       const updates = result.updates || []
-      const newComps = result.new || []
+      let newComps = result.new || []
 
       // Apply updates
       for (const update of updates) {
@@ -489,7 +567,7 @@ IMPORTANT: Only return valid JSON array, no other text.`
         }
       }
 
-      // Add new components
+      // Add new components - with CRITICAL duplicate detection
       if (newComps.length > 0) {
         // Prepare components for insertion
         const newComponentsToInsert = newComps
@@ -510,8 +588,38 @@ IMPORTANT: Only return valid JSON array, no other text.`
               : [],
           }))
 
-        // Deduplicate before inserting
-        const deduplicatedComps = deduplicateComponents(newComponentsToInsert)
+        // CRITICAL: Check if any "new" components are actually duplicates of existing components
+        // This catches cases where Claude missed merging
+        const genuinelyNewComponents: CareerComponent[] = []
+
+        for (const newComp of newComponentsToInsert) {
+          let isDuplicate = false
+
+          // Check against all existing components
+          if (existingComponents) {
+            for (const existing of existingComponents) {
+              if (
+                existing.type === newComp.type &&
+                areComponentsDuplicate(
+                  existing as CareerComponent,
+                  newComp
+                )
+              ) {
+                // This new component is actually a duplicate - skip it
+                isDuplicate = true
+                console.log(`⚠️ Skipped duplicate: "${newComp.title}" (matches existing "${existing.title}")`)
+                break
+              }
+            }
+          }
+
+          if (!isDuplicate) {
+            genuinelyNewComponents.push(newComp)
+          }
+        }
+
+        // Deduplicate the new components among themselves
+        const deduplicatedComps = deduplicateComponents(genuinelyNewComponents)
 
         if (deduplicatedComps.length > 0) {
           const { error: insertError } = await serverSupabase
@@ -534,11 +642,13 @@ IMPORTANT: Only return valid JSON array, no other text.`
             console.error('Error inserting new components:', insertError)
           }
         }
-      }
 
-      console.log(
-        `✅ Merge complete: ${updateCount} updated, ${newComps.length} new components`
-      )
+        console.log(
+          `✅ Merge complete: ${updateCount} updated, ${deduplicatedComps.length} genuinely new components added (${newComponentsToInsert.length - deduplicatedComps.length} duplicates filtered)`
+        )
+      } else {
+        console.log(`✅ Merge complete: ${updateCount} components updated`)
+      }
     }
 
     // Refetch all components to return

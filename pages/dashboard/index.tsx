@@ -67,6 +67,9 @@ function Dashboard() {
   })
   const [analyzing, setAnalyzing] = useState(false)
   const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'paste'>('library')
+  const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
   const { user, signOut } = useAuth()
   const { session } = useAuth()
 
@@ -286,7 +289,7 @@ function Dashboard() {
   }
 
   const handleAnalyzeText = async (text: string) => {
-    if (!session?.access_token) return
+    if (!session?.access_token || !session?.user?.id) return
 
     setAnalyzing(true)
     try {
@@ -306,41 +309,22 @@ function Dashboard() {
 
       const data = await response.json()
 
-      if (data.components && data.components.length > 0) {
-        // Insert all analyzed components
-        const { data: inserted } = await supabase.from('career_components').insert(
-          data.components.map((comp: any) => ({
-            user_id: session.user.id,
-            type: comp.type,
-            title: comp.title,
-            description: comp.description || null,
-            start_date: comp.start_date || null,
-            end_date: comp.end_date || null,
-            impact_metrics: comp.impact_metrics || null,
-            tags: comp.tags || [],
-            source: 'claude_analysis',
-          }))
-        )
+      // The API endpoint handles all insertion/updates, so just refetch components
+      const { data: updatedComponents } = await supabase
+        .from('career_components')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
 
-        // Refetch components
-        const { data: updatedComponents } = await supabase
-          .from('career_components')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
+      if (updatedComponents) {
+        const normalizedComponents = updatedComponents.map((comp: any) => ({
+          ...comp,
+          type: normalizeComponentType(comp.type),
+        }))
+        setComponents(normalizedComponents)
 
-        if (updatedComponents) {
-          const normalizedComponents = updatedComponents.map((comp: any) => ({
-            ...comp,
-            type: normalizeComponentType(comp.type),
-          }))
-          setComponents(normalizedComponents)
-        }
-
-        alert(`✅ Analyzed and created ${data.components.length} components from your text!`)
+        alert(`✅ Analysis complete! Your career components have been updated.`)
         setActiveTab('library')
-      } else {
-        alert('No components were extracted. Please provide more detailed career information.')
       }
     } catch (err) {
       console.error('Analysis error:', err)
@@ -351,8 +335,63 @@ function Dashboard() {
   }
 
   const handleEditComponent = (component: CareerComponent) => {
-    // TODO: Implement edit modal
-    console.log('Edit component:', component)
+    setEditingComponent(component)
+    setEditFormData({
+      type: component.type as any,
+      title: component.title,
+      description: component.description,
+      start_date: component.start_date,
+      end_date: component.end_date,
+      impact_metrics: component.impact_metrics,
+      tags: component.tags || [],
+    })
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.user?.id || !editingComponent?.id) return
+
+    setSavingEdit(true)
+    try {
+      const { error } = await supabase
+        .from('career_components')
+        .update({
+          type: editFormData.type,
+          title: editFormData.title,
+          description: editFormData.description || null,
+          start_date: editFormData.start_date || null,
+          end_date: editFormData.end_date || null,
+          impact_metrics: editFormData.impact_metrics || null,
+          tags: editFormData.tags || [],
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingComponent.id)
+
+      if (!error) {
+        // Refetch components
+        const { data } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (data) {
+          const normalizedComponents = data.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
+        }
+
+        setEditingComponent(null)
+        setEditFormData({})
+      }
+    } catch (err) {
+      console.error('Error updating component:', err)
+      alert('Failed to update component')
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const getComponentIcon = (type: string) => {
@@ -631,6 +670,130 @@ function Dashboard() {
                   type="button"
                   variant="outline"
                   onClick={() => setShowSettings(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Component Modal */}
+      {editingComponent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Edit {getComponentIcon(editFormData.type || 'achievement')} {editFormData.type}</h2>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Type *
+                  </label>
+                  <select
+                    value={editFormData.type || 'achievement'}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="achievement">Achievement</option>
+                    <option value="skill">Skill</option>
+                    <option value="role">Role</option>
+                    <option value="project">Project</option>
+                    <option value="kpi">KPI</option>
+                    <option value="voice">Voice</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.title || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={editFormData.description || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.start_date || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.end_date || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Impact Metrics
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.impact_metrics || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, impact_metrics: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., Increased sales by 40%"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={(editFormData.tags || []).join(', ')}
+                  onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value.split(',').map(t => t.trim()) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., React, TypeScript, Performance"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button type="submit" loading={savingEdit} className="flex-1">
+                  Save Changes
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingComponent(null)
+                    setEditFormData({})
+                  }}
                   className="flex-1"
                 >
                   Cancel
