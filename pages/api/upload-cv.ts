@@ -148,8 +148,19 @@ export default async function handler(
       })
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError)
-      return res.status(500).json({ success: false, error: 'Failed to upload file to storage' })
+      console.error('Storage upload error:', {
+        message: uploadError.message,
+        statusCode: uploadError.statusCode,
+        error: uploadError.error,
+        details: JSON.stringify(uploadError),
+        storagePath,
+        fileSize: fileBuffer.length,
+      })
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to upload file to storage',
+        details: uploadError.message
+      })
     }
 
     // Save metadata to cvs table
