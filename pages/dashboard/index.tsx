@@ -659,20 +659,40 @@ function Dashboard() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center mb-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex justify-between items-start gap-8">
             <button
               onClick={() => {
                 /* Stay on dashboard */
               }}
-              className="cursor-default"
+              className="cursor-default flex-shrink-0"
             >
-              <img src="/logo-light.svg" alt="justapply" className="h-14" />
+              <img src="/logo-light.svg" alt="justapply" className="h-12" />
             </button>
-            <div className="flex gap-4 items-center">
+
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900">
+                Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Build your professional story, then apply smarter.
+              </p>
+            </div>
+
+            <div className="flex gap-3 items-center flex-shrink-0">
+              <Button
+                onClick={() => setActiveTab('justApply')}
+                className="whitespace-nowrap flex items-center gap-2 py-2 px-4"
+              >
+                <svg width="18" height="18" viewBox="100 50 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                  <path d="M288 228.005H266.667V126.079C266.667 122.286 264.691 118.573 263.704 117.19L244.741 99.4124C242.784 97.5782 237.235 96.2519 234.667 95.8568H157.63V74.5235C179.358 74.1285 225.778 73.5754 237.63 74.5235C249.481 75.4717 257.185 80.4494 259.556 82.8198L276.741 99.4124C282.549 105.02 288 111.857 288 117.19V133.19V228.005Z" fill="white" stroke="white"/>
+                  <path d="M234.074 109.556C236.445 109.556 244.741 117.852 244.741 117.852C244.782 117.893 252.444 125.562 252.444 127.926V256.519H140.444L208.593 188.963V218H224V163.482C224 161.111 221.629 158.74 219.852 158.74H165.333V175.333H194.37L128 240.519V109.556H234.074Z" fill="white"/>
+                </svg>
+                Just Apply
+              </Button>
               <button
                 onClick={() => setShowSettings(true)}
-                className="text-gray-600 hover:text-gray-900 font-medium transition text-sm"
+                className="text-gray-600 hover:text-gray-900 font-medium transition text-sm px-3 py-2"
               >
                 Settings
               </button>
@@ -688,7 +708,7 @@ function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="w-full space-y-8">
             {/* Success Banner */}
             {successMessage && (
@@ -696,28 +716,6 @@ function Dashboard() {
                 <p className="text-green-800">✅ {successMessage}</p>
               </div>
             )}
-
-            {/* Welcome */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-5xl font-bold text-gray-900 mb-2">
-                  Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
-                </h1>
-                <p className="text-xl text-gray-600">
-                  Build your professional story, then apply smarter.
-                </p>
-              </div>
-              <Button
-                onClick={() => setActiveTab('justApply')}
-                className="whitespace-nowrap flex items-center gap-3 py-3 px-6"
-              >
-                <svg width="22" height="22" viewBox="100 50 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                  <path d="M288 228.005H266.667V126.079C266.667 122.286 264.691 118.573 263.704 117.19L244.741 99.4124C242.784 97.5782 237.235 96.2519 234.667 95.8568H157.63V74.5235C179.358 74.1285 225.778 73.5754 237.63 74.5235C249.481 75.4717 257.185 80.4494 259.556 82.8198L276.741 99.4124C282.549 105.02 288 111.857 288 117.19V133.19V228.005Z" fill="white" stroke="white"/>
-                  <path d="M234.074 109.556C236.445 109.556 244.741 117.852 244.741 117.852C244.782 117.893 252.444 125.562 252.444 127.926V256.519H140.444L208.593 188.963V218H224V163.482C224 161.111 221.629 158.74 219.852 158.74H165.333V175.333H194.37L128 240.519V109.556H234.074Z" fill="white"/>
-                </svg>
-                Just Apply
-              </Button>
-            </div>
 
             {/* Tell Us More About You - if first name not set */}
             {!profileData.firstName && (
