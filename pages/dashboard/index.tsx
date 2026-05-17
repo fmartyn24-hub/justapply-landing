@@ -432,9 +432,6 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Paste & Analyze Section */}
-            <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} />
-
             {/* Tabs for Library and Timeline */}
             {components.length > 0 && (
               <div className="space-y-6">
@@ -484,15 +481,19 @@ function Dashboard() {
               <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300">
                 <p className="text-gray-600 text-lg mb-2">Ready to build your career profile?</p>
                 <p className="text-gray-500 text-sm mb-6">
-                  Paste your CV or cover letter above and we'll intelligently extract your achievements, skills, and experience.
+                  Paste your CV or cover letter in the sidebar to get started. We'll intelligently extract your roles, achievements, skills, and experience.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Right Sidebar - Files (1/4 width) */}
+          {/* Right Sidebar - Paste Analyzer + Files (1/4 width) */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-4">
+            <div className="sticky top-24 space-y-6">
+              {/* Paste & Analyze Section */}
+              <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} />
+
+              {/* Files Section */}
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Files You've Uploaded</h3>
                 {cvs.length === 0 ? (
