@@ -19,6 +19,7 @@ interface ComponentLibraryUIProps {
   onDelete: (componentId: string) => void
   onAdd: () => void
   onImport: () => void
+  onEnrichProfile?: () => void
   isDeleting?: (id: string) => boolean
 }
 
@@ -37,6 +38,7 @@ export function ComponentLibraryUI({
   onDelete,
   onAdd,
   onImport,
+  onEnrichProfile,
   isDeleting,
 }: ComponentLibraryUIProps) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,6 +83,11 @@ export function ComponentLibraryUI({
           <Button onClick={onImport} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
             ⬆️ Import more context
           </Button>
+          {onEnrichProfile && (
+            <Button onClick={onEnrichProfile} variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
+              ✨ Enrich Your Profile
+            </Button>
+          )}
           <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">
             + Add component
           </Button>

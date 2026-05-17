@@ -6,6 +6,9 @@ import { Button } from '@/components/common/Button'
 import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
 import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
+import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
+import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
+import { ProfileQuestionsModal } from '@/components/dashboard/ProfileQuestionsModal'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -37,6 +40,18 @@ interface NewComponent {
   end_date?: string
   impact_metrics?: string
   tags: string[]
+}
+
+interface Application {
+  id: string
+  job_title: string
+  company_name: string
+  job_description?: string
+  generated_cv: string
+  generated_cover_letter: string
+  status: 'draft' | 'applied' | 'saved'
+  created_at: string
+  updated_at: string
 }
 
 function Dashboard() {
@@ -74,13 +89,18 @@ function Dashboard() {
     tags: [],
   })
   const [analyzing, setAnalyzing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'paste'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'justApply' | 'myApplications'>('library')
   const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
   const [savingEdit, setSavingEdit] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importTab, setImportTab] = useState<'paste' | 'upload'>('paste')
   const [expandedRole, setExpandedRole] = useState<CareerComponent | null>(null)
+  const [applications, setApplications] = useState<Application[]>([])
+  const [generatingApplication, setGeneratingApplication] = useState(false)
+  const [showProfileQuestions, setShowProfileQuestions] = useState(false)
+  const [savingProfileQuestions, setSavingProfileQuestions] = useState(false)
+  const [savingApplicationStatus, setSavingApplicationStatus] = useState<string | null>(null)
   const { user, signOut } = useAuth()
   const { session } = useAuth()
 
@@ -220,6 +240,17 @@ function Dashboard() {
 
       if (cvData) {
         setCvs(cvData)
+      }
+
+      // Fetch applications
+      const { data: applicationData } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (applicationData) {
+        setApplications(applicationData)
       }
 
       setLoading(false)
@@ -456,6 +487,155 @@ function Dashboard() {
     }
   }
 
+  const handleGenerateApplication = async (jobDescription: string, jobTitle?: string, company?: string) => {
+    if (!session?.access_token || !session?.user?.id) return
+
+    setGeneratingApplication(true)
+    try {
+      const response = await fetch('/api/generate-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ jobDescription, jobTitle, company }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to generate application')
+      }
+
+      const data = await response.json()
+
+      // Insert the application into the database
+      const { error } = await supabase.from('applications').insert({
+        user_id: session.user.id,
+        job_title: jobTitle || 'Untitled Position',
+        company_name: company || 'Unknown Company',
+        job_description: jobDescription,
+        generated_cv: data.cv,
+        generated_cover_letter: data.coverLetter,
+        status: 'draft',
+      })
+
+      if (error) throw error
+
+      // Refetch applications
+      const { data: appData } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (appData) {
+        setApplications(appData)
+      }
+
+      alert('✅ Application generated successfully!')
+    } catch (err) {
+      console.error('Generation error:', err)
+      throw err
+    } finally {
+      setGeneratingApplication(false)
+    }
+  }
+
+  const handleDeleteApplication = async (id: string) => {
+    if (!session?.user?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+
+      if (error) throw error
+
+      setApplications(applications.filter((app) => app.id !== id))
+    } catch (err) {
+      console.error('Delete error:', err)
+      throw err
+    }
+  }
+
+  const handleRegenerateApplication = async (id: string) => {
+    const app = applications.find((a) => a.id === id)
+    if (!app) return
+
+    try {
+      await handleGenerateApplication(app.job_description || '', app.job_title, app.company_name)
+
+      // Update the existing application with regenerated content
+      const { data } = await supabase.from('applications').select('*').eq('id', id).single()
+      if (data) {
+        setApplications(applications.map((a) => (a.id === id ? data : a)))
+      }
+    } catch (err) {
+      console.error('Regenerate error:', err)
+      throw err
+    }
+  }
+
+  const handleSaveProfileQuestions = async (answers: Record<string, string>) => {
+    if (!session?.user?.id) return
+
+    setSavingProfileQuestions(true)
+    try {
+      // Save answers to the voice component or a new profile_answers table
+      const { error } = await supabase.from('profile_answers').upsert(
+        {
+          user_id: session.user.id,
+          answers,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+
+      if (error) throw error
+
+      setShowProfileQuestions(false)
+      alert('✅ Profile enriched successfully!')
+    } catch (err) {
+      console.error('Save profile questions error:', err)
+      throw err
+    } finally {
+      setSavingProfileQuestions(false)
+    }
+  }
+
+  const handleUpdateApplicationStatus = async (id: string, status: 'draft' | 'applied') => {
+    if (!session?.access_token) return
+
+    setSavingApplicationStatus(id)
+    try {
+      const response = await fetch(`/api/applications/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update application')
+      }
+
+      const data = await response.json()
+
+      // Update local state
+      setApplications(applications.map((app) => (app.id === id ? data.data : app)))
+    } catch (err) {
+      console.error('Update application error:', err)
+      throw err
+    } finally {
+      setSavingApplicationStatus(null)
+    }
+  }
+
   const getComponentIcon = (type: string) => {
     switch (type) {
       case 'kpi':
@@ -518,13 +698,21 @@ function Dashboard() {
             )}
 
             {/* Welcome */}
-            <div>
-              <h1 className="text-5xl font-bold text-gray-900 mb-2">
-                Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
-              </h1>
-              <p className="text-xl text-gray-600">
-                Build your professional story, then apply smarter.
-              </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-5xl font-bold text-gray-900 mb-2">
+                  Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
+                </h1>
+                <p className="text-xl text-gray-600">
+                  Build your professional story, then apply smarter.
+                </p>
+              </div>
+              <Button
+                onClick={() => setActiveTab('justApply')}
+                className="whitespace-nowrap"
+              >
+                🚀 Just Apply
+              </Button>
             </div>
 
             {/* Tell Us More About You - if first name not set */}
@@ -540,54 +728,98 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Tabs for Library and Timeline */}
-            {components.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex gap-4 border-b border-gray-200">
-                  <button
-                    onClick={() => setActiveTab('library')}
-                    className={`px-4 py-3 font-medium transition border-b-2 ${
-                      activeTab === 'library'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Component Library
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('timeline')}
-                    className={`px-4 py-3 font-medium transition border-b-2 ${
-                      activeTab === 'timeline'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Timeline View
-                  </button>
-                </div>
-
-                {/* Component Library */}
-                {activeTab === 'library' && (
-                  <ComponentLibraryUI
-                    components={components}
-                    onEdit={handleEditComponent}
-                    onDelete={handleDeleteComponent}
-                    onAdd={() => setShowAddForm(true)}
-                    onImport={() => setShowImportModal(true)}
-                    isDeleting={(id) => deletingComponent === id}
-                  />
+            {/* Tabs for Library, Timeline, Just Apply, and My Applications */}
+            <div className="space-y-6">
+              <div className="flex gap-4 border-b border-gray-200 overflow-x-auto">
+                {components.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('library')}
+                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                        activeTab === 'library'
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      📚 Component Library
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('timeline')}
+                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                        activeTab === 'timeline'
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      📈 Timeline View
+                    </button>
+                  </>
                 )}
-
-                {/* Career Timeline */}
-                {activeTab === 'timeline' && (
-                  <CareerTimeline
-                    components={components}
-                    expandedRole={expandedRole}
-                    onRoleClick={setExpandedRole}
-                  />
+                <button
+                  onClick={() => setActiveTab('justApply')}
+                  className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                    activeTab === 'justApply'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  📄 Just Apply
+                </button>
+                {applications.length > 0 && (
+                  <button
+                    onClick={() => setActiveTab('myApplications')}
+                    className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                      activeTab === 'myApplications'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    📋 My Applications ({applications.length})
+                  </button>
                 )}
               </div>
-            )}
+
+              {/* Component Library */}
+              {activeTab === 'library' && components.length > 0 && (
+                <ComponentLibraryUI
+                  components={components}
+                  onEdit={handleEditComponent}
+                  onDelete={handleDeleteComponent}
+                  onAdd={() => setShowAddForm(true)}
+                  onImport={() => setShowImportModal(true)}
+                  onEnrichProfile={() => setShowProfileQuestions(true)}
+                  isDeleting={(id) => deletingComponent === id}
+                />
+              )}
+
+              {/* Career Timeline */}
+              {activeTab === 'timeline' && components.length > 0 && (
+                <CareerTimeline
+                  components={components}
+                  expandedRole={expandedRole}
+                  onRoleClick={setExpandedRole}
+                />
+              )}
+
+              {/* Just Apply Tab */}
+              {activeTab === 'justApply' && (
+                <JustApplyTab
+                  onSubmit={handleGenerateApplication}
+                  loading={generatingApplication}
+                />
+              )}
+
+              {/* My Applications Tab */}
+              {activeTab === 'myApplications' && (
+                <MyApplicationsTab
+                  applications={applications}
+                  onDelete={handleDeleteApplication}
+                  onRegenerate={handleRegenerateApplication}
+                  onSaveStatus={handleUpdateApplicationStatus}
+                  loading={generatingApplication}
+                />
+              )}
+            </div>
 
             {/* Empty State for Components */}
             {!loading && components.length === 0 && (
@@ -1079,6 +1311,15 @@ function Dashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Profile Questions Modal */}
+      {showProfileQuestions && (
+        <ProfileQuestionsModal
+          onSubmit={handleSaveProfileQuestions}
+          onClose={() => setShowProfileQuestions(false)}
+          saving={savingProfileQuestions}
+        />
       )}
     </div>
   )
