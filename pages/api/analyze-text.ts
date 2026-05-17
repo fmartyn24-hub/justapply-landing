@@ -216,8 +216,8 @@ Return as JSON array of components with structure: type, title, description, sta
     if (Array.isArray(result)) {
       // Direct extraction format (first analysis)
       finalComponents = result
-        .filter((comp) => comp.title && comp.type)
-        .map((comp) => ({
+        .filter((comp: any) => comp.title && comp.type)
+        .map((comp: any) => ({
           type: comp.type,
           title: String(comp.title).substring(0, 200),
           description: comp.description ? String(comp.description).substring(0, 1000) : undefined,
@@ -238,7 +238,7 @@ Return as JSON array of components with structure: type, title, description, sta
         const { error: insertError } = await serverSupabase
           .from('career_components')
           .insert(
-            finalComponents.map((comp) => ({
+            finalComponents.map((comp: CareerComponent) => ({
               user_id: user.id,
               type: comp.type,
               title: comp.title,
@@ -304,8 +304,8 @@ Return as JSON array of components with structure: type, title, description, sta
           .from('career_components')
           .insert(
             newComps
-              .filter((comp) => comp.title && comp.type)
-              .map((comp) => ({
+              .filter((comp: any) => comp.title && comp.type)
+              .map((comp: any) => ({
                 user_id: user.id,
                 type: comp.type,
                 title: String(comp.title).substring(0, 200),
