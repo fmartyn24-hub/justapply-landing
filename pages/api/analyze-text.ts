@@ -158,6 +158,48 @@ function normalizeDate(dateStr: string | undefined): string | undefined {
   return undefined
 }
 
+// Helper function to deduplicate components
+function deduplicateComponents(components: CareerComponent[]): CareerComponent[] {
+  const seen = new Map<string, CareerComponent>()
+
+  for (const comp of components) {
+    // Create a key from type and normalized title
+    const key = `${comp.type}:${comp.title.toLowerCase().trim()}`
+
+    if (seen.has(key)) {
+      // Merge with existing component
+      const existing = seen.get(key)!
+      // Merge tags
+      const mergedTags = [...new Set([...(existing.tags || []), ...(comp.tags || [])])]
+      // Use description from new component if it's longer/more detailed
+      const description =
+        (comp.description?.length || 0) > (existing.description?.length || 0)
+          ? comp.description
+          : existing.description
+      // Use impact metrics from new if available
+      const impact_metrics = comp.impact_metrics || existing.impact_metrics
+      // Use earliest start date, latest end date
+      const start_date = [existing.start_date, comp.start_date]
+        .filter(Boolean)
+        .sort()[0]
+      const end_date = [existing.end_date, comp.end_date].filter(Boolean).sort().pop()
+
+      seen.set(key, {
+        ...existing,
+        description,
+        impact_metrics,
+        tags: mergedTags,
+        start_date,
+        end_date,
+      })
+    } else {
+      seen.set(key, comp)
+    }
+  }
+
+  return Array.from(seen.values())
+}
+
 const MERGE_PROMPT = `You are an expert career coach helping someone maintain and enrich their career timeline.
 
 Your task is to intelligently merge NEW career information with their EXISTING timeline.
@@ -377,7 +419,10 @@ IMPORTANT: Only return valid JSON array, no other text.`
             : [],
         }))
 
-      console.log('✅ First analysis, extracted', finalComponents.length, 'components')
+      // Deduplicate components (merge near-duplicates)
+      finalComponents = deduplicateComponents(finalComponents)
+
+      console.log('✅ First analysis, extracted', finalComponents.length, 'components after deduplication')
 
       // Insert all new components
       if (finalComponents.length > 0) {
@@ -446,32 +491,48 @@ IMPORTANT: Only return valid JSON array, no other text.`
 
       // Add new components
       if (newComps.length > 0) {
-        const { error: insertError } = await serverSupabase
-          .from('career_components')
-          .insert(
-            newComps
-              .filter((comp: any) => comp.title && comp.type && validTypes.includes(comp.type))
-              .map((comp: any) => ({
+        // Prepare components for insertion
+        const newComponentsToInsert = newComps
+          .filter((comp: any) => comp.title && comp.type && validTypes.includes(comp.type))
+          .map((comp: any) => ({
+            type: comp.type,
+            title: String(comp.title).substring(0, 200),
+            description: comp.description
+              ? String(comp.description).substring(0, 1000)
+              : undefined,
+            start_date: normalizeDate(comp.start_date),
+            end_date: normalizeDate(comp.end_date),
+            impact_metrics: comp.impact_metrics
+              ? String(comp.impact_metrics).substring(0, 500)
+              : undefined,
+            tags: Array.isArray(comp.tags)
+              ? comp.tags.map((t: any) => String(t).substring(0, 50)).slice(0, 10)
+              : [],
+          }))
+
+        // Deduplicate before inserting
+        const deduplicatedComps = deduplicateComponents(newComponentsToInsert)
+
+        if (deduplicatedComps.length > 0) {
+          const { error: insertError } = await serverSupabase
+            .from('career_components')
+            .insert(
+              deduplicatedComps.map((comp) => ({
                 user_id: user.id,
                 type: comp.type,
-                title: String(comp.title).substring(0, 200),
-                description: comp.description
-                  ? String(comp.description).substring(0, 1000)
-                  : null,
-                start_date: normalizeDate(comp.start_date) || null,
-                end_date: normalizeDate(comp.end_date) || null,
-                impact_metrics: comp.impact_metrics
-                  ? String(comp.impact_metrics).substring(0, 500)
-                  : null,
-                tags: Array.isArray(comp.tags)
-                  ? comp.tags.map((t: any) => String(t).substring(0, 50)).slice(0, 10)
-                  : [],
+                title: comp.title,
+                description: comp.description || null,
+                start_date: comp.start_date || null,
+                end_date: comp.end_date || null,
+                impact_metrics: comp.impact_metrics || null,
+                tags: comp.tags,
                 source: 'claude_analysis',
               }))
-          )
+            )
 
-        if (insertError) {
-          console.error('Error inserting new components:', insertError)
+          if (insertError) {
+            console.error('Error inserting new components:', insertError)
+          }
         }
       }
 
