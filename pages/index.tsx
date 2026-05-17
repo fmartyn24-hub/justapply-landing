@@ -13,7 +13,7 @@ export default function Home() {
     <>
       <Head>
         <title>justapply.eu - Your AI-Powered Job Search OS</title>
-        <meta name="description" content="Apply smarter. Land your next role with AI-tailored CVs, cover letters, and a job search operating system." />
+        <meta name="description" content="Build your professional story. Document your achievements, timeline, and skills in one place — then generate tailored applications in minutes." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
