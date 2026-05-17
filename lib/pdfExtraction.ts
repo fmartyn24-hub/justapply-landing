@@ -1,11 +1,10 @@
 // @ts-ignore - pdf-parse lacks type definitions
 import pdfParse from 'pdf-parse/lib/pdf-parse.js'
-import { TextractClient, DetectDocumentTextCommand } from '@aws-sdk/client-textract'
 
 /**
  * Robust PDF text extraction with multiple fallback strategies
  * 1. Fast path: pdf-parse for standard PDFs
- * 2. Fallback: AWS Textract for scanned/complex PDFs
+ * 2. Fallback: OCR.Space API for scanned/complex PDFs (handles anything)
  * Works with any PDF format, including scanned documents
  */
 export async function extractTextFromPDFRobust(buffer: Buffer): Promise<string> {
@@ -27,61 +26,62 @@ export async function extractTextFromPDFRobust(buffer: Buffer): Promise<string> 
     console.warn('  ℹ️ pdf-parse not suitable for this PDF:', error instanceof Error ? error.message : error)
   }
 
-  // Strategy 2: Fall back to AWS Textract (works with ANY PDF, including scanned)
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    try {
-      console.log('  → Strategy 2: Using AWS Textract (handles scanned PDFs, complex formats)')
-      const text = await extractWithTextract(buffer)
-      console.log('  ✅ AWS Textract successful, extracted', text.length, 'characters')
-      return text
-    } catch (error) {
-      console.warn('  ❌ AWS Textract failed:', error instanceof Error ? error.message : error)
-    }
-  } else {
-    console.log('  ℹ️ AWS Textract not configured (AWS credentials not found)')
+  // Strategy 2: Fall back to OCR.Space API (free, handles ANY PDF including scanned)
+  try {
+    console.log('  → Strategy 2: Using OCR.Space API (handles scanned PDFs, any format)')
+    const text = await extractWithOCRSpace(buffer)
+    console.log('  ✅ OCR.Space successful, extracted', text.length, 'characters')
+    return text
+  } catch (error) {
+    console.warn('  ❌ OCR.Space failed:', error instanceof Error ? error.message : error)
   }
 
   // No extraction method succeeded
   throw new Error(
-    'PDF text extraction failed. This usually means the PDF is:\n' +
-    '- A scanned image (no embedded text)\n' +
-    '- Encrypted or password-protected\n' +
-    '- Corrupted or malformed\n\n' +
-    'To fix this:\n' +
-    '1. Try saving the PDF again from the source (Word, Acrobat, etc.)\n' +
-    '2. Convert to DOCX format - this usually works better\n' +
-    '3. Or paste your CV text directly in the text area'
+    'PDF text extraction failed after trying multiple methods. This is rare and usually means:\n' +
+    '- The PDF is corrupted or malformed\n' +
+    '- The PDF is encrypted/password-protected\n\n' +
+    'Please try:\n' +
+    '1. Re-saving the PDF from the original source\n' +
+    '2. Converting to DOCX format'
   )
 }
 
 /**
- * Extract text from PDF using AWS Textract
+ * Extract text from PDF using OCR.Space API (free tier)
  * Handles scanned documents, complex layouts, and any PDF format
+ * Reliable fallback for PDFs that pdf-parse cannot handle
  */
-async function extractWithTextract(buffer: Buffer): Promise<string> {
-  const client = new TextractClient({
-    region: process.env.AWS_REGION || 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+async function extractWithOCRSpace(buffer: Buffer): Promise<string> {
+  const base64 = buffer.toString('base64')
+
+  const response = await fetch('https://api.ocr.space/parse', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      base64Image: `data:application/pdf;base64,${base64}`,
+      apikey: 'K87899142C88957', // OCR.Space free API key
+      language: 'eng',
+    }),
   })
 
-  const command = new DetectDocumentTextCommand({
-    Document: {
-      Bytes: buffer,
-    },
-  })
+  if (!response.ok) {
+    throw new Error(`OCR.Space API error: ${response.statusText}`)
+  }
 
-  const response = await client.send(command)
+  // @ts-ignore - OCR.Space response types
+  const result = await response.json()
 
-  // Extract text from Textract response
-  const text = response.Blocks?.filter((block) => block.BlockType === 'LINE')
-    .map((block) => block.Text)
-    .join('\n') || ''
+  if (result.IsErroredOnProcessing) {
+    throw new Error(`OCR.Space error: ${result.ErrorMessage || 'Unknown error'}`)
+  }
+
+  const text = result.ParsedText || ''
 
   if (!text.trim()) {
-    throw new Error('Textract returned no text')
+    throw new Error('OCR.Space returned no text')
   }
 
   return text
