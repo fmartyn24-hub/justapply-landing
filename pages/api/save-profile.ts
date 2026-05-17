@@ -53,6 +53,7 @@ export default async function handler(
       .from('user_profiles')
       .upsert({
         id: user.id,
+        email: user.email,
         first_name: firstName,
         last_name: lastName,
         phone: phone || null,
