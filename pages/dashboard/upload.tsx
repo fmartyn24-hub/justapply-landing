@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import { withAuth } from '@/lib/middleware/withAuth'
+import { useAuth } from '@/lib/context/AuthContext'
 import { CVUploadZone } from '@/components/upload/CVUploadZone'
 import { UploadProgress } from '@/components/upload/UploadProgress'
 import { Button } from '@/components/common/Button'
+import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 
 function UploadPage() {
@@ -15,6 +17,7 @@ function UploadPage() {
   >('idle')
   const [error, setError] = useState('')
   const router = useRouter()
+  const { session } = useAuth()
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -24,6 +27,11 @@ function UploadPage() {
   const handleUpload = async () => {
     if (!selectedFile) {
       setError('Please select a file')
+      return
+    }
+
+    if (!session?.access_token) {
+      setError('Authentication failed. Please log in again.')
       return
     }
 
@@ -52,6 +60,7 @@ function UploadPage() {
           'Content-Type': 'application/octet-stream',
           'X-Filename': selectedFile.name,
           'X-Mime-Type': selectedFile.type,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: uint8Array.buffer,
       })

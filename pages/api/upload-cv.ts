@@ -1,9 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { createServerClient, Session } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { supabase } from '@/lib/supabaseClient'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
-import { v4 as uuidv4 } from 'crypto'
+import { randomUUID } from 'crypto'
 
 interface UploadResponse {
   success: boolean
@@ -61,39 +60,24 @@ export default async function handler(
   }
 
   try {
-    // Initialize Supabase client for server-side
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {
-              // Handle errors during cookie setting
-            }
-          },
-        },
-      }
-    )
-
-    // Get user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError || !session?.user?.id) {
+    // Get auth token from headers
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, error: 'Unauthorized' })
     }
 
-    const userId = session.user.id
+    const token = authHeader.substring(7)
 
-    // Parse form data manually (files come as buffer in body)
+    // Verify token and get user
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+
+    if (userError || !user?.id) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+
+    const userId = user.id
+
+    // Parse request body
     const contentType = req.headers['content-type']
     if (!contentType?.includes('application/octet-stream')) {
       return res.status(400).json({ success: false, error: 'Invalid content type' })
@@ -109,6 +93,10 @@ export default async function handler(
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ]
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      return res.status(400).json({ success: false, error: 'No file provided' })
+    }
 
     if (fileBuffer.length > maxSize) {
       return res.status(413).json({ success: false, error: 'File must be under 10 MB' })
@@ -140,7 +128,7 @@ export default async function handler(
     // Generate storage path: /user_id/uuid-filename
     const fileExtension = mimeType === 'application/pdf' ? 'pdf' : 'docx'
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 100)
-    const uuid = uuidv4()
+    const uuid = randomUUID()
     const storagePath = `${userId}/${uuid}-${sanitizedFilename}.${fileExtension}`
 
     // Upload to Supabase Storage
