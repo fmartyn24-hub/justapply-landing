@@ -82,7 +82,7 @@ export function ComponentLibraryUI({
             ⬆️ Import more context
           </Button>
           <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">
-            + Add Component
+            + Add component
           </Button>
         </div>
       </div>

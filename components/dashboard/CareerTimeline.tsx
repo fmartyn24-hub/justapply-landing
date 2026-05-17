@@ -14,6 +14,8 @@ interface TimelineComponent {
 
 interface CareerTimelineProps {
   components: TimelineComponent[]
+  expandedRole?: TimelineComponent | null
+  onRoleClick?: (role: TimelineComponent | null) => void
 }
 
 const roleConfig = {
@@ -30,7 +32,7 @@ function sortRolesByDate(roles: TimelineComponent[]): TimelineComponent[] {
   })
 }
 
-export function CareerTimeline({ components }: CareerTimelineProps) {
+export function CareerTimeline({ components, expandedRole, onRoleClick }: CareerTimelineProps) {
   // Filter to only roles
   const roles = useMemo(() => {
     return sortRolesByDate(components.filter((comp) => comp.type === 'role'))
@@ -80,7 +82,8 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
                   {/* Card container - left or right based on index */}
                   <div className={`w-5/12 ${isEven ? 'mr-auto' : 'ml-auto'}`}>
                     <div
-                      className={`bg-gradient-to-br from-purple-100 to-purple-50 rounded-lg p-5 border-2 border-gray-200 hover:border-blue-400 transition shadow-md h-full`}
+                      onClick={() => onRoleClick?.(role)}
+                      className={`bg-gradient-to-br from-purple-100 to-purple-50 rounded-lg p-5 border-2 border-gray-200 hover:border-blue-400 transition shadow-md h-full cursor-pointer hover:shadow-lg`}
                     >
                       {/* Year indicator */}
                       {(startYear || endYear) && (
@@ -158,7 +161,10 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
               <div className="absolute left-0 top-2 -translate-x-2.5 w-5 h-5 bg-white border-4 border-blue-500 rounded-full shadow-lg" />
 
               {/* Card */}
-              <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-lg p-5 border-2 border-gray-200 hover:border-blue-400 transition shadow-md">
+              <div
+                onClick={() => onRoleClick?.(role)}
+                className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-lg p-5 border-2 border-gray-200 hover:border-blue-400 transition shadow-md cursor-pointer hover:shadow-lg"
+              >
                 {/* Year indicator */}
                 {(startYear || endYear) && (
                   <div className="mb-2">
