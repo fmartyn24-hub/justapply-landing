@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { withAuth } from '@/lib/middleware/withAuth'
 import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/common/Button'
+import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
+import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
+import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { supabase } from '@/lib/supabaseClient'
 
 interface CareerComponent {
@@ -61,6 +64,8 @@ function Dashboard() {
     description: '',
     tags: [],
   })
+  const [analyzing, setAnalyzing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'paste'>('library')
   const { user, signOut } = useAuth()
   const { session } = useAuth()
 
@@ -270,6 +275,72 @@ function Dashboard() {
     }
   }
 
+  const handleAnalyzeText = async (text: string) => {
+    if (!session?.access_token) return
+
+    setAnalyzing(true)
+    try {
+      const response = await fetch('/api/analyze-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Analysis failed')
+      }
+
+      const data = await response.json()
+
+      if (data.components && data.components.length > 0) {
+        // Insert all analyzed components
+        const { data: inserted } = await supabase.from('career_components').insert(
+          data.components.map((comp: any) => ({
+            user_id: session.user.id,
+            type: comp.type,
+            title: comp.title,
+            description: comp.description || null,
+            start_date: comp.start_date || null,
+            end_date: comp.end_date || null,
+            impact_metrics: comp.impact_metrics || null,
+            tags: comp.tags || [],
+            source: 'claude_analysis',
+          }))
+        )
+
+        // Refetch components
+        const { data: updatedComponents } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (updatedComponents) {
+          setComponents(updatedComponents)
+        }
+
+        alert(`✅ Analyzed and created ${data.components.length} components from your text!`)
+        setActiveTab('library')
+      } else {
+        alert('No components were extracted. Please provide more detailed career information.')
+      }
+    } catch (err) {
+      console.error('Analysis error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to analyze text')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const handleEditComponent = (component: CareerComponent) => {
+    // TODO: Implement edit modal
+    console.log('Edit component:', component)
+  }
+
   const getComponentIcon = (type: string) => {
     switch (type) {
       case 'kpi':
@@ -361,138 +432,62 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Extract Button */}
-            {components.length === 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h3 className="font-semibold text-blue-900 mb-2">Quick Start</h3>
-                <p className="text-blue-800 mb-4">
-                  We've found your uploaded documents. Let justapply automatically extract your achievements, projects, and skills.
-                </p>
-                <Button onClick={handleExtractComponents} loading={extracting}>
-                  🤖 Extract My Career Profile
-                </Button>
-              </div>
-            )}
+            {/* Paste & Analyze Section */}
+            <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} />
 
-            {/* Add Component Form */}
-            {showAddForm && (
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Component</h2>
-                <form onSubmit={handleAddComponent} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      Type
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => {
-                        setFormData({ ...formData, type: e.target.value as NewComponent['type'] })
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="achievement">Achievement</option>
-                      <option value="project">Project</option>
-                      <option value="kpi">KPI / Metric</option>
-                      <option value="skill">Skill</option>
-                      <option value="role">Role / Position</option>
-                      <option value="voice">Voice / Style</option>
-                    </select>
-                  </div>
+            {/* Tabs for Library and Timeline */}
+            {components.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex gap-4 border-b border-gray-200">
+                  <button
+                    onClick={() => setActiveTab('library')}
+                    className={`px-4 py-3 font-medium transition border-b-2 ${
+                      activeTab === 'library'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Component Library
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('timeline')}
+                    className={`px-4 py-3 font-medium transition border-b-2 ${
+                      activeTab === 'timeline'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Timeline View
+                  </button>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="e.g., Led product redesign"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
+                {/* Component Library */}
+                {activeTab === 'library' && (
+                  <ComponentLibraryUI
+                    components={components}
+                    onEdit={handleEditComponent}
+                    onDelete={handleDeleteComponent}
+                    onAdd={() => setShowAddForm(true)}
+                    isDeleting={(id) => deletingComponent === id}
+                  />
+                )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={2}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button type="submit" loading={saving}>
-                      Add Component
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Components Grid */}
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Your Career Components</h2>
-                {!showAddForm && (
-                  <Button onClick={() => setShowAddForm(true)} variant="outline">
-                    + Add
-                  </Button>
+                {/* Career Timeline */}
+                {activeTab === 'timeline' && (
+                  <CareerTimeline components={components} />
                 )}
               </div>
+            )}
 
-              {loading ? (
-                <div className="text-gray-600">Loading...</div>
-              ) : components.length === 0 ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                  <p className="text-gray-600 mb-4">No components yet.</p>
-                  <Button onClick={() => setShowAddForm(true)}>Add Your First</Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {components.map((component) => (
-                    <div key={component.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start gap-3 mb-2">
-                        <span className="text-xl">{getComponentIcon(component.type)}</span>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{component.title}</h3>
-                          <p className="text-xs text-gray-500 uppercase">{component.type}</p>
-                        </div>
-                        {deleteConfirmComponent === component.id ? (
-                          <button
-                            onClick={() => handleDeleteComponent(component.id)}
-                            disabled={deletingComponent === component.id}
-                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {deletingComponent === component.id ? '...' : 'Confirm'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirmComponent(component.id)}
-                            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                      {component.description && (
-                        <p className="text-sm text-gray-600 mb-2">{component.description}</p>
-                      )}
-                      {component.impact_metrics && (
-                        <p className="text-sm font-medium text-primary">📈 {component.impact_metrics}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Empty State for Components */}
+            {!loading && components.length === 0 && (
+              <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300">
+                <p className="text-gray-600 text-lg mb-2">Ready to build your career profile?</p>
+                <p className="text-gray-500 text-sm mb-6">
+                  Paste your CV or cover letter above and we'll intelligently extract your achievements, skills, and experience.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar - Files (1/4 width) */}
