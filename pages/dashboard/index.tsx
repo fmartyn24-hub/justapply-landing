@@ -44,6 +44,14 @@ function Dashboard() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+  })
   const [formData, setFormData] = useState<NewComponent>({
     type: 'achievement',
     title: '',
@@ -58,6 +66,36 @@ function Dashboard() {
       await signOut()
     } catch (error) {
       console.error('Logout failed:', error)
+    }
+  }
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.access_token) return
+
+    setSavingProfile(true)
+    try {
+      const response = await fetch('/api/save-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(profileData),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save profile')
+      }
+
+      setShowSettings(false)
+      alert('✅ Profile updated!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to save profile')
+    } finally {
+      setSavingProfile(false)
     }
   }
 
@@ -231,6 +269,12 @@ function Dashboard() {
                 </Button>
               </Link>
               <button
+                onClick={() => setShowSettings(true)}
+                className="text-gray-600 hover:text-gray-900 font-medium transition text-sm"
+              >
+                Settings
+              </button>
+              <button
                 onClick={handleLogout}
                 className="text-gray-600 hover:text-gray-900 font-medium transition text-sm"
               >
@@ -261,7 +305,7 @@ function Dashboard() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="font-semibold text-blue-900 mb-2">Quick Start</h3>
                 <p className="text-blue-800 mb-4">
-                  We've found your uploaded documents. Let Claude automatically extract your achievements, projects, and skills.
+                  We've found your uploaded documents. Let justapply automatically extract your achievements, projects, and skills.
                 </p>
                 <Button onClick={handleExtractComponents} loading={extracting}>
                   🤖 Extract My Career Profile
@@ -435,6 +479,80 @@ function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Profile</h2>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={profileData.firstName}
+                  onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  value={profileData.lastName}
+                  onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={profileData.phone}
+                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Address
+                </label>
+                <textarea
+                  value={profileData.address}
+                  onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button type="submit" loading={savingProfile} className="flex-1">
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowSettings(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
