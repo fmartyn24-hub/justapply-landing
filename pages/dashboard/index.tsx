@@ -6,6 +6,7 @@ import { Button } from '@/components/common/Button'
 import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
 import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
+import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 
 interface CareerComponent {
@@ -137,7 +138,12 @@ function Dashboard() {
         .order('created_at', { ascending: false })
 
       if (componentData) {
-        setComponents(componentData)
+        // Normalize component types from database format to app format
+        const normalizedComponents = componentData.map((comp: any) => ({
+          ...comp,
+          type: normalizeComponentType(comp.type),
+        }))
+        setComponents(normalizedComponents)
       }
 
       // Fetch CVs
@@ -185,7 +191,11 @@ function Dashboard() {
           .order('created_at', { ascending: false })
 
         if (updatedComponents) {
-          setComponents(updatedComponents)
+          const normalizedComponents = updatedComponents.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
         }
       }
 
@@ -320,7 +330,11 @@ function Dashboard() {
           .order('created_at', { ascending: false })
 
         if (updatedComponents) {
-          setComponents(updatedComponents)
+          const normalizedComponents = updatedComponents.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
         }
 
         alert(`✅ Analyzed and created ${data.components.length} components from your text!`)
