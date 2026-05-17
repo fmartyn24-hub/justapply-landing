@@ -357,10 +357,10 @@ IMPORTANT: Only return valid JSON array, no other text.`
     // Handle both formats: direct array (first analysis) or merge result
     let finalComponents: CareerComponent[] = []
     let updateCount = 0
+    const validTypes = ['achievement', 'skill', 'role', 'project', 'kpi', 'voice']
 
     if (Array.isArray(result)) {
       // Direct extraction format (first analysis)
-      const validTypes = ['achievement', 'skill', 'role', 'project', 'kpi', 'voice']
       finalComponents = result
         .filter((comp: any) => comp.title && comp.type && validTypes.includes(comp.type))
         .map((comp: any) => ({
