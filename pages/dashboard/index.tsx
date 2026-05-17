@@ -46,6 +46,7 @@ function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -90,7 +91,8 @@ function Dashboard() {
       }
 
       setShowSettings(false)
-      alert('✅ Profile updated!')
+      setSuccessMessage('Profile updated!')
+      setTimeout(() => setSuccessMessage(''), 4000)
     } catch (err) {
       console.error('Save error:', err)
       alert(err instanceof Error ? err.message : 'Failed to save profile')
@@ -99,10 +101,26 @@ function Dashboard() {
     }
   }
 
-  // Fetch components and CVs
+  // Fetch components, CVs, and user profile
   useEffect(() => {
     const fetchData = async () => {
       if (!session?.user?.id) return
+
+      // Fetch user profile
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name, phone, address')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profileData) {
+        setProfileData({
+          firstName: profileData.first_name || '',
+          lastName: profileData.last_name || '',
+          phone: profileData.phone || '',
+          address: profileData.address || '',
+        })
+      }
 
       // Fetch components
       const { data: componentData } = await supabase
@@ -259,9 +277,14 @@ function Dashboard() {
       <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center mb-4">
-            <Link href="/">
+            <button
+              onClick={() => {
+                /* Stay on dashboard */
+              }}
+              className="cursor-default"
+            >
               <img src="/logo-light.svg" alt="justapply" className="h-10" />
-            </Link>
+            </button>
             <div className="flex gap-4 items-center">
               <Link href="/dashboard/upload">
                 <Button variant="outline" size="sm">
@@ -290,15 +313,35 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Column - Career Profile (3/4 width) */}
           <div className="lg:col-span-3 space-y-8">
+            {/* Success Banner */}
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-green-800">✅ {successMessage}</p>
+              </div>
+            )}
+
             {/* Welcome */}
             <div>
               <h1 className="text-5xl font-bold text-gray-900 mb-2">
-                Welcome to JustApply
+                Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
               </h1>
               <p className="text-xl text-gray-600">
                 Build your professional story, then apply smarter.
               </p>
             </div>
+
+            {/* Tell Us More About You - if first name not set */}
+            {!profileData.firstName && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                <h3 className="font-semibold text-purple-900 mb-2">Tell us more about you</h3>
+                <p className="text-purple-800 text-sm mb-4">
+                  Add your name and contact info to personalize your experience and make applications smoother.
+                </p>
+                <Button onClick={() => setShowSettings(true)} variant="outline">
+                  Complete Your Profile
+                </Button>
+              </div>
+            )}
 
             {/* Extract Button */}
             {components.length === 0 && (
