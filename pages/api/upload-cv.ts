@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import { randomUUID } from 'crypto'
@@ -74,8 +74,21 @@ export default async function handler(
 
     const token = authHeader.substring(7)
 
+    // Create authenticated Supabase client with the user's token
+    const authenticatedSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
     // Verify token and get user
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    const { data: { user }, error: userError } = await authenticatedSupabase.auth.getUser(token)
 
     if (userError || !user?.id) {
       return res.status(401).json({ success: false, error: 'Unauthorized' })
@@ -140,7 +153,7 @@ export default async function handler(
     const storagePath = `${userId}/${uuid}-${sanitizedFilename}.${fileExtension}`
 
     // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await authenticatedSupabase.storage
       .from('cvs')
       .upload(storagePath, fileBuffer, {
         contentType: mimeType,
@@ -164,7 +177,7 @@ export default async function handler(
     }
 
     // Save metadata to cvs table
-    const { data: cvRecord, error: dbError } = await supabase
+    const { data: cvRecord, error: dbError } = await authenticatedSupabase
       .from('cvs')
       .insert({
         user_id: userId,
@@ -184,12 +197,12 @@ export default async function handler(
     if (dbError) {
       console.error('Database insert error:', dbError)
       // Attempt to clean up storage
-      await supabase.storage.from('cvs').remove([storagePath])
+      await authenticatedSupabase.storage.from('cvs').remove([storagePath])
       return res.status(500).json({ success: false, error: 'Failed to save CV metadata' })
     }
 
     // Update user_profiles to mark cv_uploaded = true
-    const { error: updateError } = await supabase
+    const { error: updateError } = await authenticatedSupabase
       .from('user_profiles')
       .update({ cv_uploaded: true, updated_at: new Date().toISOString() })
       .eq('id', userId)
