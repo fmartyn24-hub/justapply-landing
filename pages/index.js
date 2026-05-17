@@ -40,11 +40,8 @@ export default function Home() {
       <body className="bg-white text-dark">
         {/* Navigation */}
         <nav className="fixed w-full bg-white border-b border-gray-100 z-50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <img src="/logo.svg" alt="justapply" className="w-8 h-8" />
-              <span className="text-lg font-bold text-dark">justapply</span>
-            </div>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <img src="/logo-light.svg" alt="justapply" className="h-12" />
             <a href="#waitlist" className="text-sm font-medium text-primary hover:text-blue-700">
               Get Early Access
             </a>
@@ -243,10 +240,7 @@ export default function Home() {
         <footer className="bg-dark text-white py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-              <div className="flex items-center gap-2 mb-4 md:mb-0">
-                <img src="/logo.svg" alt="justapply" className="w-8 h-8" />
-                <span className="text-lg font-bold">justapply</span>
-              </div>
+              <img src="/logo-dark.svg" alt="justapply" className="h-12 mb-4 md:mb-0" />
               <div className="flex gap-6 text-sm">
                 <a href="#" className="hover:text-primary">Privacy</a>
                 <a href="#" className="hover:text-primary">Terms</a>
