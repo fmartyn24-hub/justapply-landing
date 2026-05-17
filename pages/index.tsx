@@ -18,7 +18,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
 
-      <body className="bg-white text-dark">
+      <div className="bg-white text-dark">
         {/* Navigation */}
         <nav className="fixed w-full bg-white border-b border-gray-100 z-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
@@ -177,7 +177,7 @@ export default function Home() {
             </div>
           </div>
         </footer>
-      </body>
+      </div>
     </>
   )
 }
