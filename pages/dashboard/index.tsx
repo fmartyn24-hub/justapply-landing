@@ -17,21 +17,36 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link href="/">
-            <img
-              src="/logo-light.svg"
-              alt="justapply"
-              className="h-10"
-            />
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="text-gray-600 hover:text-gray-900 font-medium transition"
-          >
-            Sign Out
-          </button>
+      <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center mb-4">
+            <Link href="/">
+              <img
+                src="/logo-light.svg"
+                alt="justapply"
+                className="h-10"
+              />
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-gray-600 hover:text-gray-900 font-medium transition text-sm"
+            >
+              Sign Out
+            </button>
+          </div>
+
+          {/* Navigation Menu */}
+          <nav className="flex gap-6 border-t border-gray-100 pt-4">
+            <Link href="/dashboard" className="text-gray-900 font-medium hover:text-primary transition">
+              Home
+            </Link>
+            <Link href="/dashboard/upload" className="text-gray-600 hover:text-primary transition">
+              Upload More Information
+            </Link>
+            <Link href="/dashboard/applications" className="text-gray-600 hover:text-primary transition">
+              My Applications
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -41,7 +56,7 @@ function Dashboard() {
           {/* Welcome Section */}
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Welcome to justapply
+              Welcome to <em>just apply</em>
             </h1>
             <p className="text-xl text-gray-600">
               Signed in as <span className="font-semibold">{user?.email}</span>
