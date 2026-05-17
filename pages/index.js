@@ -49,11 +49,10 @@ export default function Home() {
         <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-5xl sm:text-6xl font-bold mb-6 leading-tight">
-              Your career deserves better than a blank page.
+              Know what to say about yourself.
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Stop overthinking every CV and cover letter. Build a personal component library from your years of work.
-              Then generate tailored applications in seconds using your voice, your achievements, your story.
+              Whether you're a student with projects, switching careers, or have years of experience, the problem is the same. You don't know how to talk about what you've done. justapply learns your story and helps you articulate it for every job you apply to.
             </p>
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
               <input
@@ -118,9 +117,9 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   1
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Upload your past work</h3>
+                <h3 className="text-xl font-semibold mb-2">Tell us what you've done</h3>
                 <p className="text-gray-600">
-                  It's not just pasting CVs and cover letters, but I would also want justapply to ask you a set of questions to get to know you better, from what it can't find out on your CV.
+                  Upload past CVs, cover letters, projects you've built, internships, volunteer work. justapply asks questions about what you learned and what you accomplished. Because your value isn't just what's on a CV.
                 </p>
               </div>
 
@@ -140,7 +139,7 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   3
                 </div>
-                <h3 className="text-xl font-semibold">justapply</h3>
+                <h3 className="text-xl font-semibold">Just Apply</h3>
               </div>
             </div>
           </div>
@@ -154,8 +153,8 @@ export default function Home() {
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
                 <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Everything you've achieved, always accessible</h3>
-                  <p className="text-gray-600">Stop forgetting the great things you've done. Your career dictionary lives in one place. All your past achievements, the projects you loved, the skills you learned. When a job excites you, it's all there to pull from.</p>
+                  <h3 className="font-semibold text-lg mb-2">Your value, articulated</h3>
+                  <p className="text-gray-600">Whether you're starting out or you've got years of experience, justapply helps you talk about what you've done. Not in a templated way. In a way that shows what you actually learned, what you accomplished, and what you bring to the table.</p>
                 </div>
               </div>
 
@@ -163,23 +162,23 @@ export default function Home() {
                 <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2">Apply in minutes, not hours</h3>
-                  <p className="text-gray-600">Stop spending an entire evening perfecting a cover letter. You've already done the work. justapply finds what's relevant from your career history and adapts it to the job. You're ready to apply while the role is still fresh in your mind.</p>
+                  <p className="text-gray-600">Stop spending an entire evening perfecting a cover letter. You've already figured out what you bring. justapply finds what's relevant and adapts it to the job. You're ready to apply while the role is still fresh in your mind.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
                 <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Stop second-guessing whether you're qualified</h3>
-                  <p className="text-gray-600">You skip jobs because you don't meet every single requirement. Don't. justapply shows you exactly what you bring to that role. The skills, the projects, the achievements that matter. Your story speaks for itself.</p>
+                  <h3 className="font-semibold text-lg mb-2">Stop second-guessing yourself</h3>
+                  <p className="text-gray-600">You skip opportunities because you don't think you fit perfectly. But you've done more than you realize. justapply shows you exactly what you bring to that role. The skills, the work, the growth that matters. Your story speaks for itself.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #90055D', backgroundColor: 'rgba(144, 5, 93, 0.03)'}}>
                 <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Feel relieved instead of anxious</h3>
-                  <p className="text-gray-600">You should feel confident that nothing's been left behind. That all your career moves are working for you. Not stressed that you forgot something important or didn't phrase it right. You built it once. It's there when you need it.</p>
+                  <h3 className="font-semibold text-lg mb-2">Feel confident, not scared</h3>
+                  <p className="text-gray-600">You know you've got something to offer. justapply helps you believe it and show it. You're not starting from scratch every time. You're building on what you already know about yourself. That's powerful.</p>
                 </div>
               </div>
             </div>
@@ -226,14 +225,9 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8">
               <img src="/logo-dark.svg" alt="justapply" className="h-12 mb-4 md:mb-0" />
-              <div className="flex gap-6 text-sm">
-                <a href="#" className="hover:text-primary">Privacy</a>
-                <a href="#" className="hover:text-primary">Terms</a>
-                <a href="#" className="hover:text-primary">Contact</a>
-              </div>
             </div>
             <div className="border-t border-gray-700 pt-8 text-center text-gray-400 text-sm">
-              <p>© 2026 justapply.eu. Your AI operating system for job search.</p>
+              <p>© 2026 justapply.eu. Your operating system for job search.</p>
             </div>
           </div>
         </footer>
