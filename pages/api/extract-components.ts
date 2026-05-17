@@ -61,7 +61,7 @@ export default async function handler(
 
     // Use Claude to extract components
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-opus-4-6',
       max_tokens: 3000,
       messages: [
         {

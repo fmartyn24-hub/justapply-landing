@@ -74,9 +74,9 @@ export default async function handler(
 
     const cvText = cvRecord.extracted_text
 
-    // Call Claude API with Haiku model
+    // Call Claude API
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-opus-4-6',
       max_tokens: 2000,
       messages: [
         {
