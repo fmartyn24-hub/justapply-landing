@@ -58,15 +58,13 @@ export default async function handler(
         phone: phone || null,
         address: address || null,
         updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'id',
       })
 
     if (upsertError) {
       console.error('Profile upsert error:', upsertError)
       return res.status(500).json({
         success: false,
-        error: 'Failed to save profile',
+        error: 'Failed to save profile: ' + upsertError.message,
       })
     }
 
