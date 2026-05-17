@@ -3,11 +3,11 @@ CREATE TABLE IF NOT EXISTS applications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   job_title VARCHAR(255),
-  company VARCHAR(255),
+  company_name VARCHAR(255),
   job_description TEXT,
-  cv TEXT NOT NULL,
-  cover_letter TEXT NOT NULL,
-  status VARCHAR(50) DEFAULT 'draft', -- draft, applied, rejected, interviewing, offer
+  generated_cv TEXT NOT NULL,
+  generated_cover_letter TEXT NOT NULL,
+  status VARCHAR(50) DEFAULT 'draft', -- draft, applied, saved
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(id)
