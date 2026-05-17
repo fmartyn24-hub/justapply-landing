@@ -711,7 +711,7 @@ function Dashboard() {
                 onClick={() => setActiveTab('justApply')}
                 className="whitespace-nowrap flex items-center gap-3 py-3 px-6"
               >
-                <svg width="28" height="28" viewBox="0 0 957 330" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                <svg width="22" height="22" viewBox="100 50 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
                   <path d="M288 228.005H266.667V126.079C266.667 122.286 264.691 118.573 263.704 117.19L244.741 99.4124C242.784 97.5782 237.235 96.2519 234.667 95.8568H157.63V74.5235C179.358 74.1285 225.778 73.5754 237.63 74.5235C249.481 75.4717 257.185 80.4494 259.556 82.8198L276.741 99.4124C282.549 105.02 288 111.857 288 117.19V133.19V228.005Z" fill="white" stroke="white"/>
                   <path d="M234.074 109.556C236.445 109.556 244.741 117.852 244.741 117.852C244.782 117.893 252.444 125.562 252.444 127.926V256.519H140.444L208.593 188.963V218H224V163.482C224 161.111 221.629 158.74 219.852 158.74H165.333V175.333H194.37L128 240.519V109.556H234.074Z" fill="white"/>
                 </svg>
