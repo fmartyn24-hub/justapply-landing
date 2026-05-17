@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import pdfParse from 'pdf-parse/lib/pdf-parse.js'
-import mammoth from 'mammoth'
+import { extractText } from '@/lib/pdfExtraction'
 import { randomUUID } from 'crypto'
 
 interface UploadResponse {
@@ -12,42 +11,6 @@ interface UploadResponse {
   error?: string
   details?: string
   status?: number
-}
-
-// Initialize text extraction
-async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  try {
-    console.log('Starting PDF extraction, buffer size:', buffer.length)
-    const data = await pdfParse(buffer)
-    console.log('PDF extraction successful, text length:', data.text.length)
-    return data.text
-  } catch (error) {
-    console.error('PDF extraction error:', error instanceof Error ? error.message : error)
-    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
-  }
-}
-
-async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
-  try {
-    console.log('Starting DOCX extraction, buffer size:', buffer.length)
-    const result = await mammoth.extractRawText({
-      arrayBuffer: buffer as unknown as ArrayBuffer
-    })
-    console.log('DOCX extraction successful, text length:', result.value.length)
-    return result.value
-  } catch (error) {
-    console.error('DOCX extraction error:', error instanceof Error ? error.message : error)
-    throw new Error(`Failed to extract text from DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
-  }
-}
-
-async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
-  if (mimeType === 'application/pdf') {
-    return extractTextFromPDF(buffer)
-  } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return extractTextFromDOCX(buffer)
-  }
-  throw new Error('Unsupported file type')
 }
 
 export const config = {
@@ -127,11 +90,12 @@ export default async function handler(
     let extractedText = ''
     try {
       extractedText = await extractText(fileBuffer, mimeType)
-      console.log('Text extraction successful')
+      console.log('✅ Text extraction successful, extracted', extractedText.length, 'characters')
     } catch (error) {
-      console.error('Text extraction failed (continuing without text):', error)
-      // Non-blocking - continue with empty text
-      extractedText = '[Text extraction failed - file uploaded but text not extracted]'
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.warn('⚠️ Text extraction failed (continuing without text):', errorMessage)
+      // Non-blocking - continue with fallback message
+      extractedText = `[Text extraction failed: ${errorMessage}]`
     }
 
     // Truncate text if too long (50k chars)
