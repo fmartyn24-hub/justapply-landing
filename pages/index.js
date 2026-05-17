@@ -58,34 +58,57 @@ export default function Home() {
               Stop overthinking every CV and cover letter. Build a personal component library from your years of work.
               Then generate tailored applications in seconds—using your voice, your achievements, your story.
             </p>
-            <a href="#waitlist" className="inline-block bg-primary text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition">
-              Join the Waitlist
-            </a>
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary sm:max-w-xs"
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="px-8 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {status === 'loading' ? 'Joining...' : 'Join Waitlist'}
+              </button>
+            </form>
+            {status === 'success' && (
+              <p className="text-green-600 font-semibold">✓ Welcome to the waitlist!</p>
+            )}
+            {status === 'error' && (
+              <p className="text-red-600 font-semibold">Something went wrong. Try again.</p>
+            )}
           </div>
         </section>
 
         {/* The Problem / The Reality */}
         <section className="py-20 bg-light px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-8">The Real Bottleneck</h2>
-            <div className="space-y-6">
-              <div>
-                <p className="text-2xl font-bold" style={{color: '#FE6F09'}}>43%</p>
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl font-bold mb-16">The Real Bottleneck</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+              <div className="p-8 bg-white rounded-lg border border-gray-200">
+                <p className="text-6xl font-bold mb-2" style={{color: '#FE6F09'}}>43%</p>
                 <p className="text-lg text-gray-600">of candidates spend 30+ minutes on a single application</p>
               </div>
-              <div>
-                <p className="text-2xl font-bold" style={{color: '#FE6F09'}}>51</p>
+              <div className="p-8 bg-white rounded-lg border border-gray-200">
+                <p className="text-6xl font-bold mb-2" style={{color: '#90055D'}}>51</p>
                 <p className="text-lg text-gray-600">resumes needed on average to secure one job offer</p>
               </div>
-              <div className="pt-4 border-t border-gray-300">
-                <p className="text-lg text-gray-600 leading-relaxed">
-                  You're not applying for fewer jobs because you're lazy. You're applying for fewer jobs because every application feels like you have to craft something perfect from scratch.
-                </p>
-                <p className="text-lg text-gray-600 leading-relaxed mt-4">
-                  And women? They often don't apply at all unless they meet <span className="font-semibold">every single qualification</span>. Not because they're not qualified. Because the friction is real.
-                </p>
+              <div className="p-8 bg-white rounded-lg border border-gray-200">
+                <p className="text-6xl font-bold mb-2" style={{color: '#FE6F09'}}>5</p>
+                <p className="text-lg text-gray-600">months average from resume writing to job offer</p>
+              </div>
+              <div className="p-8 bg-white rounded-lg border border-gray-200">
+                <p className="text-6xl font-bold mb-2" style={{color: '#90055D'}}>2-3%</p>
+                <p className="text-lg text-gray-600">of sent resumes result in an interview</p>
               </div>
             </div>
+            <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
+              You're not applying for fewer jobs because you're lazy. You're applying for fewer jobs because every application feels like you have to craft something perfect from scratch. The friction stops you before you even start.
+            </p>
           </div>
         </section>
 
@@ -102,9 +125,9 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   1
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Upload Your Career</h3>
+                <h3 className="text-xl font-semibold mb-2">Upload your past work</h3>
                 <p className="text-gray-600">
-                  Add past CVs and cover letters. justapply learns how you describe your achievements, your voice, your authentic professional story.
+                  It's not just pasting CVs and cover letters, but I would also want justapply to ask you a set of questions to get to know you better, from what it can't find out on your CV.
                 </p>
               </div>
 
@@ -113,9 +136,9 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   2
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Find a Role You Want</h3>
+                <h3 className="text-xl font-semibold mb-2">Paste the job</h3>
                 <p className="text-gray-600">
-                  See a job that excites you? Paste the job description. justapply matches your story with what they're looking for.
+                  No, perfect. But the point is it will be perfect because it's based on you.
                 </p>
               </div>
 
@@ -124,9 +147,9 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   3
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Apply—Right Now</h3>
+                <h3 className="text-xl font-semibold mb-2">Apply</h3>
                 <p className="text-gray-600">
-                  Get a tailored CV and cover letter in seconds. No overthinking. No "perfect." Just your story, adapted for them. Apply.
+                  justapply.
                 </p>
               </div>
             </div>
