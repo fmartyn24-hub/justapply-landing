@@ -10,6 +10,7 @@ interface UploadResponse {
   filename?: string
   extractedTextLength?: number
   error?: string
+  details?: string
   status?: number
 }
 
