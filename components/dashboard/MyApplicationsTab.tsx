@@ -44,9 +44,9 @@ export function MyApplicationsTab({ applications, onDelete, onRegenerate, onSave
       saved: 'bg-blue-100 text-blue-800',
     }
     const labels = {
-      draft: '💾 Draft',
-      applied: '✅ Applied',
-      saved: '⭐ Saved',
+      draft: 'Draft',
+      applied: 'Applied',
+      saved: 'Saved',
     }
     return (
       <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status as keyof typeof styles]}`}>
@@ -101,7 +101,7 @@ export function MyApplicationsTab({ applications, onDelete, onRegenerate, onSave
                 size="sm"
                 className="flex-1"
               >
-                👁️ View
+                View
               </Button>
               <Button
                 onClick={() => onRegenerate(app.id)}
@@ -110,7 +110,7 @@ export function MyApplicationsTab({ applications, onDelete, onRegenerate, onSave
                 size="sm"
                 className="flex-1"
               >
-                🔄 Regenerate
+                Regenerate
               </Button>
               <Button
                 onClick={() => handleDelete(app.id)}
@@ -119,7 +119,7 @@ export function MyApplicationsTab({ applications, onDelete, onRegenerate, onSave
                 size="sm"
                 className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
               >
-                🗑️ Delete
+                Delete
               </Button>
             </div>
           </div>

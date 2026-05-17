@@ -123,7 +123,7 @@ export function JustApplyTab({ onSubmit, loading }: JustApplyTabProps) {
         </Button>
 
         <p className="text-xs text-gray-600 bg-white rounded p-3 border border-gray-200">
-          💡 Tip: Include the full job description for better results. We'll tailor your CV and cover letter to match the requirements.
+          Tip: Include the full job description for better results. We'll tailor your CV and cover letter to match the requirements.
         </p>
       </form>
     </div>

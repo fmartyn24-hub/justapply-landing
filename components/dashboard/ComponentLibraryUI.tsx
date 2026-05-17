@@ -74,7 +74,7 @@ export function ComponentLibraryUI({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Your Career Components</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Your career components</h2>
           <p className="text-gray-600 mt-1">
             {filteredComponents.length} of {components.length} components
           </p>
@@ -85,7 +85,7 @@ export function ComponentLibraryUI({
           </Button>
           {onEnrichProfile && (
             <Button onClick={onEnrichProfile} variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
-              ✨ Enrich Your Profile
+              Enrich Your Profile
             </Button>
           )}
           <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">

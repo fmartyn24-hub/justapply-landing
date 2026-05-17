@@ -109,7 +109,7 @@ ${JSON.stringify(profileAnswers.answers, null, 2)}
 
     // Generate CV and Cover Letter
     const response = await anthropic.messages.create({
-      model: 'claude-opus-4-20250805',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       messages: [
         {

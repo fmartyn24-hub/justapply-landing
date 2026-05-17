@@ -107,7 +107,7 @@ export function ProfileQuestionsModal({ onSubmit, onClose, saving }: ProfileQues
 
           {/* Goals Section */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">🎯 Career Goals & Aspirations</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Career Goals & Aspirations</h3>
             <div className="space-y-4">
               {QUESTIONS.filter((q) => q.category === 'goals').map((question) => (
                 <div key={question.id}>
@@ -130,7 +130,7 @@ export function ProfileQuestionsModal({ onSubmit, onClose, saving }: ProfileQues
 
           {/* Values Section */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">💡 Work Style & Values</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Work Style & Values</h3>
             <div className="space-y-4">
               {QUESTIONS.filter((q) => q.category === 'values').map((question) => (
                 <div key={question.id}>
@@ -153,7 +153,7 @@ export function ProfileQuestionsModal({ onSubmit, onClose, saving }: ProfileQues
 
           {/* Strengths Section */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">⭐ Unique Strengths</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Unique Strengths</h3>
             <div className="space-y-4">
               {QUESTIONS.filter((q) => q.category === 'strengths').map((question) => (
                 <div key={question.id}>

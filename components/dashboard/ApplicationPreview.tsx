@@ -53,7 +53,7 @@ export function ApplicationPreview({
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            📄 CV/Resume
+            CV/Resume
           </button>
           <button
             onClick={() => setActiveTab('coverLetter')}
@@ -63,7 +63,7 @@ export function ApplicationPreview({
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            💌 Cover Letter
+            Cover Letter
           </button>
         </div>
 
@@ -88,7 +88,7 @@ export function ApplicationPreview({
             disabled={saving}
             className="flex-1"
           >
-            💾 Save as Draft
+            Save as Draft
           </Button>
           <Button
             onClick={() => onSave('applied')}
@@ -96,7 +96,7 @@ export function ApplicationPreview({
             loading={saving}
             className="flex-1"
           >
-            ✅ Mark as Applied
+            Mark as Applied
           </Button>
           <Button onClick={onClose} variant="outline" disabled={saving} className="flex-1">
             Cancel
