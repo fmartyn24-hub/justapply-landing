@@ -227,7 +227,7 @@ Return as JSON array of components with structure: type, title, description, sta
             ? String(comp.impact_metrics).substring(0, 500)
             : undefined,
           tags: Array.isArray(comp.tags)
-            ? comp.tags.map((t) => String(t).substring(0, 50)).slice(0, 10)
+            ? comp.tags.map((t: any) => String(t).substring(0, 50)).slice(0, 10)
             : [],
         }))
 
@@ -318,7 +318,7 @@ Return as JSON array of components with structure: type, title, description, sta
                   ? String(comp.impact_metrics).substring(0, 500)
                   : null,
                 tags: Array.isArray(comp.tags)
-                  ? comp.tags.map((t) => String(t).substring(0, 50)).slice(0, 10)
+                  ? comp.tags.map((t: any) => String(t).substring(0, 50)).slice(0, 10)
                   : [],
                 source: 'claude_analysis',
               }))
