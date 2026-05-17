@@ -143,7 +143,18 @@ Respond ONLY with valid JSON, no other text.`,
     let coverLetter = ''
 
     try {
-      const parsed = JSON.parse(content.text)
+      // Strip markdown code block wrapper if present
+      let jsonText = content.text.trim()
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.slice(7) // Remove ```json
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.slice(3) // Remove ```
+      }
+      if (jsonText.endsWith('```')) {
+        jsonText = jsonText.slice(0, -3) // Remove trailing ```
+      }
+
+      const parsed = JSON.parse(jsonText.trim())
       cv = parsed.cv || ''
       coverLetter = parsed.coverLetter || ''
     } catch {
