@@ -59,6 +59,24 @@ export default async function handler(
       .map((cv) => `### ${cv.filename}\n${cv.extracted_text}`)
       .join('\n\n---\n\n')
 
+    // Log details for debugging
+    console.log('=== CV Component Extraction Debug ===')
+    console.log('Number of CVs found:', cvs.length)
+    cvs.forEach((cv, idx) => {
+      const textLength = cv.extracted_text?.length || 0
+      console.log(`CV ${idx + 1}: "${cv.filename}"`)
+      console.log(`  - extracted_text length: ${textLength}`)
+      if (cv.extracted_text?.includes('[Text extraction failed')) {
+        console.warn(`  - ⚠️ Contains extraction error message`)
+      }
+      if (textLength < 100) {
+        console.warn(`  - ⚠️ Very short text (< 100 chars)`)
+      }
+    })
+    console.log('Combined text length:', combinedText.length)
+    console.log('First 500 chars of combined text:', combinedText.substring(0, 500))
+    console.log('=====================================')
+
     // Use Claude to extract components
     const message = await anthropic.messages.create({
       model: 'claude-opus-4-6',
@@ -126,6 +144,9 @@ ${combinedText}`,
     const responseText =
       message.content[0].type === 'text' ? message.content[0].text : ''
 
+    console.log('Claude response length:', responseText.length)
+    console.log('Claude response first 500 chars:', responseText.substring(0, 500))
+
     let extractedComponents
     try {
       // Try to extract JSON from markdown code blocks if present
@@ -135,6 +156,7 @@ ${combinedText}`,
         jsonText = jsonMatch[1].trim()
       }
       extractedComponents = JSON.parse(jsonText)
+      console.log('Successfully parsed JSON, components found:', extractedComponents.components?.length || 0)
     } catch (parseError) {
       console.error('JSON parse error:', responseText)
       return res.status(500).json({
@@ -145,6 +167,7 @@ ${combinedText}`,
 
     // Save components to database
     if (!extractedComponents.components || extractedComponents.components.length === 0) {
+      console.log('No components found in extraction response')
       return res.status(200).json({
         success: true,
         componentsAdded: 0,
