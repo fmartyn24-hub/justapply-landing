@@ -118,7 +118,13 @@ Please provide your response in the following JSON format (and ONLY this format,
     // Parse JSON response
     let result
     try {
-      result = JSON.parse(responseText)
+      // Try to extract JSON from markdown code blocks if present
+      let jsonText = responseText
+      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim()
+      }
+      result = JSON.parse(jsonText)
     } catch (parseError) {
       console.error('JSON parse error:', responseText)
       return res.status(500).json({

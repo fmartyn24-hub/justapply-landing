@@ -128,7 +128,13 @@ ${combinedText}`,
 
     let extractedComponents
     try {
-      extractedComponents = JSON.parse(responseText)
+      // Try to extract JSON from markdown code blocks if present
+      let jsonText = responseText
+      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim()
+      }
+      extractedComponents = JSON.parse(jsonText)
     } catch (parseError) {
       console.error('JSON parse error:', responseText)
       return res.status(500).json({
