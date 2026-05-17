@@ -127,8 +127,12 @@ export function ComponentLibraryUI({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.map((component) => {
             const config = typeConfig[component.type]
-            // Skip components with invalid types
-            if (!config) return null
+
+            // Log invalid types for debugging
+            if (!config) {
+              console.warn(`Invalid component type: "${component.type}" for component:`, component)
+              return null
+            }
 
             const isDeletingComponent = isDeleting?.(component.id)
 
