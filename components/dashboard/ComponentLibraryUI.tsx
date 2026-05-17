@@ -127,6 +127,9 @@ export function ComponentLibraryUI({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.map((component) => {
             const config = typeConfig[component.type]
+            // Skip components with invalid types
+            if (!config) return null
+
             const isDeletingComponent = isDeleting?.(component.id)
 
             return (

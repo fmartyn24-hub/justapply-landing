@@ -110,6 +110,9 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
               <div className="space-y-6 md:space-y-8">
                 {event.items.map((item, itemIdx) => {
                   const config = typeConfig[item.type]
+                  // Skip components with invalid types
+                  if (!config) return null
+
                   const isLeft = itemIdx % 2 === 0
                   const startYear = item.start_date ? new Date(item.start_date).getFullYear() : null
                   const endYear = item.end_date ? new Date(item.end_date).getFullYear() : null

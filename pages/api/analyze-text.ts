@@ -188,9 +188,26 @@ export default async function handler(
       // No existing components, just extract fresh
       prompt = `Extract all career components from this text. No existing timeline to merge with.
 
+VALID COMPONENT TYPES (use ONLY these):
+- achievement: Accomplishments, awards, certifications, major milestones
+- skill: Technical skills, soft skills, languages, tools, frameworks
+- role: Job titles, positions, roles held
+- project: Significant projects, initiatives, or work led
+- kpi: Key performance indicators, metrics, quantifiable results
+- voice: Personal branding, unique value proposition, career philosophy
+
 ${text}
 
-Return as JSON array of components with structure: type, title, description, start_date, end_date, impact_metrics, tags.`
+Return as JSON array of components. Each component must have:
+- type: MUST be one of: achievement, skill, role, project, kpi, voice
+- title: Concise, impactful title
+- description: Detailed explanation (1-2 sentences)
+- start_date: ISO date YYYY-MM-DD if applicable
+- end_date: ISO date YYYY-MM-DD if applicable
+- impact_metrics: Quantifiable results if applicable
+- tags: Array of relevant keywords
+
+IMPORTANT: Only return valid JSON array, no other text.`
     }
 
     // Call Claude API
@@ -238,8 +255,9 @@ Return as JSON array of components with structure: type, title, description, sta
 
     if (Array.isArray(result)) {
       // Direct extraction format (first analysis)
+      const validTypes = ['achievement', 'skill', 'role', 'project', 'kpi', 'voice']
       finalComponents = result
-        .filter((comp: any) => comp.title && comp.type)
+        .filter((comp: any) => comp.title && comp.type && validTypes.includes(comp.type))
         .map((comp: any) => ({
           type: comp.type,
           title: String(comp.title).substring(0, 200),
@@ -327,7 +345,7 @@ Return as JSON array of components with structure: type, title, description, sta
           .from('career_components')
           .insert(
             newComps
-              .filter((comp: any) => comp.title && comp.type)
+              .filter((comp: any) => comp.title && comp.type && validTypes.includes(comp.type))
               .map((comp: any) => ({
                 user_id: user.id,
                 type: comp.type,
