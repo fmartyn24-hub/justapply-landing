@@ -30,6 +30,29 @@ interface AnalyzeResponse {
 
 const client = new Anthropic()
 
+// Helper function to parse and normalize dates
+function normalizeDate(dateStr: string | undefined): string | undefined {
+  if (!dateStr) return undefined
+
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr
+  }
+
+  // YYYY-MM format - convert to YYYY-MM-01
+  if (/^\d{4}-\d{2}$/.test(dateStr)) {
+    return `${dateStr}-01`
+  }
+
+  // Just YYYY format - convert to YYYY-01-01
+  if (/^\d{4}$/.test(dateStr)) {
+    return `${dateStr}-01-01`
+  }
+
+  // Invalid format
+  return undefined
+}
+
 const MERGE_PROMPT = `You are an expert career coach helping someone maintain and enrich their career timeline.
 
 Your task is to intelligently merge NEW career information with their EXISTING timeline.
@@ -221,8 +244,8 @@ Return as JSON array of components with structure: type, title, description, sta
           type: comp.type,
           title: String(comp.title).substring(0, 200),
           description: comp.description ? String(comp.description).substring(0, 1000) : undefined,
-          start_date: comp.start_date || undefined,
-          end_date: comp.end_date || undefined,
+          start_date: normalizeDate(comp.start_date),
+          end_date: normalizeDate(comp.end_date),
           impact_metrics: comp.impact_metrics
             ? String(comp.impact_metrics).substring(0, 500)
             : undefined,
@@ -282,8 +305,8 @@ Return as JSON array of components with structure: type, title, description, sta
             .update({
               title: changes.title ?? component.title,
               description: changes.description ?? component.description,
-              start_date: changes.start_date ?? component.start_date,
-              end_date: changes.end_date ?? component.end_date,
+              start_date: normalizeDate(changes.start_date) ?? component.start_date,
+              end_date: normalizeDate(changes.end_date) ?? component.end_date,
               impact_metrics: changes.impact_metrics ?? component.impact_metrics,
               tags: mergedTags,
               updated_at: new Date().toISOString(),
@@ -312,8 +335,8 @@ Return as JSON array of components with structure: type, title, description, sta
                 description: comp.description
                   ? String(comp.description).substring(0, 1000)
                   : null,
-                start_date: comp.start_date || null,
-                end_date: comp.end_date || null,
+                start_date: normalizeDate(comp.start_date) || null,
+                end_date: normalizeDate(comp.end_date) || null,
                 impact_metrics: comp.impact_metrics
                   ? String(comp.impact_metrics).substring(0, 500)
                   : null,
