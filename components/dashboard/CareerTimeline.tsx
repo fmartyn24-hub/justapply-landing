@@ -59,12 +59,12 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
       {/* Desktop: Horizontal timeline with alternating cards */}
       <div className="hidden md:block">
         {/* Central timeline line */}
-        <div className="relative py-8">
+        <div className="relative py-4">
           {/* The line */}
           <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-400 via-purple-400 to-blue-500" />
 
           {/* Timeline nodes */}
-          <div className="space-y-12">
+          <div className="space-y-8">
             {roles.map((role, idx) => {
               const startYear = role.start_date ? new Date(role.start_date).getFullYear() : null
               const endYear = role.end_date ? new Date(role.end_date).getFullYear() : null
@@ -87,7 +87,7 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
                         <div className="mb-2">
                           <span className="inline-block px-3 py-1 bg-white bg-opacity-70 rounded-full text-sm font-bold text-purple-600">
                             {startYear}
-                            {endYear && startYear !== endYear ? ` - ${endYear}` : ''}
+                            {endYear ? ` - ${endYear}` : role.end_date ? ` - ${new Date(role.end_date).getFullYear()}` : ' - Present'}
                           </span>
                         </div>
                       )}
@@ -146,7 +146,7 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
       </div>
 
       {/* Mobile: Vertical timeline */}
-      <div className="md:hidden space-y-6">
+      <div className="md:hidden space-y-4">
         {roles.map((role, idx) => {
           const startYear = role.start_date ? new Date(role.start_date).getFullYear() : null
           const endYear = role.end_date ? new Date(role.end_date).getFullYear() : null
@@ -164,7 +164,7 @@ export function CareerTimeline({ components }: CareerTimelineProps) {
                   <div className="mb-2">
                     <span className="inline-block px-3 py-1 bg-white bg-opacity-70 rounded-full text-sm font-bold text-purple-600">
                       {startYear}
-                      {endYear && startYear !== endYear ? ` - ${endYear}` : ''}
+                      {endYear ? ` - ${endYear}` : role.end_date ? ` - ${new Date(role.end_date).getFullYear()}` : ' - Present'}
                     </span>
                   </div>
                 )}

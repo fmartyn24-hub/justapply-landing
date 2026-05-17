@@ -18,6 +18,7 @@ interface ComponentLibraryUIProps {
   onEdit: (component: CareerComponent) => void
   onDelete: (componentId: string) => void
   onAdd: () => void
+  onImport: () => void
   isDeleting?: (id: string) => boolean
 }
 
@@ -35,6 +36,7 @@ export function ComponentLibraryUI({
   onEdit,
   onDelete,
   onAdd,
+  onImport,
   isDeleting,
 }: ComponentLibraryUIProps) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -75,9 +77,14 @@ export function ComponentLibraryUI({
             {filteredComponents.length} of {components.length} components
           </p>
         </div>
-        <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">
-          + Add Component
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={onImport} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+            ⬆️ Import more context
+          </Button>
+          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">
+            + Add Component
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
