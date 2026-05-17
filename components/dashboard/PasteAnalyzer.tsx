@@ -73,7 +73,7 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
           loading={analyzing}
           className="flex-1"
         >
-          {analyzing ? 'Analyzing...' : '🤖 Analyze with Claude'}
+          {analyzing ? 'Analyzing...' : 'Analyze'}
         </Button>
       </div>
 

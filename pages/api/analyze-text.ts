@@ -30,23 +30,128 @@ interface AnalyzeResponse {
 
 const client = new Anthropic()
 
-// Helper function to parse and normalize dates
+// Helper function to parse and normalize dates to YYYY-MM-DD
 function normalizeDate(dateStr: string | undefined): string | undefined {
   if (!dateStr) return undefined
 
+  const str = String(dateStr).trim()
+
   // Already in YYYY-MM-DD format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return dateStr
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str
   }
 
   // YYYY-MM format - convert to YYYY-MM-01
-  if (/^\d{4}-\d{2}$/.test(dateStr)) {
-    return `${dateStr}-01`
+  if (/^\d{4}-\d{2}$/.test(str)) {
+    return `${str}-01`
   }
 
   // Just YYYY format - convert to YYYY-01-01
-  if (/^\d{4}$/.test(dateStr)) {
-    return `${dateStr}-01-01`
+  if (/^\d{4}$/.test(str)) {
+    return `${str}-01-01`
+  }
+
+  // MM/DD/YYYY or MM-DD-YYYY format (US style)
+  const usMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/)
+  if (usMatch) {
+    const month = String(usMatch[1]).padStart(2, '0')
+    const day = String(usMatch[2]).padStart(2, '0')
+    const year = usMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY format (EU style, if day > 12)
+  const euMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/)
+  if (euMatch) {
+    const possibleDay = parseInt(euMatch[1])
+    const possibleMonth = parseInt(euMatch[2])
+    // If first number > 12, it's likely DD/MM format
+    if (possibleDay > 12) {
+      const day = String(euMatch[1]).padStart(2, '0')
+      const month = String(euMatch[2]).padStart(2, '0')
+      const year = euMatch[3]
+      return `${year}-${month}-${day}`
+    }
+  }
+
+  // YYYY/MM/DD format
+  const isoSlashMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)
+  if (isoSlashMatch) {
+    const year = isoSlashMatch[1]
+    const month = String(isoSlashMatch[2]).padStart(2, '0')
+    const day = String(isoSlashMatch[3]).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Month Year format: "January 2020", "Jan 2020"
+  const monthYearMatch = str.match(
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})$/i
+  )
+  if (monthYearMatch) {
+    const monthNames: Record<string, string> = {
+      jan: '01', january: '01',
+      feb: '02', february: '02',
+      mar: '03', march: '03',
+      apr: '04', april: '04',
+      may: '05',
+      jun: '06', june: '06',
+      jul: '07', july: '07',
+      aug: '08', august: '08',
+      sep: '09', september: '09',
+      oct: '10', october: '10',
+      nov: '11', november: '11',
+      dec: '12', december: '12',
+    }
+    const month = monthNames[monthYearMatch[1].toLowerCase()]
+    const year = monthYearMatch[2]
+    return `${year}-${month}-01`
+  }
+
+  // Month DD, YYYY or Month DD YYYY format: "January 15, 2020"
+  const monthDayYearMatch = str.match(
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})$/i
+  )
+  if (monthDayYearMatch) {
+    const monthNames: Record<string, string> = {
+      jan: '01', january: '01',
+      feb: '02', february: '02',
+      mar: '03', march: '03',
+      apr: '04', april: '04',
+      may: '05',
+      jun: '06', june: '06',
+      jul: '07', july: '07',
+      aug: '08', august: '08',
+      sep: '09', september: '09',
+      oct: '10', october: '10',
+      nov: '11', november: '11',
+      dec: '12', december: '12',
+    }
+    const month = monthNames[monthDayYearMatch[1].toLowerCase()]
+    const day = String(monthDayYearMatch[2]).padStart(2, '0')
+    const year = monthDayYearMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
+  // Q1/Q2/Q3/Q4 YYYY format: "Q1 2020"
+  const quarterMatch = str.match(/^Q([1-4])\s+(\d{4})$/i)
+  if (quarterMatch) {
+    const quarter = parseInt(quarterMatch[1])
+    const year = quarterMatch[2]
+    const month = String((quarter - 1) * 3 + 1).padStart(2, '0')
+    return `${year}-${month}-01`
+  }
+
+  // Try parsing with native Date as last resort
+  try {
+    const date = new Date(str)
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+  } catch {
+    // Continue to invalid format
   }
 
   // Invalid format
