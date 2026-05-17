@@ -40,6 +40,7 @@ function ProfilePage() {
     tags: [],
   })
   const [saving, setSaving] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const { session } = useAuth()
 
   // Fetch components
@@ -61,6 +62,48 @@ function ProfilePage() {
 
     fetchComponents()
   }, [session])
+
+  const handleExtractComponents = async () => {
+    if (!session?.access_token) return
+
+    setExtracting(true)
+    try {
+      const response = await fetch('/api/extract-components', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Extraction failed')
+      }
+
+      const data = await response.json()
+
+      // Refetch components
+      if (session?.user?.id) {
+        const { data: updatedComponents } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (updatedComponents) {
+          setComponents(updatedComponents)
+        }
+      }
+
+      // Show success message
+      alert(`✅ Extracted ${data.componentsAdded} components from your documents!`)
+    } catch (err) {
+      console.error('Extraction error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to extract components')
+    } finally {
+      setExtracting(false)
+    }
+  }
 
   const handleAddComponent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -174,9 +217,25 @@ function ProfilePage() {
                 Build your professional story with achievements, skills, and impact.
               </p>
             </div>
-            <Button onClick={() => setShowAddForm(!showAddForm)} size="lg">
-              + Add Component
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleExtractComponents}
+                loading={extracting}
+                variant="outline"
+              >
+                🤖 Extract from Documents
+              </Button>
+              <Button onClick={() => setShowAddForm(!showAddForm)} size="lg">
+                + Add Component
+              </Button>
+            </div>
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-900 text-sm">
+              💡 <strong>Tip:</strong> Click "Extract from Documents" to automatically analyze your CV and generate career components. Or manually add components one by one.
+            </p>
           </div>
 
           {/* Add Component Form */}
