@@ -42,9 +42,6 @@ export default function Home() {
         <nav className="fixed w-full bg-white border-b border-gray-100 z-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
             <img src="/logo-light.svg" alt="justapply" className="h-12" />
-            <a href="#waitlist" className="text-sm font-medium text-white bg-primary px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-              Join the Waitlist
-            </a>
           </div>
         </nav>
 
@@ -56,7 +53,7 @@ export default function Home() {
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
               Stop overthinking every CV and cover letter. Build a personal component library from your years of work.
-              Then generate tailored applications in seconds—using your voice, your achievements, your story.
+              Then generate tailored applications in seconds using your voice, your achievements, your story.
             </p>
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
               <input
@@ -87,8 +84,8 @@ export default function Home() {
         {/* The Problem / The Reality */}
         <section className="py-20 bg-light px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-16">The Real Bottleneck</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+            <h2 className="text-4xl font-bold mb-16">The real bottleneck</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
               <div className="p-8 bg-white rounded-lg border border-gray-200">
                 <p className="text-6xl font-bold mb-2" style={{color: '#FE6F09'}}>43%</p>
                 <p className="text-lg text-gray-600">of candidates spend 30+ minutes on a single application</p>
@@ -98,11 +95,7 @@ export default function Home() {
                 <p className="text-lg text-gray-600">resumes needed on average to secure one job offer</p>
               </div>
               <div className="p-8 bg-white rounded-lg border border-gray-200">
-                <p className="text-6xl font-bold mb-2" style={{color: '#FE6F09'}}>5</p>
-                <p className="text-lg text-gray-600">months average from resume writing to job offer</p>
-              </div>
-              <div className="p-8 bg-white rounded-lg border border-gray-200">
-                <p className="text-6xl font-bold mb-2" style={{color: '#90055D'}}>2-3%</p>
+                <p className="text-6xl font-bold mb-2" style={{color: '#FE6F09'}}>2-3%</p>
                 <p className="text-lg text-gray-600">of sent resumes result in an interview</p>
               </div>
             </div>
@@ -115,7 +108,7 @@ export default function Home() {
         {/* How It Works */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl font-bold text-center mb-4">Build Your Career Story Once</h2>
+            <h2 className="text-4xl font-bold text-center mb-4">Build your career story once</h2>
             <p className="text-xl text-gray-600 text-center mb-16">
               Then call upon it whenever you find a role that matters.
             </p>
@@ -147,10 +140,7 @@ export default function Home() {
                 <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
                   3
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Apply</h3>
-                <p className="text-gray-600">
-                  justapply.
-                </p>
+                <h3 className="text-xl font-semibold">justapply</h3>
               </div>
             </div>
           </div>
