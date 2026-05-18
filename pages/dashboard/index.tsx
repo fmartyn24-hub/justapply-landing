@@ -420,7 +420,7 @@ function Dashboard() {
       }
 
       // Step 2: Extract components from each document
-      for (const doc of documents) {
+      for (const doc of documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>) {
         const response = await fetch('/api/extract-components', {
           method: 'POST',
           headers: {
@@ -480,8 +480,8 @@ function Dashboard() {
         }))
         setComponents(normalizedComponents)
 
-        const cvCount = documents.filter((d) => d.type === 'cv').length
-        const clCount = documents.filter((d) => d.type === 'coverLetter').length
+        const cvCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'cv').length
+        const clCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'coverLetter').length
         const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
         alert(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
         setActiveTab('library')
