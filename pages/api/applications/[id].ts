@@ -10,7 +10,9 @@ interface Application {
   job_description?: string
   generated_cv?: string
   generated_cover_letter?: string
-  status: 'draft' | 'applied' | 'saved'
+  deadline?: string
+  persons_of_interest?: string
+  status: 'draft' | 'applied'
   created_at?: string
   updated_at?: string
 }
@@ -59,20 +61,26 @@ export default async function handler(
 
     if (req.method === 'PUT') {
       // Update application
-      const { job_title, company_name, job_url, job_description, generated_cv, generated_cover_letter, status } = req.body as Partial<Application>
+      const { job_title, company_name, job_url, job_description, generated_cv, generated_cover_letter, deadline, persons_of_interest, status } = req.body as Partial<Application>
+
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      }
+
+      // Only include fields that are provided
+      if (job_title !== undefined) updateData.job_title = job_title
+      if (company_name !== undefined) updateData.company_name = company_name
+      if (job_url !== undefined) updateData.job_url = job_url
+      if (job_description !== undefined) updateData.job_description = job_description
+      if (generated_cv !== undefined) updateData.generated_cv = generated_cv
+      if (generated_cover_letter !== undefined) updateData.generated_cover_letter = generated_cover_letter
+      if (deadline !== undefined) updateData.deadline = deadline
+      if (persons_of_interest !== undefined) updateData.persons_of_interest = persons_of_interest
+      if (status !== undefined) updateData.status = status
 
       const { data, error } = await serverSupabase
         .from('applications')
-        .update({
-          job_title,
-          company_name,
-          job_url,
-          job_description,
-          generated_cv,
-          generated_cover_letter,
-          status,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', id)
         .eq('user_id', user.id)
         .select()

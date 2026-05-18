@@ -49,7 +49,9 @@ interface Application {
   job_description?: string
   generated_cv: string
   generated_cover_letter: string
-  status: 'draft' | 'applied' | 'saved'
+  deadline?: string
+  persons_of_interest?: string
+  status: 'draft' | 'applied'
   created_at: string
   updated_at: string
 }
@@ -636,6 +638,37 @@ function Dashboard() {
     }
   }
 
+  const handleUpdateApplication = async (
+    id: string,
+    data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }
+  ) => {
+    if (!session?.access_token) return
+
+    try {
+      const response = await fetch(`/api/applications/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const responseData = await response.json()
+        throw new Error(responseData.error || 'Failed to update application')
+      }
+
+      const responseData = await response.json()
+
+      // Update local state
+      setApplications(applications.map((app) => (app.id === id ? responseData.data : app)))
+    } catch (err) {
+      console.error('Update application error:', err)
+      throw err
+    }
+  }
+
   const getComponentIcon = (type: string) => {
     switch (type) {
       case 'kpi':
@@ -818,6 +851,7 @@ function Dashboard() {
                   onDelete={handleDeleteApplication}
                   onRegenerate={handleRegenerateApplication}
                   onSaveStatus={handleUpdateApplicationStatus}
+                  onUpdateApplication={handleUpdateApplication}
                   loading={generatingApplication}
                 />
               )}
