@@ -21,6 +21,8 @@ interface CareerComponent {
   end_date?: string
   impact_metrics?: string
   tags: string[]
+  tone_keywords?: string
+  related_terms?: string
   created_at: string
 }
 
@@ -33,13 +35,15 @@ interface CV {
 }
 
 interface NewComponent {
-  type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice'
+  type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice' | 'context'
   title: string
   description: string
   start_date?: string
   end_date?: string
   impact_metrics?: string
   tags: string[]
+  tone_keywords?: string
+  related_terms?: string
 }
 
 interface Application {
@@ -90,6 +94,8 @@ function Dashboard() {
     title: '',
     description: '',
     tags: [],
+    tone_keywords: '',
+    related_terms: '',
   })
   const [analyzing, setAnalyzing] = useState(false)
   const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'justApply' | 'myApplications'>('library')
@@ -355,6 +361,8 @@ function Dashboard() {
         end_date: formData.end_date || null,
         impact_metrics: formData.impact_metrics || null,
         tags: formData.tags,
+        tone_keywords: formData.tone_keywords || null,
+        related_terms: formData.related_terms || null,
         source: 'manual',
       })
 
@@ -374,6 +382,8 @@ function Dashboard() {
           title: '',
           description: '',
           tags: [],
+          tone_keywords: '',
+          related_terms: '',
         })
         setShowAddForm(false)
       }
@@ -389,23 +399,74 @@ function Dashboard() {
 
     setAnalyzing(true)
     try {
-      const response = await fetch('/api/analyze-text', {
+      // Step 1: Classify and split documents (and extract voice from cover letters)
+      const classifyResponse = await fetch('/api/analyze-mixed-documents', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ text }),
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Analysis failed')
+      if (!classifyResponse.ok) {
+        const data = await classifyResponse.json()
+        throw new Error(data.error || 'Failed to classify documents')
       }
 
-      const data = await response.json()
+      const { documents, voice } = await classifyResponse.json()
 
-      // The API endpoint handles all insertion/updates, so just refetch components
+      if (!documents || documents.length === 0) {
+        throw new Error('No documents found in the pasted text')
+      }
+
+      // Step 2: Extract components from each document
+      for (const doc of documents) {
+        const response = await fetch('/api/extract-components', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ text: doc.content }),
+        })
+
+        if (!response.ok) {
+          console.error(`Failed to extract components from ${doc.type}`)
+        }
+      }
+
+      // Step 3: If there's voice data from cover letters, create/update voice component
+      if (voice?.toneKeywords) {
+        const existingVoice = components.find((c) => c.type === 'voice')
+
+        if (existingVoice) {
+          // Update existing voice component
+          const { error } = await supabase
+            .from('career_components')
+            .update({
+              tone_keywords: voice.toneKeywords,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingVoice.id)
+
+          if (error) console.error('Failed to update voice component:', error)
+        } else {
+          // Create new voice component
+          const { error } = await supabase.from('career_components').insert({
+            user_id: session.user.id,
+            type: 'voice',
+            title: 'My Voice',
+            description: 'Your communication style and tone extracted from cover letters',
+            tone_keywords: voice.toneKeywords,
+            tags: [],
+            source: 'auto-extracted',
+          })
+
+          if (error) console.error('Failed to create voice component:', error)
+        }
+      }
+
+      // Step 4: Refetch all components
       const { data: updatedComponents } = await supabase
         .from('career_components')
         .select('*')
@@ -419,7 +480,10 @@ function Dashboard() {
         }))
         setComponents(normalizedComponents)
 
-        alert(`✅ Analysis complete! Your career components have been updated.`)
+        const cvCount = documents.filter((d) => d.type === 'cv').length
+        const clCount = documents.filter((d) => d.type === 'coverLetter').length
+        const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
+        alert(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
         setActiveTab('library')
       }
     } catch (err) {
@@ -459,6 +523,8 @@ function Dashboard() {
           end_date: editFormData.end_date || null,
           impact_metrics: editFormData.impact_metrics || null,
           tags: editFormData.tags || [],
+          tone_keywords: editFormData.tone_keywords || null,
+          related_terms: editFormData.related_terms || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingComponent.id)
@@ -1248,6 +1314,7 @@ function Dashboard() {
                     <option value="project">Project</option>
                     <option value="kpi">KPI</option>
                     <option value="voice">Voice</option>
+                    <option value="context">Context</option>
                   </select>
                 </div>
 
@@ -1328,6 +1395,38 @@ function Dashboard() {
                   placeholder="e.g., React, TypeScript, Performance"
                 />
               </div>
+
+              {editFormData.type === 'voice' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Tone Keywords
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.tone_keywords || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, tone_keywords: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., direct, warm, analytical, storytelling-focused"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated keywords describing your communication style</p>
+                </div>
+              )}
+
+              {editFormData.type === 'context' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Related Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.related_terms || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, related_terms: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated related concepts this term explains</p>
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <Button type="submit" loading={savingEdit} className="flex-1">

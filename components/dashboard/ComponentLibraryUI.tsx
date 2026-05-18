@@ -30,6 +30,7 @@ const typeConfig: Record<string, { icon: string; color: string; label: string }>
   project: { icon: '🚀', color: 'from-green-100 to-green-50', label: 'Project' },
   kpi: { icon: '📊', color: 'from-orange-100 to-orange-50', label: 'KPI' },
   voice: { icon: '🎤', color: 'from-pink-100 to-pink-50', label: 'Voice' },
+  context: { icon: '📖', color: 'from-indigo-100 to-indigo-50', label: 'Context' },
 }
 
 export function ComponentLibraryUI({
@@ -202,6 +203,20 @@ export function ComponentLibraryUI({
                 {component.impact_metrics && (
                   <p className="text-sm font-medium text-gray-800 mb-3">
                     📈 {component.impact_metrics}
+                  </p>
+                )}
+
+                {/* Tone Keywords (for Voice components) */}
+                {(component as any).tone_keywords && (
+                  <p className="text-sm text-gray-700 mb-3 italic">
+                    Tone: {(component as any).tone_keywords}
+                  </p>
+                )}
+
+                {/* Related Terms (for Context components) */}
+                {(component as any).related_terms && (
+                  <p className="text-sm text-gray-700 mb-3">
+                    Explains: {(component as any).related_terms}
                   </p>
                 )}
 
