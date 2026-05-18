@@ -47,6 +47,7 @@ interface Application {
   job_title: string
   company_name: string
   job_description?: string
+  job_url?: string
   generated_cv: string
   generated_cover_letter: string
   deadline?: string
@@ -640,7 +641,7 @@ function Dashboard() {
 
   const handleUpdateApplication = async (
     id: string,
-    data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }
+    data: { generated_cv: string; generated_cover_letter: string; job_url?: string; deadline?: string; persons_of_interest?: string }
   ) => {
     if (!session?.access_token) return
 

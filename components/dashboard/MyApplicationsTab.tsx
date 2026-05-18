@@ -7,6 +7,7 @@ export interface Application {
   job_title: string
   company_name: string
   job_description?: string
+  job_url?: string
   generated_cv: string
   generated_cover_letter: string
   deadline?: string
@@ -166,6 +167,7 @@ export function MyApplicationsTab({
           coverLetter={selectedApp.generated_cover_letter}
           jobTitle={selectedApp.job_title}
           company={selectedApp.company_name}
+          jobUrl={selectedApp.job_url}
           deadline={selectedApp.deadline}
           personsOfInterest={selectedApp.persons_of_interest}
           onSave={onUpdateApplication}

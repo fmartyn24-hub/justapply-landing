@@ -7,9 +7,10 @@ interface ApplicationPreviewProps {
   coverLetter: string
   jobTitle?: string
   company?: string
+  jobUrl?: string
   deadline?: string
   personsOfInterest?: string
-  onSave?: (id: string, data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
+  onSave?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_url?: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
   onStatusChange?: (status: 'draft' | 'applied') => Promise<void>
   onClose: () => void
   saving?: boolean
@@ -21,6 +22,7 @@ export function ApplicationPreview({
   coverLetter,
   jobTitle,
   company,
+  jobUrl,
   deadline,
   personsOfInterest,
   onSave,
@@ -31,6 +33,7 @@ export function ApplicationPreview({
   const [activeTab, setActiveTab] = useState<'cv' | 'coverLetter' | 'details'>('cv')
   const [editedCv, setEditedCv] = useState(cv)
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
+  const [editedJobUrl, setEditedJobUrl] = useState(jobUrl || '')
   const [editedDeadline, setEditedDeadline] = useState(deadline || '')
   const [editedPersonsOfInterest, setEditedPersonsOfInterest] = useState(personsOfInterest || '')
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -44,6 +47,7 @@ export function ApplicationPreview({
     if (
       editedCv === cv &&
       editedCoverLetter === coverLetter &&
+      editedJobUrl === jobUrl &&
       editedDeadline === deadline &&
       editedPersonsOfInterest === personsOfInterest
     ) {
@@ -58,6 +62,7 @@ export function ApplicationPreview({
           await onSave(id, {
             generated_cv: editedCv,
             generated_cover_letter: editedCoverLetter,
+            job_url: editedJobUrl || undefined,
             deadline: editedDeadline || undefined,
             persons_of_interest: editedPersonsOfInterest || undefined,
           })
@@ -75,11 +80,11 @@ export function ApplicationPreview({
     return () => {
       if (timeout) clearTimeout(timeout)
     }
-  }, [editedCv, editedCoverLetter, editedDeadline, editedPersonsOfInterest])
+  }, [editedCv, editedCoverLetter, editedJobUrl, editedDeadline, editedPersonsOfInterest])
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-lg w-[95vw] h-[95vh] max-w-7xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex-1">
@@ -164,6 +169,19 @@ export function ApplicationPreview({
             <div className="bg-white p-6 rounded-lg space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={editedJobUrl}
+                  onChange={(e) => setEditedJobUrl(e.target.value)}
+                  placeholder="https://company.com/careers/job-title"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Application Deadline (Optional)
                 </label>
                 <input
@@ -179,14 +197,14 @@ export function ApplicationPreview({
                   Persons of Interest (Optional)
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  Names or titles of people at the company you'd like to address
+                  Names, titles, and/or emails of people at the company you'd like to address
                 </p>
                 <textarea
                   value={editedPersonsOfInterest}
                   onChange={(e) => setEditedPersonsOfInterest(e.target.value)}
-                  placeholder="e.g., John Smith (Hiring Manager), Sarah Johnson (VP Engineering)"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
-                  rows={4}
+                  placeholder="e.g., John Smith (Hiring Manager, john@company.com)&#10;Sarah Johnson (VP Engineering, sarah@company.com)"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-sm"
+                  rows={5}
                 />
               </div>
             </div>
