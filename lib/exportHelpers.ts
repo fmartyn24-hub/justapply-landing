@@ -17,7 +17,7 @@ export async function generateDocxBuffer(
       children: [
         new TextRun({
           text: `[${template.name} Template]`,
-          italic: true,
+          italics: true,
           size: 16,
           color: '999999',
         }),
