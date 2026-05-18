@@ -85,6 +85,15 @@ export async function generateDocxBuffer(
   return buffer
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? [
+    parseInt(result[1], 16),
+    parseInt(result[2], 16),
+    parseInt(result[3], 16),
+  ] : [0, 0, 0]
+}
+
 export function generatePdfBuffer(
   content: string,
   jobTitle: string,
@@ -113,33 +122,37 @@ export function generatePdfBuffer(
 
     // Header
     const fontSize = template.fonts.headingSize
+    const headingRgb = hexToRgb(template.colors.heading)
     doc
       .fontSize(fontSize + 6)
       .font('Helvetica-Bold')
-      .fillColor(`#${template.colors.heading}`)
+      .rgb(headingRgb[0], headingRgb[1], headingRgb[2])
       .text(`${jobTitle} at ${company}`, { align: 'left' })
     doc.moveDown(0.3)
 
     // Divider (only for non-ATS templates)
     if (template.id !== 'ats') {
-      doc.strokeColor('#D1D5DB').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+      const dividerRgb = hexToRgb('D1D5DB')
+      doc.rgb(dividerRgb[0], dividerRgb[1], dividerRgb[2]).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
       doc.moveDown(0.3)
     }
 
     // Section title
     const sectionTitle = documentType === 'cv' ? 'Resume / CV' : 'Cover Letter'
+    const sectionRgb = hexToRgb(template.colors.heading)
     doc
       .fontSize(fontSize)
       .font('Helvetica-Bold')
-      .fillColor(`#${template.colors.heading}`)
+      .rgb(sectionRgb[0], sectionRgb[1], sectionRgb[2])
       .text(sectionTitle)
     doc.moveDown(0.2)
 
     // Content
+    const textRgb = hexToRgb(template.colors.text)
     doc
       .fontSize(template.fonts.bodySize)
       .font('Helvetica')
-      .fillColor(`#${template.colors.text}`)
+      .rgb(textRgb[0], textRgb[1], textRgb[2])
       .text(content, {
         align: 'left',
         width: 495,
