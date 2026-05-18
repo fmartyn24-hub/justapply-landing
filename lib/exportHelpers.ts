@@ -138,14 +138,14 @@ export function generatePdfBuffer(
     doc
       .fontSize(fontSize + 6)
       .font('Helvetica-Bold')
-      .fillColor(headingRgb[0], headingRgb[1], headingRgb[2])
+      .fillColor(headingRgb)
       .text(`${jobTitle} at ${company}`, { align: 'left' })
     doc.moveDown(0.3)
 
     // Divider (only for non-ATS templates)
     if (template.id !== 'ats') {
       const dividerRgb = hexToRgb('D1D5DB')
-      doc.strokeColor(dividerRgb[0], dividerRgb[1], dividerRgb[2]).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+      doc.strokeColor(dividerRgb).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
       doc.moveDown(0.3)
     }
 
@@ -155,7 +155,7 @@ export function generatePdfBuffer(
     doc
       .fontSize(fontSize)
       .font('Helvetica-Bold')
-      .fillColor(sectionRgb[0], sectionRgb[1], sectionRgb[2])
+      .fillColor(sectionRgb)
       .text(sectionTitle)
     doc.moveDown(0.2)
 
@@ -164,7 +164,7 @@ export function generatePdfBuffer(
     doc
       .fontSize(template.fonts.bodySize)
       .font('Helvetica')
-      .fillColor(textRgb[0], textRgb[1], textRgb[2])
+      .fillColor(textRgb)
       .text(content, {
         align: 'left',
         width: 495,
