@@ -940,6 +940,7 @@ function Dashboard() {
                   onSaveStatus={handleUpdateApplicationStatus}
                   onUpdateApplication={handleUpdateApplication}
                   loading={generatingApplication}
+                  authToken={session?.access_token}
                 />
               )}
 
@@ -952,6 +953,7 @@ function Dashboard() {
                   onRegenerate={handleRegenerateApplication}
                   onUpdateApplication={handleUpdateApplication}
                   loading={generatingApplication}
+                  authToken={session?.access_token}
                 />
               )}
             </div>

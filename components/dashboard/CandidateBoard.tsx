@@ -10,6 +10,7 @@ interface CandidateBoardProps {
   onRegenerate: (id: string) => Promise<void>
   onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
   loading?: boolean
+  authToken?: string
 }
 
 type Status = 'draft' | 'applied'
@@ -26,6 +27,7 @@ export function CandidateBoard({
   onRegenerate,
   onUpdateApplication,
   loading,
+  authToken,
 }: CandidateBoardProps) {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -190,6 +192,7 @@ export function CandidateBoard({
           }}
           onClose={() => setSelectedApp(null)}
           saving={savingStatus}
+          authToken={authToken}
         />
       )}
     </div>

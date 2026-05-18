@@ -14,6 +14,7 @@ interface ApplicationPreviewProps {
   onStatusChange?: (status: 'draft' | 'applied') => Promise<void>
   onClose: () => void
   saving?: boolean
+  authToken?: string
 }
 
 export function ApplicationPreview({
@@ -29,6 +30,7 @@ export function ApplicationPreview({
   onStatusChange,
   onClose,
   saving,
+  authToken,
 }: ApplicationPreviewProps) {
   const [activeTab, setActiveTab] = useState<'cv' | 'coverLetter' | 'details'>('cv')
   const [editedCv, setEditedCv] = useState(cv)
@@ -38,6 +40,9 @@ export function ApplicationPreview({
   const [editedPersonsOfInterest, setEditedPersonsOfInterest] = useState(personsOfInterest || '')
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [exportingDocx, setExportingDocx] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   // Auto-save functionality
   useEffect(() => {
@@ -81,6 +86,61 @@ export function ApplicationPreview({
       if (timeout) clearTimeout(timeout)
     }
   }, [editedCv, editedCoverLetter, editedJobUrl, editedDeadline, editedPersonsOfInterest])
+
+  const handleExport = async (format: 'docx' | 'pdf') => {
+    if (!id || !authToken) {
+      setExportError('Missing application ID or auth token')
+      return
+    }
+
+    try {
+      const exportFormat = format === 'docx' ? 'export-docx' : 'export-pdf'
+      const response = await fetch(`/api/applications/${exportFormat}?id=${id}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `Failed to export ${format.toUpperCase()}`)
+      }
+
+      // Create blob and download
+      const blob = await response.blob()
+      const filename = `${company}_${jobTitle}_CV.${format}`.replace(/[^a-zA-Z0-9-_ .]/g, '').replace(/\s+/g, '_')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      setExportError(null)
+      setTimeout(() => {
+        if (format === 'docx') setExportingDocx(false)
+        else setExportingPdf(false)
+      }, 500)
+    } catch (error) {
+      console.error(`Export ${format} error:`, error)
+      setExportError(error instanceof Error ? error.message : `Failed to export ${format.toUpperCase()}`)
+      if (format === 'docx') setExportingDocx(false)
+      else setExportingPdf(false)
+    }
+  }
+
+  const handleExportDocx = async () => {
+    setExportingDocx(true)
+    await handleExport('docx')
+  }
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    await handleExport('pdf')
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
@@ -212,30 +272,53 @@ export function ApplicationPreview({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-6 border-t border-gray-200 bg-white">
-          {onStatusChange && (
-            <>
-              <Button
-                onClick={() => onStatusChange('draft')}
-                variant="outline"
-                disabled={saving}
-                className="flex-1"
-              >
-                Save as Draft
-              </Button>
-              <Button
-                onClick={() => onStatusChange('applied')}
-                disabled={saving}
-                loading={saving}
-                className="flex-1"
-              >
-                Mark as Applied
-              </Button>
-            </>
+        <div className="flex flex-col gap-3 p-6 border-t border-gray-200 bg-white">
+          {exportError && (
+            <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{exportError}</p>
           )}
-          <Button onClick={onClose} variant="outline" disabled={saving} className="flex-1">
-            Close
-          </Button>
+          <div className="flex gap-3">
+            {onStatusChange && (
+              <>
+                <Button
+                  onClick={() => onStatusChange('draft')}
+                  variant="outline"
+                  disabled={saving || exportingDocx || exportingPdf}
+                  className="flex-1"
+                >
+                  Save as Draft
+                </Button>
+                <Button
+                  onClick={() => onStatusChange('applied')}
+                  disabled={saving || exportingDocx || exportingPdf}
+                  loading={saving}
+                  className="flex-1"
+                >
+                  Mark as Applied
+                </Button>
+              </>
+            )}
+            <Button
+              onClick={handleExportDocx}
+              disabled={exportingDocx || exportingPdf || !id || !authToken}
+              loading={exportingDocx}
+              variant="outline"
+              className="flex-1"
+            >
+              📄 Export DOCX
+            </Button>
+            <Button
+              onClick={handleExportPdf}
+              disabled={exportingDocx || exportingPdf || !id || !authToken}
+              loading={exportingPdf}
+              variant="outline"
+              className="flex-1"
+            >
+              📕 Export PDF
+            </Button>
+            <Button onClick={onClose} variant="outline" disabled={saving || exportingDocx || exportingPdf} className="flex-1">
+              Close
+            </Button>
+          </div>
         </div>
       </div>
     </div>
