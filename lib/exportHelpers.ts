@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, BorderStyle } from 'docx'
+import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, BorderStyle, ShadingType } from 'docx'
 import PDFDocument from 'pdfkit'
 import type { ExportTemplate } from './exportTemplates'
 
@@ -10,6 +10,21 @@ export async function generateDocxBuffer(
   documentType: 'cv' | 'coverLetter'
 ): Promise<Buffer> {
   const sections: Paragraph[] = []
+
+  // Template indicator (to verify which template is used)
+  sections.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `[${template.name} Template]`,
+          italic: true,
+          size: 16,
+          color: '999999',
+        }),
+      ],
+      spacing: { after: 300 },
+    })
+  )
 
   // Header with job info
   sections.push(
@@ -88,6 +103,13 @@ export function generatePdfBuffer(
     doc.on('data', (chunk) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
+
+    // Template indicator
+    doc
+      .fontSize(9)
+      .fillColor('#999999')
+      .text(`[${template.name} Template]`, { align: 'left' })
+    doc.moveDown(0.3)
 
     // Header
     const fontSize = template.fonts.headingSize
