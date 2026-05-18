@@ -9,6 +9,7 @@ interface CareerComponent {
   start_date?: string
   end_date?: string
   impact_metrics?: string
+  primary_location?: string
   tags: string[]
   created_at: string
 }
@@ -196,6 +197,13 @@ export function ComponentLibraryUI({
                   <p className="text-xs text-gray-600 mb-2">
                     {component.start_date && new Date(component.start_date).getFullYear()}
                     {component.end_date && ` - ${new Date(component.end_date).getFullYear()}`}
+                  </p>
+                )}
+
+                {/* Location (for roles) */}
+                {component.primary_location && (
+                  <p className="text-xs text-gray-600 mb-2">
+                    📍 {component.primary_location}
                   </p>
                 )}
 

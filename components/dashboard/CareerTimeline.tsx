@@ -8,6 +8,7 @@ interface TimelineComponent {
   start_date?: string
   end_date?: string
   impact_metrics?: string
+  primary_location?: string
   tags: string[]
   created_at: string
 }
@@ -95,6 +96,13 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                         </div>
                       )}
 
+                      {/* Location */}
+                      {role.primary_location && (
+                        <div className="mb-3">
+                          <p className="text-xs text-gray-600">📍 {role.primary_location}</p>
+                        </div>
+                      )}
+
                       {/* Header */}
                       <div className="flex items-start gap-3 mb-3">
                         <span className="text-2xl flex-shrink-0">{roleConfig.icon}</span>
@@ -172,6 +180,13 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       {startYear}
                       {endYear ? ` - ${endYear}` : role.end_date ? ` - ${new Date(role.end_date).getFullYear()}` : ' - Present'}
                     </span>
+                  </div>
+                )}
+
+                {/* Location */}
+                {role.primary_location && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-600">📍 {role.primary_location}</p>
                   </div>
                 )}
 

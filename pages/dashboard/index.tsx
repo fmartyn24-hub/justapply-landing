@@ -8,6 +8,7 @@ import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
 import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
+import { CandidateBoard } from '@/components/dashboard/CandidateBoard'
 import { ProfileQuestionsModal } from '@/components/dashboard/ProfileQuestionsModal'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
@@ -20,6 +21,7 @@ interface CareerComponent {
   start_date?: string
   end_date?: string
   impact_metrics?: string
+  primary_location?: string
   tags: string[]
   tone_keywords?: string
   related_terms?: string
@@ -41,6 +43,7 @@ interface NewComponent {
   start_date?: string
   end_date?: string
   impact_metrics?: string
+  primary_location?: string
   tags: string[]
   tone_keywords?: string
   related_terms?: string
@@ -96,9 +99,10 @@ function Dashboard() {
     tags: [],
     tone_keywords: '',
     related_terms: '',
+    primary_location: '',
   })
   const [analyzing, setAnalyzing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'justApply' | 'myApplications'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard'>('library')
   const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
   const [savingEdit, setSavingEdit] = useState(false)
@@ -360,6 +364,7 @@ function Dashboard() {
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         impact_metrics: formData.impact_metrics || null,
+        primary_location: formData.primary_location || null,
         tags: formData.tags,
         tone_keywords: formData.tone_keywords || null,
         related_terms: formData.related_terms || null,
@@ -384,6 +389,7 @@ function Dashboard() {
           tags: [],
           tone_keywords: '',
           related_terms: '',
+          primary_location: '',
         })
         setShowAddForm(false)
       }
@@ -503,6 +509,7 @@ function Dashboard() {
       start_date: component.start_date,
       end_date: component.end_date,
       impact_metrics: component.impact_metrics,
+      primary_location: component.primary_location,
       tags: component.tags || [],
     })
   }
@@ -522,6 +529,7 @@ function Dashboard() {
           start_date: editFormData.start_date || null,
           end_date: editFormData.end_date || null,
           impact_metrics: editFormData.impact_metrics || null,
+          primary_location: editFormData.primary_location || null,
           tags: editFormData.tags || [],
           tone_keywords: editFormData.tone_keywords || null,
           related_terms: editFormData.related_terms || null,
@@ -868,16 +876,28 @@ function Dashboard() {
                   Just Apply
                 </button>
                 {applications.length > 0 && (
-                  <button
-                    onClick={() => setActiveTab('myApplications')}
-                    className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
-                      activeTab === 'myApplications'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    My Applications ({applications.length})
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setActiveTab('myApplications')}
+                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                        activeTab === 'myApplications'
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      My Applications ({applications.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('candidateBoard')}
+                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                        activeTab === 'candidateBoard'
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Candidate Board
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -918,6 +938,18 @@ function Dashboard() {
                   onDelete={handleDeleteApplication}
                   onRegenerate={handleRegenerateApplication}
                   onSaveStatus={handleUpdateApplicationStatus}
+                  onUpdateApplication={handleUpdateApplication}
+                  loading={generatingApplication}
+                />
+              )}
+
+              {/* Candidate Board Tab */}
+              {activeTab === 'candidateBoard' && (
+                <CandidateBoard
+                  applications={applications}
+                  onStatusChange={handleUpdateApplicationStatus}
+                  onDelete={handleDeleteApplication}
+                  onRegenerate={handleRegenerateApplication}
                   onUpdateApplication={handleUpdateApplication}
                   loading={generatingApplication}
                 />
@@ -1383,6 +1415,21 @@ function Dashboard() {
                 />
               </div>
 
+              {editFormData.type === 'role' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.primary_location || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, primary_location: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
                   Tags
@@ -1439,6 +1486,175 @@ function Dashboard() {
                     setEditingComponent(null)
                     setEditFormData({})
                   }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Component Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Component</h2>
+            <form onSubmit={handleAddComponent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Type *
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="achievement">Achievement</option>
+                    <option value="skill">Skill</option>
+                    <option value="role">Role</option>
+                    <option value="project">Project</option>
+                    <option value="kpi">KPI</option>
+                    <option value="voice">Voice</option>
+                    <option value="context">Context</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.start_date || ''}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.end_date || ''}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Impact Metrics
+                </label>
+                <input
+                  type="text"
+                  value={formData.impact_metrics || ''}
+                  onChange={(e) => setFormData({ ...formData, impact_metrics: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., Increased sales by 40%"
+                />
+              </div>
+
+              {formData.type === 'role' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.primary_location || ''}
+                    onChange={(e) => setFormData({ ...formData, primary_location: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={formData.tags.join(', ')}
+                  onChange={(e) => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., React, TypeScript, Performance"
+                />
+              </div>
+
+              {formData.type === 'voice' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Tone Keywords
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.tone_keywords || ''}
+                    onChange={(e) => setFormData({ ...formData, tone_keywords: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., direct, warm, analytical, storytelling-focused"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated keywords describing your communication style</p>
+                </div>
+              )}
+
+              {formData.type === 'context' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Related Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.related_terms || ''}
+                    onChange={(e) => setFormData({ ...formData, related_terms: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated related concepts this term explains</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <Button type="submit" loading={saving} className="flex-1">
+                  Add Component
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAddForm(false)}
                   className="flex-1"
                 >
                   Cancel
