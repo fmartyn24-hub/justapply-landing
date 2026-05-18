@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/common/Button'
+import { ExportTemplateSelector } from './ExportTemplateSelector'
+import type { ExportTemplate } from '@/lib/exportTemplates'
 
 interface ApplicationPreviewProps {
   id?: string
@@ -43,6 +45,9 @@ export function ApplicationPreview({
   const [exportingDocx, setExportingDocx] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [selectedDocumentType, setSelectedDocumentType] = useState<'cv' | 'coverLetter'>('cv')
+  const [selectedExportFormat, setSelectedExportFormat] = useState<'docx' | 'pdf'>('docx')
 
   // Auto-save functionality
   useEffect(() => {
@@ -87,29 +92,60 @@ export function ApplicationPreview({
     }
   }, [editedCv, editedCoverLetter, editedJobUrl, editedDeadline, editedPersonsOfInterest])
 
-  const handleExport = async (format: 'docx' | 'pdf') => {
+  const handleExportCvDocx = () => {
+    setSelectedDocumentType('cv')
+    setSelectedExportFormat('docx')
+    setShowTemplateSelector(true)
+  }
+
+  const handleExportCvPdf = () => {
+    setSelectedDocumentType('cv')
+    setSelectedExportFormat('pdf')
+    setShowTemplateSelector(true)
+  }
+
+  const handleExportCoverLetterDocx = () => {
+    setSelectedDocumentType('coverLetter')
+    setSelectedExportFormat('docx')
+    setShowTemplateSelector(true)
+  }
+
+  const handleExportCoverLetterPdf = () => {
+    setSelectedDocumentType('coverLetter')
+    setSelectedExportFormat('pdf')
+    setShowTemplateSelector(true)
+  }
+
+  const handleTemplateSelected = async (template: ExportTemplate) => {
     if (!id || !authToken) {
       setExportError('Missing application ID or auth token')
       return
     }
 
     try {
-      const exportFormat = format === 'docx' ? 'export-docx' : 'export-pdf'
-      const response = await fetch(`/api/applications/${exportFormat}?id=${id}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      })
+      const formatEndpoint = selectedExportFormat === 'docx' ? 'export-docx' : 'export-pdf'
+      const response = await fetch(
+        `/api/applications/${formatEndpoint}?id=${id}&template=${template.id}&type=${selectedDocumentType}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      )
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || `Failed to export ${format.toUpperCase()}`)
+        throw new Error(error.error || `Failed to export`)
       }
 
       // Create blob and download
       const blob = await response.blob()
-      const filename = `${company}_${jobTitle}_CV.${format}`.replace(/[^a-zA-Z0-9-_ .]/g, '').replace(/\s+/g, '_')
+      const typeLabel = selectedDocumentType === 'cv' ? 'CV' : 'CoverLetter'
+      const templateLabel = template.id === 'professional' ? '' : `_${template.id}`
+      const filename = `${company}_${jobTitle}_${typeLabel}${templateLabel}.${selectedExportFormat}`
+        .replace(/[^a-zA-Z0-9-_ .]/g, '')
+        .replace(/\s+/g, '_')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -120,26 +156,11 @@ export function ApplicationPreview({
       URL.revokeObjectURL(url)
 
       setExportError(null)
-      setTimeout(() => {
-        if (format === 'docx') setExportingDocx(false)
-        else setExportingPdf(false)
-      }, 500)
+      setShowTemplateSelector(false)
     } catch (error) {
-      console.error(`Export ${format} error:`, error)
-      setExportError(error instanceof Error ? error.message : `Failed to export ${format.toUpperCase()}`)
-      if (format === 'docx') setExportingDocx(false)
-      else setExportingPdf(false)
+      console.error('Export error:', error)
+      setExportError(error instanceof Error ? error.message : 'Failed to export')
     }
-  }
-
-  const handleExportDocx = async () => {
-    setExportingDocx(true)
-    await handleExport('docx')
-  }
-
-  const handleExportPdf = async () => {
-    setExportingPdf(true)
-    await handleExport('pdf')
   }
 
   return (
@@ -297,30 +318,71 @@ export function ApplicationPreview({
                 </Button>
               </>
             )}
-            <Button
-              onClick={handleExportDocx}
-              disabled={exportingDocx || exportingPdf || !id || !authToken}
-              loading={exportingDocx}
-              variant="outline"
-              className="flex-1"
-            >
-              📄 Export DOCX
-            </Button>
-            <Button
-              onClick={handleExportPdf}
-              disabled={exportingDocx || exportingPdf || !id || !authToken}
-              loading={exportingPdf}
-              variant="outline"
-              className="flex-1"
-            >
-              📕 Export PDF
-            </Button>
+            <div className="flex-1 flex flex-col gap-2">
+              <p className="text-xs font-medium text-gray-600">📄 CV Export</p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleExportCvDocx}
+                  disabled={showTemplateSelector || !id || !authToken}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  DOCX
+                </Button>
+                <Button
+                  onClick={handleExportCvPdf}
+                  disabled={showTemplateSelector || !id || !authToken}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex-1 flex flex-col gap-2">
+              <p className="text-xs font-medium text-gray-600">📝 Cover Letter Export</p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleExportCoverLetterDocx}
+                  disabled={showTemplateSelector || !id || !authToken}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  DOCX
+                </Button>
+                <Button
+                  onClick={handleExportCoverLetterPdf}
+                  disabled={showTemplateSelector || !id || !authToken}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  PDF
+                </Button>
+              </div>
+            </div>
             <Button onClick={onClose} variant="outline" disabled={saving || exportingDocx || exportingPdf} className="flex-1">
               Close
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <ExportTemplateSelector
+          isOpen={showTemplateSelector}
+          documentType={selectedDocumentType}
+          exportFormat={selectedExportFormat}
+          onSelectTemplate={handleTemplateSelected}
+          onChangeDocumentType={setSelectedDocumentType}
+          onClose={() => setShowTemplateSelector(false)}
+        />
+      )}
     </div>
   )
 }

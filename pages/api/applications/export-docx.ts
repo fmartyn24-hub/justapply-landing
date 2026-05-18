@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { generateDocxBuffer } from '@/lib/exportHelpers'
+import { EXPORT_TEMPLATES } from '@/lib/exportTemplates'
 
 interface ErrorResponse {
   error: string
@@ -24,10 +25,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const { id } = req.query
+  const { id, template, type } = req.query
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid application ID' })
+  }
+
+  // Get template (default to professional)
+  const templateId = (template as string) || 'professional'
+  const exportTemplate = EXPORT_TEMPLATES.find((t) => t.id === templateId)
+  if (!exportTemplate) {
+    return res.status(400).json({ error: 'Invalid template' })
+  }
+
+  // Get document type (default to cv)
+  const documentType = ((type as string) || 'cv') as 'cv' | 'coverLetter'
+  if (!['cv', 'coverLetter'].includes(documentType)) {
+    return res.status(400).json({ error: 'Invalid document type' })
   }
 
   try {
@@ -43,16 +57,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Application not found' })
     }
 
+    // Get content based on document type
+    const content = documentType === 'cv' ? application.generated_cv || '' : application.generated_cover_letter || ''
+
     // Generate DOCX buffer
     const buffer = await generateDocxBuffer(
-      application.generated_cv || '',
-      application.generated_cover_letter || '',
+      content,
       application.job_title || 'Application',
-      application.company_name || 'Company'
+      application.company_name || 'Company',
+      exportTemplate,
+      documentType
     )
 
     // Generate safe filename
-    const filename = `${application.company_name}_${application.job_title}_CV.docx`
+    const typeLabel = documentType === 'cv' ? 'CV' : 'CoverLetter'
+    const templateLabel = exportTemplate.id === 'professional' ? '' : `_${exportTemplate.id}`
+    const filename = `${application.company_name}_${application.job_title}_${typeLabel}${templateLabel}.docx`
       .replace(/[^a-zA-Z0-9-_ ]/g, '')
       .replace(/\s+/g, '_')
       .substring(0, 200)

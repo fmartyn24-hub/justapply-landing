@@ -1,13 +1,15 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx'
+import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, BorderStyle } from 'docx'
 import PDFDocument from 'pdfkit'
+import type { ExportTemplate } from './exportTemplates'
 
 export async function generateDocxBuffer(
-  cv: string,
-  coverLetter: string,
+  content: string,
   jobTitle: string,
-  company: string
+  company: string,
+  template: ExportTemplate,
+  documentType: 'cv' | 'coverLetter'
 ): Promise<Buffer> {
-  const sections = []
+  const sections: Paragraph[] = []
 
   // Header with job info
   sections.push(
@@ -16,72 +18,42 @@ export async function generateDocxBuffer(
         new TextRun({
           text: `${jobTitle} at ${company}`,
           bold: true,
-          size: 28,
-          color: '1F2937',
+          size: template.fonts.headingSize * 2,
+          color: template.colors.heading,
         }),
       ],
       spacing: { after: 200 },
     })
   )
 
-  // CV Section
+  // Section title
+  const sectionTitle = documentType === 'cv' ? 'Resume / CV' : 'Cover Letter'
   sections.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: 'Resume / CV',
+          text: sectionTitle,
           bold: true,
-          size: 24,
-          color: '374151',
+          size: template.fonts.headingSize * 2,
+          color: template.colors.heading,
         }),
       ],
-      spacing: { before: 200, after: 100 },
+      spacing: { before: 200, after: 150 },
     })
   )
 
-  // Add CV content with proper formatting (preserve line breaks)
-  cv.split('\n').forEach((line) => {
-    sections.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: line || ' ', // Empty lines become space to preserve structure
-            size: 22,
-            color: '1F2937',
-          }),
-        ],
-        spacing: { line: 240 },
-      })
-    )
-  })
-
-  // Cover Letter Section
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: 'Cover Letter',
-          bold: true,
-          size: 24,
-          color: '374151',
-        }),
-      ],
-      spacing: { before: 400, after: 100 },
-    })
-  )
-
-  // Add cover letter content
-  coverLetter.split('\n').forEach((line) => {
+  // Add content with proper formatting (preserve line breaks)
+  content.split('\n').forEach((line) => {
     sections.push(
       new Paragraph({
         children: [
           new TextRun({
             text: line || ' ',
-            size: 22,
-            color: '1F2937',
+            size: template.fonts.bodySize * 2,
+            color: template.colors.text,
           }),
         ],
-        spacing: { line: 240 },
+        spacing: { line: template.fonts.lineHeight },
       })
     )
   })
@@ -99,10 +71,11 @@ export async function generateDocxBuffer(
 }
 
 export function generatePdfBuffer(
-  cv: string,
-  coverLetter: string,
+  content: string,
   jobTitle: string,
-  company: string
+  company: string,
+  template: ExportTemplate,
+  documentType: 'cv' | 'coverLetter'
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
@@ -117,43 +90,39 @@ export function generatePdfBuffer(
     doc.on('error', reject)
 
     // Header
-    doc.fontSize(20).font('Helvetica-Bold').text(`${jobTitle} at ${company}`, { align: 'left' })
+    const fontSize = template.fonts.headingSize
+    doc
+      .fontSize(fontSize + 6)
+      .font('Helvetica-Bold')
+      .fillColor(`#${template.colors.heading}`)
+      .text(`${jobTitle} at ${company}`, { align: 'left' })
     doc.moveDown(0.3)
 
-    // Divider
-    doc.strokeColor('#D1D5DB').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-    doc.moveDown(0.3)
+    // Divider (only for non-ATS templates)
+    if (template.id !== 'ats') {
+      doc.strokeColor('#D1D5DB').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+      doc.moveDown(0.3)
+    }
 
-    // CV Section
-    doc.fontSize(14).font('Helvetica-Bold').fillColor('#374151').text('Resume / CV')
+    // Section title
+    const sectionTitle = documentType === 'cv' ? 'Resume / CV' : 'Cover Letter'
+    doc
+      .fontSize(fontSize)
+      .font('Helvetica-Bold')
+      .fillColor(`#${template.colors.heading}`)
+      .text(sectionTitle)
     doc.moveDown(0.2)
 
+    // Content
     doc
-      .fontSize(11)
+      .fontSize(template.fonts.bodySize)
       .font('Helvetica')
-      .fillColor('#1F2937')
-      .text(cv, {
+      .fillColor(`#${template.colors.text}`)
+      .text(content, {
         align: 'left',
         width: 495,
         wordSpacing: 0,
-        lineGap: 3,
-      })
-
-    doc.moveDown(0.5)
-
-    // Cover Letter Section
-    doc.fontSize(14).font('Helvetica-Bold').fillColor('#374151').text('Cover Letter')
-    doc.moveDown(0.2)
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .fillColor('#1F2937')
-      .text(coverLetter, {
-        align: 'left',
-        width: 495,
-        wordSpacing: 0,
-        lineGap: 3,
+        lineGap: template.fonts.lineHeight / 100,
       })
 
     doc.end()
