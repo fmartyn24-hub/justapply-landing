@@ -27,17 +27,27 @@ export async function generateDocxBuffer(
   )
 
   // Header with job info
+  const headingSize = template.fonts.headingSize * 2
   sections.push(
     new Paragraph({
       children: [
         new TextRun({
           text: `${jobTitle} at ${company}`,
           bold: true,
-          size: template.fonts.headingSize * 2,
+          size: headingSize,
           color: template.colors.heading,
+          allCaps: template.id === 'ats',
         }),
       ],
       spacing: { after: 200 },
+      border: template.id === 'modern' ? {
+        bottom: {
+          color: template.colors.accent || template.colors.primary,
+          space: 1,
+          style: 'single',
+          size: 12,
+        },
+      } : undefined,
     })
   )
 
@@ -49,8 +59,9 @@ export async function generateDocxBuffer(
         new TextRun({
           text: sectionTitle,
           bold: true,
-          size: template.fonts.headingSize * 2,
+          size: headingSize - 200,
           color: template.colors.heading,
+          allCaps: template.id === 'ats',
         }),
       ],
       spacing: { before: 200, after: 150 },
@@ -58,13 +69,14 @@ export async function generateDocxBuffer(
   )
 
   // Add content with proper formatting (preserve line breaks)
+  const bodySize = template.fonts.bodySize * 2
   content.split('\n').forEach((line) => {
     sections.push(
       new Paragraph({
         children: [
           new TextRun({
             text: line || ' ',
-            size: template.fonts.bodySize * 2,
+            size: bodySize,
             color: template.colors.text,
           }),
         ],
