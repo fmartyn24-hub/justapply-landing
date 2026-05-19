@@ -84,6 +84,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
       <div className="hidden md:block space-y-12">
         {rolesByOrganization.map(([ org, orgRoles ]) => {
           const orgRolesSorted = sortRolesByDate(orgRoles)
+          const lastRole = orgRolesSorted[orgRolesSorted.length - 1]
 
           return (
             <div key={org} className="relative">
@@ -92,7 +93,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                 <h3 className="text-2xl font-bold text-gray-900 mb-1">🏢 {org}</h3>
                 <p className="text-sm text-gray-600">
                   {orgRoles.length} role{orgRoles.length !== 1 ? 's' : ''} · {new Date(orgRolesSorted[0].start_date || '').getFullYear() || '?'}
-                  {orgRolesSorted[orgRolesSorted.length - 1]?.end_date ? ` - ${new Date(orgRolesSorted[orgRolesSorted.length - 1].end_date).getFullYear()}` : ' - Present'}
+                  {lastRole?.end_date ? ` - ${new Date(lastRole.end_date).getFullYear()}` : ' - Present'}
                 </p>
               </div>
 
