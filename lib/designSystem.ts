@@ -19,13 +19,29 @@ export const designSystem = {
       800: '#1F2937',
       900: '#111827',
     },
-    // Accent - single color for actions/highlights
+    // Brand primary
     blue: {
       50: '#EFF6FF',
       100: '#DBEAFE',
-      500: '#3B82F6',
-      600: '#2563EB',
-      700: '#1D4ED8',
+      500: '#0959FE',
+      600: '#0845D4',
+      700: '#0633AA',
+    },
+    // Brand secondary
+    orange: {
+      50: '#FFF5EE',
+      500: '#FE6F09',
+      600: '#E55C00',
+    },
+    magenta: {
+      50: '#FDF0F7',
+      500: '#90055D',
+      600: '#7A0450',
+    },
+    darkBlue: {
+      50: '#F0F2FE',
+      500: '#052790',
+      600: '#041E76',
     },
     // Semantic
     white: '#FFFFFF',
@@ -36,6 +52,8 @@ export const designSystem = {
     bg: '#F9FAFB', // gray-50
     bgHover: '#F3F4F6', // gray-100
     accentBg: '#EFF6FF', // blue-50
+    success: '#10B981',
+    successBg: '#ECFDF5',
   },
 
   spacing: {

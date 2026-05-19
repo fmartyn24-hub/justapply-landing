@@ -103,24 +103,31 @@ export function ComponentLibraryUI({
         placeholder="Search by title, description, or tags"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300 transition"
       />
 
       {/* Filter Chips */}
       <div className="flex flex-wrap gap-2">
-        {types.map((type) => (
-          <button
-            key={type}
-            onClick={() => toggleType(type)}
-            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-all ${
-              selectedTypes.has(type)
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-            }`}
-          >
-            {typeConfig[type].label}
-          </button>
-        ))}
+        {types.map((type, idx) => {
+          const secondaryColors = ['#FE6F09', '#90055D', '#052790']
+          const accentColor = secondaryColors[idx % secondaryColors.length]
+          const isMagenta = accentColor === '#90055D'
+          const isOrange = accentColor === '#FE6F09'
+
+          return (
+            <button
+              key={type}
+              onClick={() => toggleType(type)}
+              className={`px-3 py-1.5 text-sm rounded-md font-medium transition-all ${
+                selectedTypes.has(type)
+                  ? `${isOrange ? 'bg-orange-600' : isMagenta ? 'bg-magenta-600' : 'bg-blue-700'} text-white`
+                  : `bg-gray-100 text-gray-700 border border-gray-200 ${isOrange ? 'hover:bg-orange-50 hover:border-orange-200' : isMagenta ? 'hover:bg-magenta-50 hover:border-magenta-200' : 'hover:bg-blue-50 hover:border-blue-200'}`
+              }`}
+            >
+              {typeConfig[type].label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Component Grid */}

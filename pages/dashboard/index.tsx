@@ -826,8 +826,8 @@ function Dashboard() {
         <div className="w-full space-y-4">
             {/* Success Banner */}
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
-                <p className="text-green-800">{successMessage}</p>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                <p className="text-orange-700">{successMessage}</p>
               </div>
             )}
 
@@ -854,7 +854,7 @@ function Dashboard() {
                       className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'library'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-700'
+                          : 'border-transparent text-gray-600 hover:text-orange-600'
                       }`}
                     >
                       Components
@@ -863,8 +863,8 @@ function Dashboard() {
                       onClick={() => setActiveTab('timeline')}
                       className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'timeline'
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-700'
+                          ? 'border-magenta-500 text-magenta-600'
+                          : 'border-transparent text-gray-600 hover:text-magenta-600'
                       }`}
                     >
                       Timeline
@@ -875,7 +875,7 @@ function Dashboard() {
                   onClick={() => setActiveTab('justApply')}
                   className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                     activeTab === 'justApply'
-                      ? 'border-blue-600 text-blue-600'
+                      ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-600 hover:text-gray-700'
                   }`}
                 >
@@ -888,7 +888,7 @@ function Dashboard() {
                       className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'myApplications'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-700'
+                          : 'border-transparent text-gray-600 hover:text-blue-600'
                       }`}
                     >
                       Applications ({applications.length})

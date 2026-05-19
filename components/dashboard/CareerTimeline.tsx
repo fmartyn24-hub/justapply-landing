@@ -89,7 +89,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
           return (
             <div key={org} className="relative">
               {/* Organization Header */}
-              <div className="mb-6 pb-3 border-b border-gray-200">
+              <div className="mb-6 pb-3 border-b-2 border-orange-300">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">{org}</h3>
                 <p className="text-xs text-gray-500">
                   {orgRoles.length} {orgRoles.length === 1 ? 'role' : 'roles'} · {new Date(orgRolesSorted[0].start_date || '').getFullYear() || '?'}
@@ -107,7 +107,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                     <div
                       key={role.id}
                       onClick={() => onRoleClick?.(role)}
-                      className="bg-white rounded-lg p-3 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition cursor-pointer"
+                      className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
                     >
                       {/* Header */}
                       <div className="mb-2">
@@ -183,7 +183,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
           return (
             <div key={org}>
               {/* Organization Header */}
-              <div className="mb-3 pb-2 border-b border-gray-200">
+              <div className="mb-3 pb-2 border-b-2 border-orange-300">
                 <h3 className="text-base font-semibold text-gray-900 mb-1">{org}</h3>
                 <p className="text-xs text-gray-500">
                   {orgRoles.length} {orgRoles.length === 1 ? 'role' : 'roles'} · {new Date(orgRolesSorted[0].start_date || '').getFullYear() || '?'}
@@ -206,7 +206,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       {/* Card */}
                       <div
                         onClick={() => onRoleClick?.(role)}
-                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition cursor-pointer"
+                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
                       >
                         {/* Header */}
                         <p className="font-medium text-gray-900 text-sm mb-2">
