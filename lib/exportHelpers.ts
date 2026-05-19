@@ -11,65 +11,9 @@ export async function generateDocxBuffer(
 ): Promise<Buffer> {
   const sections: Paragraph[] = []
 
-  // Template indicator (to verify which template is used)
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `[${template.name} Template]`,
-          italics: true,
-          size: 16,
-          color: '999999',
-        }),
-      ],
-      spacing: { after: 300 },
-    })
-  )
-
-  // Header with job info
-  const headingSize = template.fonts.headingSize * 2
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `${jobTitle} at ${company}`,
-          bold: true,
-          size: headingSize,
-          color: template.colors.heading,
-          allCaps: template.id === 'ats',
-        }),
-      ],
-      spacing: { after: 200 },
-      border: template.id === 'modern' ? {
-        bottom: {
-          color: template.colors.accent || template.colors.primary,
-          space: 1,
-          style: 'single',
-          size: 12,
-        },
-      } : undefined,
-    })
-  )
-
-  // Section title
-  const sectionTitle = documentType === 'cv' ? 'Resume / CV' : 'Cover Letter'
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: sectionTitle,
-          bold: true,
-          size: headingSize - 200,
-          color: template.colors.heading,
-          allCaps: template.id === 'ats',
-        }),
-      ],
-      spacing: { before: 200, after: 150 },
-    })
-  )
+  const bodySize = template.fonts.bodySize * 2
 
   // Add content with proper formatting (preserve line breaks)
-  const bodySize = template.fonts.bodySize * 2
   content.split('\n').forEach((line) => {
     sections.push(
       new Paragraph({
@@ -124,40 +68,6 @@ export function generatePdfBuffer(
     doc.on('data', (chunk) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
-
-    // Template indicator
-    doc
-      .fontSize(9)
-      .fillColor('#999999')
-      .text(`[${template.name} Template]`, { align: 'left' })
-    doc.moveDown(0.3)
-
-    // Header
-    const fontSize = template.fonts.headingSize
-    const headingRgb = hexToRgb(template.colors.heading)
-    doc
-      .fontSize(fontSize + 6)
-      .font('Helvetica-Bold')
-      .fillColor(headingRgb)
-      .text(`${jobTitle} at ${company}`, { align: 'left' })
-    doc.moveDown(0.3)
-
-    // Divider (only for non-ATS templates)
-    if (template.id !== 'ats') {
-      const dividerRgb = hexToRgb('D1D5DB')
-      doc.strokeColor(dividerRgb).lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-      doc.moveDown(0.3)
-    }
-
-    // Section title
-    const sectionTitle = documentType === 'cv' ? 'Resume / CV' : 'Cover Letter'
-    const sectionRgb = hexToRgb(template.colors.heading)
-    doc
-      .fontSize(fontSize)
-      .font('Helvetica-Bold')
-      .fillColor(sectionRgb)
-      .text(sectionTitle)
-    doc.moveDown(0.2)
 
     // Content
     const textRgb = hexToRgb(template.colors.text)
