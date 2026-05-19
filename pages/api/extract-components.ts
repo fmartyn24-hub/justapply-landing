@@ -121,7 +121,8 @@ Return ONLY valid JSON in this exact format:
     {
       "type": "role",
       "title": "job title or position",
-      "description": "company and key responsibilities",
+      "organization_name": "company or organization name",
+      "description": "key responsibilities and achievements",
       "impact_metrics": "duration or key achievement in role",
       "tags": ["industry"]
     },
@@ -181,6 +182,7 @@ ${combinedText}`,
           user_id: user.id,
           type: component.type,
           title: component.title,
+          organization_name: component.organization_name || null,
           description: component.description || null,
           impact_metrics: component.impact_metrics || null,
           tags: component.tags || [],

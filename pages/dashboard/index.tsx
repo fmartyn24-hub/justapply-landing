@@ -17,6 +17,7 @@ interface CareerComponent {
   id: string
   type: string
   title: string
+  organization_name?: string
   description?: string
   start_date?: string
   end_date?: string
@@ -40,6 +41,7 @@ interface NewComponent {
   type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice' | 'context'
   title: string
   description: string
+  organization_name?: string
   start_date?: string
   end_date?: string
   impact_metrics?: string
@@ -360,6 +362,7 @@ function Dashboard() {
         user_id: session.user.id,
         type: formData.type,
         title: formData.title,
+        organization_name: formData.organization_name || null,
         description: formData.description,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,

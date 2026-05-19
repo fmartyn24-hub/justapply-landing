@@ -82,7 +82,7 @@ Address: ${profileData?.address || ''}
 ## Career Components
 
 ### Roles & Experience
-${roles.length > 0 ? roles.map((r: any) => `- ${r.title}${r.start_date ? ` (${r.start_date} - ${r.end_date || 'Present'})` : ''}: ${r.description || ''}`).join('\n') : 'No roles provided'}
+${roles.length > 0 ? roles.map((r: any) => `- ${r.title}${r.organization_name ? ` at ${r.organization_name}` : ''}${r.start_date ? ` (${r.start_date} - ${r.end_date || 'Present'})` : ''}: ${r.description || ''}`).join('\n') : 'No roles provided'}
 
 ### Skills & Technologies
 ${skills.length > 0 ? skills.map((s: any) => `- ${s.title}: ${s.description || ''}`).join('\n') : 'No skills provided'}
