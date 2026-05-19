@@ -15,9 +15,9 @@ interface CandidateBoardProps {
 
 type Status = 'draft' | 'applied'
 
-const statusConfig: Record<Status, { label: string; color: string; bgColor: string }> = {
-  draft: { label: 'Want to Apply', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
-  applied: { label: 'Applied', color: 'text-green-700', bgColor: 'bg-green-50' },
+const statusConfig: Record<Status, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  draft: { label: 'Want to Apply', color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+  applied: { label: 'Applied', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
 }
 
 export function CandidateBoard({
@@ -82,45 +82,45 @@ export function CandidateBoard({
     const config = statusConfig[status]
 
     return (
-      <div key={status} className="flex flex-col min-w-96 max-w-96">
+      <div key={status} className="flex flex-col flex-1 min-w-80">
         {/* Column Header */}
-        <div className={`${config.bgColor} border-b-2 border-gray-200 rounded-t-lg p-4`}>
-          <h3 className={`text-lg font-semibold ${config.color}`}>{config.label}</h3>
-          <p className="text-sm text-gray-600 mt-1">{apps.length} application{apps.length !== 1 ? 's' : ''}</p>
+        <div className={`${config.bgColor} border-b-2 ${config.borderColor} rounded-t-lg p-3`}>
+          <h3 className={`font-semibold text-gray-900 ${config.color}`}>{config.label}</h3>
+          <p className="text-xs text-gray-600 mt-0.5">{apps.length} application{apps.length !== 1 ? 's' : ''}</p>
         </div>
 
         {/* Droppable Area */}
         <div
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, status)}
-          className={`flex-1 p-4 space-y-3 min-h-96 rounded-b-lg border-2 border-dashed ${
-            draggedId ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50'
+          className={`flex-1 p-3 space-y-2 min-h-80 rounded-b-lg border-2 border-dashed ${
+            draggedId ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'
           } transition`}
         >
           {apps.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-8">Drop applications here</p>
+            <p className="text-center text-gray-400 text-xs py-6">Drop applications here</p>
           ) : (
             apps.map((app) => (
               <div
                 key={app.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, app.id)}
-                className={`bg-white p-4 rounded-lg border-2 border-gray-200 cursor-move transition ${
-                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-blue-400 hover:shadow-md'
+                className={`bg-white p-3 rounded-lg border border-gray-200 cursor-move transition ${
+                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-magenta-300 hover:shadow-sm'
                 }`}
               >
-                <div className="mb-3">
-                  <h4 className="font-semibold text-gray-900">{app.job_title}</h4>
-                  <p className="text-sm text-gray-600">{app.company_name}</p>
+                <div className="mb-2">
+                  <h4 className="font-medium text-gray-900 text-sm">{app.job_title}</h4>
+                  <p className="text-xs text-gray-600">{app.company_name}</p>
                 </div>
 
                 {app.deadline && (
-                  <p className="text-xs text-gray-500 mb-3">
-                    Deadline: {new Date(app.deadline).toLocaleDateString()}
+                  <p className="text-xs text-gray-500 mb-2">
+                    {new Date(app.deadline).toLocaleDateString()}
                   </p>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Button
                     onClick={() => setSelectedApp(app)}
                     variant="outline"
@@ -149,23 +149,23 @@ export function CandidateBoard({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300">
-        <p className="text-gray-600 text-lg">No applications yet</p>
+      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-gray-700 font-medium">No applications yet</p>
         <p className="text-gray-500 text-sm mt-1">Click the "Just Apply" button to generate your first application, then manage them here.</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold text-gray-900">Application Pipeline</h2>
-        <p className="text-gray-600 mt-1">Drag applications between columns to update status</p>
+        <h2 className="text-2xl font-semibold text-gray-900">Application Pipeline</h2>
+        <p className="text-sm text-gray-500 mt-1">Drag applications between columns to update status</p>
       </div>
 
       {/* Kanban Board */}
-      <div className="flex gap-6 overflow-x-auto pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {(Object.keys(statusConfig) as Status[]).map((status) => renderColumn(status))}
       </div>
 
