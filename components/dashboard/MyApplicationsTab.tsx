@@ -113,8 +113,8 @@ export function MyApplicationsTab({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300">
-        <p className="text-gray-600 text-lg">No applications yet</p>
+      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-gray-700 font-medium">No applications yet</p>
         <p className="text-gray-500 text-sm mt-1">
           Click the "Just Apply" button to generate your first application.
         </p>
@@ -123,9 +123,9 @@ export function MyApplicationsTab({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-3xl font-bold text-gray-900">My Applications</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">My Applications</h2>
         <p className="text-gray-600 mt-1">
           {wantToApply.length + applied.length} application{applications.length !== 1 ? 's' : ''}
         </p>

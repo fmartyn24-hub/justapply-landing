@@ -31,19 +31,19 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 shadow-sm space-y-6">
+    <div className="bg-white rounded-lg p-6 border border-gray-200 space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Paste <span className="font-normal text-gray-700">your experience</span>
+        <h2 className="text-xl font-semibold text-gray-900">
+          Paste your experience
         </h2>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-600 text-sm mt-1">
           Add your CV, cover letter, or job descriptions
         </p>
       </div>
 
       {/* Textarea Section */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
           Experience information
         </label>
@@ -51,11 +51,11 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
           value={text}
           onChange={handleTextChange}
           placeholder="Paste your CV, cover letter, job descriptions, or any experience-related information here..."
-          className="w-full h-48 px-4 py-3 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none transition font-mono text-sm placeholder-gray-400"
+          className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300 resize-none transition font-mono text-sm placeholder-gray-400"
         />
-        <div className="flex justify-between items-center text-sm">
-          <p className={`${charCount < 50 ? 'text-gray-400' : 'text-green-600 font-medium'}`}>
-            {charCount} characters {charCount < 50 ? `(need ${50 - charCount} more)` : '✓'}
+        <div className="flex justify-between items-center text-xs text-gray-500">
+          <p>
+            {charCount} characters {charCount < 50 ? `(need ${50 - charCount} more)` : ''}
           </p>
           {text && (
             <button
@@ -75,34 +75,34 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
         loading={analyzing}
         className="w-full"
       >
-        {analyzing ? 'Analyzing...' : 'Analyze'}
+        Analyze
       </Button>
 
       {/* Trust/Safety Message */}
-      <div className="bg-white bg-opacity-60 rounded-lg p-4 border border-blue-100">
+      <div className="rounded-lg p-3 border border-gray-200 bg-gray-50">
         <p className="text-xs text-gray-600">
-          <span className="font-semibold text-gray-700">🔒 Your data is safe.</span> Everything stays private and is only used to build your profile.
+          <span className="font-semibold text-gray-700">Your data is safe.</span> Everything stays private and is only used to build your profile.
         </p>
       </div>
 
       {/* Tips Section */}
-      <div className="space-y-3 border-t border-blue-100 pt-4">
-        <p className="text-sm font-medium text-gray-700">Tips for best results:</p>
-        <ul className="text-sm text-gray-600 space-y-2">
+      <div className="space-y-2 border-t border-gray-200 pt-3">
+        <p className="text-xs font-medium text-gray-700">Tips for best results:</p>
+        <ul className="text-xs text-gray-600 space-y-1">
           <li className="flex gap-2">
-            <span className="text-blue-500 flex-shrink-0">•</span>
+            <span className="text-gray-400 flex-shrink-0">•</span>
             <span>Include dates, job titles, and company names</span>
           </li>
           <li className="flex gap-2">
-            <span className="text-blue-500 flex-shrink-0">•</span>
+            <span className="text-gray-400 flex-shrink-0">•</span>
             <span>Add achievements, metrics, and skills</span>
           </li>
           <li className="flex gap-2">
-            <span className="text-blue-500 flex-shrink-0">•</span>
+            <span className="text-gray-400 flex-shrink-0">•</span>
             <span>You can paste multiple times to enrich your profile</span>
           </li>
           <li className="flex gap-2">
-            <span className="text-blue-500 flex-shrink-0">•</span>
+            <span className="text-gray-400 flex-shrink-0">•</span>
             <span>Edit any component to fine-tune the details</span>
           </li>
         </ul>

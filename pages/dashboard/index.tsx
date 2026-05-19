@@ -966,19 +966,19 @@ function Dashboard() {
 
             {/* Empty State for Components */}
             {!loading && components.length === 0 && (
-              <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300 space-y-6">
+              <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
                 <div>
-                  <p className="text-gray-600 text-lg font-medium mb-2">Ready to build your profile?</p>
-                  <p className="text-gray-500 text-sm mb-6">
+                  <p className="text-gray-700 font-medium">Ready to build your profile?</p>
+                  <p className="text-gray-500 text-sm mt-1">
                     Add your experience information to get started. We'll intelligently extract your roles, achievements, skills, and experience.
                   </p>
                 </div>
-                <div className="flex gap-4 justify-center">
-                  <Button onClick={() => setShowImportModal(true)} className="bg-blue-600 hover:bg-blue-700">
-                    ⬆️ Import your experience
+                <div className="flex gap-2 justify-center flex-wrap">
+                  <Button onClick={() => setShowImportModal(true)}>
+                    Import your experience
                   </Button>
                   <Button onClick={() => setShowAddForm(true)} variant="outline">
-                    + Add component
+                    Add component
                   </Button>
                 </div>
               </div>
