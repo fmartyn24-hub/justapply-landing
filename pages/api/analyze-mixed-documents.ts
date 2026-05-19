@@ -46,18 +46,13 @@ export default async function handler(
 Your task:
 1. Identify where each document starts and ends (look for clear breaks, new person's name, "Dear", etc.)
 2. Classify each as either "cv" or "coverLetter"
-3. Extract the full text of each document
-4. Return as JSON
+3. Extract the full text of each document, preserving all original content and formatting
+4. Return ONLY valid JSON
 
-Return ONLY valid JSON with this structure:
-{
-  "documents": [
-    {
-      "type": "cv" or "coverLetter",
-      "content": "full text of document"
-    }
-  ]
-}
+CRITICAL: Ensure all JSON strings are properly escaped with backslashes for quotes and newlines.
+
+Return EXACTLY this JSON structure (no markdown, no code blocks):
+{"documents": [{"type": "cv", "content": "full text here"}, {"type": "coverLetter", "content": "full text here"}]}
 
 Text to analyze:
 ${text}`,
@@ -71,6 +66,8 @@ ${text}`,
     }
 
     let jsonText = classifyContent.text.trim()
+
+    // Remove markdown code blocks if present
     if (jsonText.startsWith('```json')) {
       jsonText = jsonText.slice(7)
     } else if (jsonText.startsWith('```')) {
@@ -79,13 +76,26 @@ ${text}`,
     if (jsonText.endsWith('```')) {
       jsonText = jsonText.slice(0, -3)
     }
+    jsonText = jsonText.trim()
 
     let classified
     try {
-      classified = JSON.parse(jsonText.trim())
+      classified = JSON.parse(jsonText)
     } catch (parseError) {
-      console.error('Failed to parse Claude response:', jsonText.substring(0, 500))
-      throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
+      console.error('Failed to parse Claude response. First 1000 chars:', jsonText.substring(0, 1000))
+      console.error('Parse error:', parseError instanceof Error ? parseError.message : String(parseError))
+
+      // Try to extract JSON object if it's embedded in other text
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          classified = JSON.parse(jsonMatch[0])
+        } catch {
+          throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
+        }
+      } else {
+        throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
+      }
     }
     const documents: DocumentAnalysis[] = classified.documents || []
 
