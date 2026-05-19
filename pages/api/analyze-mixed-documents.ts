@@ -94,9 +94,6 @@ ${text}`,
       throw new Error('No documents found in the pasted text')
     }
 
-    const classified = { documents }
-    const documents: DocumentAnalysis[] = classified.documents || []
-
     if (documents.length === 0) {
       return res.status(200).json({
         success: true,
