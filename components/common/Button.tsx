@@ -19,9 +19,9 @@ export function Button({
     'font-semibold rounded-lg transition duration-200 flex items-center justify-center gap-2'
 
   const variantStyles = {
-    primary: 'bg-primary text-white hover:bg-blue-700 disabled:opacity-50',
-    secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 disabled:opacity-50',
-    outline: 'border border-gray-300 text-gray-900 hover:bg-gray-50 disabled:opacity-50',
+    primary: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50',
+    secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 active:bg-gray-300 border border-gray-200 disabled:opacity-50',
+    outline: 'border border-gray-300 text-gray-900 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50',
   }
 
   const sizeStyles = {
