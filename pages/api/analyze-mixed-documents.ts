@@ -36,23 +36,22 @@ export default async function handler(
 
     // Step 1: Split and classify documents
     const classifyResponse = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
+      model: 'claude-opus-4-6',
+      max_tokens: 8000,
       messages: [
         {
           role: 'user',
-          content: `You are a document classifier. Analyze the following text which may contain multiple documents (CVs, cover letters, etc) mixed together.
+          content: `You are a document classifier. Analyze the following text which may contain multiple documents (CVs, cover letters, etc) mixed together. Return valid JSON.
 
-Your task:
-1. Identify where each document starts and ends (look for clear breaks, new person's name, "Dear", etc.)
-2. Classify each as either "cv" or "coverLetter"
-3. Extract the full text of each document, preserving all original content and formatting
-4. Return ONLY valid JSON
+Identify each document, classify as "cv" or "coverLetter", and extract its full text.
 
-CRITICAL: Ensure all JSON strings are properly escaped with backslashes for quotes and newlines.
+IMPORTANT: Use proper JSON escaping. In the "content" field, you MUST:
+- Escape backslashes as \\\\
+- Escape quotes as \\"
+- Escape newlines as \\n
 
-Return EXACTLY this JSON structure (no markdown, no code blocks):
-{"documents": [{"type": "cv", "content": "full text here"}, {"type": "coverLetter", "content": "full text here"}]}
+Return ONLY valid JSON (no markdown, no code blocks):
+{"documents":[{"type":"cv","content":"full document text here"},{"type":"coverLetter","content":"full document text here"}]}
 
 Text to analyze:
 ${text}`,
@@ -90,7 +89,8 @@ ${text}`,
       if (jsonMatch) {
         try {
           classified = JSON.parse(jsonMatch[0])
-        } catch {
+        } catch (innerError) {
+          console.error('Failed to parse extracted JSON:', innerError instanceof Error ? innerError.message : String(innerError))
           throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
         }
       } else {
