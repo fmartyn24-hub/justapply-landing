@@ -69,28 +69,36 @@ ${text}`,
 
     const responseText = classifyContent.text.trim()
 
-    // Parse delimiter-based format: DOCUMENT_TYPE:xxx\nCONTENT_START\n...\nCONTENT_END
+    // Parse delimiter-based format: DOCUMENT_TYPE:xxx\nCONTENT_START\n...\nCONTENT_END (or end of response)
     const documents: Array<{ type: 'cv' | 'coverLetter'; content: string }> = []
-    const docMatches = responseText.match(/DOCUMENT_TYPE:(cv|coverLetter)\s*\nCONTENT_START\s*\n([\s\S]*?)\nCONTENT_END/g)
 
-    if (docMatches && docMatches.length > 0) {
-      for (const match of docMatches) {
-        const typeMatch = match.match(/DOCUMENT_TYPE:(cv|coverLetter)/)
-        const contentMatch = match.match(/CONTENT_START\s*\n([\s\S]*?)\nCONTENT_END/)
+    // Split by DOCUMENT_TYPE markers
+    const sections = responseText.split(/DOCUMENT_TYPE:/)
 
-        if (typeMatch && contentMatch) {
-          const type = typeMatch[1] as 'cv' | 'coverLetter'
-          const content = contentMatch[1].trim()
-          if (content.length > 50) {
-            // Only include if content is substantial
-            documents.push({ type, content })
-          }
-        }
+    for (let i = 1; i < sections.length; i++) {
+      const section = sections[i]
+
+      // Extract type (first word after DOCUMENT_TYPE:)
+      const typeMatch = section.match(/^(cv|coverLetter)/)
+      if (!typeMatch) continue
+
+      const type = typeMatch[1] as 'cv' | 'coverLetter'
+
+      // Extract content between CONTENT_START and CONTENT_END (or end of section)
+      const contentMatch = section.match(/CONTENT_START\s*\n([\s\S]*?)(?:\nCONTENT_END|$)/)
+      if (!contentMatch) continue
+
+      const content = contentMatch[1].trim()
+
+      // Only include if content is substantial
+      if (content.length > 50) {
+        documents.push({ type, content })
       }
     }
 
     if (documents.length === 0) {
       console.error('No documents parsed from response:', responseText.substring(0, 500))
+      console.error('Response text:', responseText)
       throw new Error('No documents found in the pasted text')
     }
 
