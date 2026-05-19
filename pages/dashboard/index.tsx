@@ -101,6 +101,10 @@ function Dashboard() {
     tags: [],
     tone_keywords: '',
     related_terms: '',
+    organization_name: '',
+    start_date: '',
+    end_date: '',
+    impact_metrics: '',
     primary_location: '',
   })
   const [analyzing, setAnalyzing] = useState(false)
@@ -1596,17 +1600,32 @@ function Dashboard() {
               </div>
 
               {formData.type === 'role' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.primary_location || ''}
-                    onChange={(e) => setFormData({ ...formData, primary_location: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Company/Organization *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.organization_name || ''}
+                      onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="e.g., Acme Corp, Google, Startup Inc"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.primary_location || ''}
+                      onChange={(e) => setFormData({ ...formData, primary_location: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="e.g., San Francisco, CA or Remote"
+                    />
+                  </div>
                 </div>
               )}
 
