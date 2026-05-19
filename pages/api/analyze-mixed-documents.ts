@@ -36,22 +36,25 @@ export default async function handler(
 
     // Step 1: Split and classify documents
     const classifyResponse = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 8000,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4000,
       messages: [
         {
           role: 'user',
-          content: `You are a document classifier. Analyze the following text which may contain multiple documents (CVs, cover letters, etc) mixed together. Return valid JSON.
+          content: `Analyze the following text which may contain multiple documents (CVs, cover letters, etc). Identify each document and classify it.
 
-Identify each document, classify as "cv" or "coverLetter", and extract its full text.
+Return ONLY this format (no other text, no markdown):
+DOCUMENT_TYPE:cv
+CONTENT_START
+[full CV text here]
+CONTENT_END
+DOCUMENT_TYPE:coverLetter
+CONTENT_START
+[full cover letter text here]
+CONTENT_END
 
-IMPORTANT: Use proper JSON escaping. In the "content" field, you MUST:
-- Escape backslashes as \\\\
-- Escape quotes as \\"
-- Escape newlines as \\n
-
-Return ONLY valid JSON (no markdown, no code blocks):
-{"documents":[{"type":"cv","content":"full document text here"},{"type":"coverLetter","content":"full document text here"}]}
+Use DOCUMENT_TYPE:cv for CVs/resumes and DOCUMENT_TYPE:coverLetter for cover letters.
+Include all original text between CONTENT_START and CONTENT_END.
 
 Text to analyze:
 ${text}`,
@@ -64,39 +67,34 @@ ${text}`,
       throw new Error('Unexpected response type from Claude')
     }
 
-    let jsonText = classifyContent.text.trim()
+    const responseText = classifyContent.text.trim()
 
-    // Remove markdown code blocks if present
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.slice(7)
-    } else if (jsonText.startsWith('```')) {
-      jsonText = jsonText.slice(3)
-    }
-    if (jsonText.endsWith('```')) {
-      jsonText = jsonText.slice(0, -3)
-    }
-    jsonText = jsonText.trim()
+    // Parse delimiter-based format: DOCUMENT_TYPE:xxx\nCONTENT_START\n...\nCONTENT_END
+    const documents: Array<{ type: 'cv' | 'coverLetter'; content: string }> = []
+    const docMatches = responseText.match(/DOCUMENT_TYPE:(cv|coverLetter)\s*\nCONTENT_START\s*\n([\s\S]*?)\nCONTENT_END/g)
 
-    let classified
-    try {
-      classified = JSON.parse(jsonText)
-    } catch (parseError) {
-      console.error('Failed to parse Claude response. First 1000 chars:', jsonText.substring(0, 1000))
-      console.error('Parse error:', parseError instanceof Error ? parseError.message : String(parseError))
+    if (docMatches && docMatches.length > 0) {
+      for (const match of docMatches) {
+        const typeMatch = match.match(/DOCUMENT_TYPE:(cv|coverLetter)/)
+        const contentMatch = match.match(/CONTENT_START\s*\n([\s\S]*?)\nCONTENT_END/)
 
-      // Try to extract JSON object if it's embedded in other text
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        try {
-          classified = JSON.parse(jsonMatch[0])
-        } catch (innerError) {
-          console.error('Failed to parse extracted JSON:', innerError instanceof Error ? innerError.message : String(innerError))
-          throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
+        if (typeMatch && contentMatch) {
+          const type = typeMatch[1] as 'cv' | 'coverLetter'
+          const content = contentMatch[1].trim()
+          if (content.length > 50) {
+            // Only include if content is substantial
+            documents.push({ type, content })
+          }
         }
-      } else {
-        throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
       }
     }
+
+    if (documents.length === 0) {
+      console.error('No documents parsed from response:', responseText.substring(0, 500))
+      throw new Error('No documents found in the pasted text')
+    }
+
+    const classified = { documents }
     const documents: DocumentAnalysis[] = classified.documents || []
 
     if (documents.length === 0) {
