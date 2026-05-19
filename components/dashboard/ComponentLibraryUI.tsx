@@ -5,6 +5,7 @@ interface CareerComponent {
   id: string
   type: string
   title: string
+  organization_name?: string
   description?: string
   start_date?: string
   end_date?: string
@@ -163,7 +164,12 @@ export function ComponentLibraryUI({
                     <span className="text-2xl">{config.icon}</span>
                     <div>
                       <p className="font-semibold text-gray-900">{component.title}</p>
-                      <p className="text-xs text-gray-600">{config.label}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-600">{config.label}</p>
+                        {component.organization_name && (
+                          <p className="text-xs text-gray-500">· {component.organization_name}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
