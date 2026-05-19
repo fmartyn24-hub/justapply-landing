@@ -496,13 +496,14 @@ function Dashboard() {
             setTimeout(() => setSuccessMessage(''), 2000)
           }, 1500)
         }
+      } catch (err) {
+        console.error('Analysis error:', err)
+        setSuccessMessage(`❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`)
+        setTimeout(() => setSuccessMessage(''), 4000)
+      } finally {
+        setAnalyzing(false)
       }
-    } catch (err) {
-      console.error('Analysis error:', err)
-      setSuccessMessage(`❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`)
-      setTimeout(() => setSuccessMessage(''), 4000)
-      setAnalyzing(false)
-    }
+    })()
   }
 
   const handleEditComponent = (component: CareerComponent) => {
