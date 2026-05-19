@@ -17,20 +17,25 @@ interface CareerComponent {
 }
 
 function parseTitle(title: string): { jobTitle: string; organization: string | null } {
-  // Pattern: "Job Title at Organization"
-  if (title.includes(' at ')) {
-    const [jobTitle, organization] = title.split(' at ').map((s) => s.trim())
-    return { jobTitle, organization }
+  // Pattern 1: "Job Title at Organization"
+  const atMatch = title.match(/^(.+?)\s+at\s+(.+)$/)
+  if (atMatch) {
+    return {
+      jobTitle: atMatch[1].trim(),
+      organization: atMatch[2].trim(),
+    }
   }
 
-  // Special case: EPSA and similar (President, etc.)
-  // For now, if no " at " pattern, try other common patterns
-  if (title.includes(' of ')) {
-    // "President of European Parliament Stagiaires Association (EPSA)"
-    // Keep as is for now - will be handled case by case
-    return { jobTitle: title, organization: null }
+  // Pattern 2: "Position of Organization Name" (for titles like "President of European Parliament Stagiaires Association")
+  const ofMatch = title.match(/^(.+?)\s+of\s+(the\s+)?(.+)$/)
+  if (ofMatch && /^(president|director|head|founder|chief|ceo|cto|vp|vice)/i.test(ofMatch[1].trim())) {
+    return {
+      jobTitle: ofMatch[1].trim(),
+      organization: ofMatch[3].trim(),
+    }
   }
 
+  // No recognized pattern
   return { jobTitle: title, organization: null }
 }
 
@@ -38,11 +43,11 @@ async function migrateCareerComponents() {
   console.log('Starting career components migration...')
 
   try {
-    // Fetch all experience-type career components
+    // Fetch all experience and role type career components
     const { data: components, error: fetchError } = await supabase
       .from('career_components')
       .select('id, title, type')
-      .eq('type', 'experience')
+      .or("type.eq.experience,type.eq.role")
 
     if (fetchError) {
       console.error('Error fetching career components:', fetchError)
@@ -54,7 +59,7 @@ async function migrateCareerComponents() {
       process.exit(0)
     }
 
-    console.log(`Found ${components.length} experience components to process`)
+    console.log(`Found ${components.length} experience/role components to process`)
 
     let updated = 0
     let skipped = 0
