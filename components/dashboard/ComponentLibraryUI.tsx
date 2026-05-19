@@ -25,14 +25,14 @@ interface ComponentLibraryUIProps {
   isDeleting?: (id: string) => boolean
 }
 
-const typeConfig: Record<string, { icon: string; color: string; label: string }> = {
-  achievement: { icon: '⭐', color: 'from-yellow-100 to-yellow-50', label: 'Achievement' },
-  skill: { icon: '🛠️', color: 'from-blue-100 to-blue-50', label: 'Skill' },
-  role: { icon: '💼', color: 'from-purple-100 to-purple-50', label: 'Role' },
-  project: { icon: '🚀', color: 'from-green-100 to-green-50', label: 'Project' },
-  kpi: { icon: '📊', color: 'from-orange-100 to-orange-50', label: 'KPI' },
-  voice: { icon: '🎤', color: 'from-pink-100 to-pink-50', label: 'Voice' },
-  context: { icon: '📖', color: 'from-indigo-100 to-indigo-50', label: 'Context' },
+const typeConfig: Record<string, { label: string }> = {
+  achievement: { label: 'Achievement' },
+  skill: { label: 'Skill' },
+  role: { label: 'Role' },
+  project: { label: 'Project' },
+  kpi: { label: 'KPI' },
+  voice: { label: 'Voice' },
+  context: { label: 'Context' },
 }
 
 export function ComponentLibraryUI({
@@ -73,40 +73,38 @@ export function ComponentLibraryUI({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Your career components</h2>
-          <p className="text-gray-600 mt-1">
-            {filteredComponents.length} of {components.length} components
+          <h2 className="text-2xl font-semibold text-gray-900">Career components</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {filteredComponents.length} of {components.length}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={onImport} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-            ⬆️ Import more context
+          <Button onClick={onImport} variant="outline" className="text-sm">
+            Import context
           </Button>
           {onEnrichProfile && (
-            <Button onClick={onEnrichProfile} variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
-              Enrich Your Profile
+            <Button onClick={onEnrichProfile} variant="outline" className="text-sm">
+              Enrich profile
             </Button>
           )}
-          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700">
-            + Add component
+          <Button onClick={onAdd} className="text-sm">
+            Add component
           </Button>
         </div>
       </div>
 
       {/* Search */}
-      <div>
-        <input
-          type="text"
-          placeholder="Search components by title, description, or tags..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-        />
-      </div>
+      <input
+        type="text"
+        placeholder="Search by title, description, or tags"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+      />
 
       {/* Filter Chips */}
       <div className="flex flex-wrap gap-2">
@@ -114,34 +112,34 @@ export function ComponentLibraryUI({
           <button
             key={type}
             onClick={() => toggleType(type)}
-            className={`px-4 py-2 rounded-full font-medium transition-all ${
+            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-all ${
               selectedTypes.has(type)
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
             }`}
           >
-            {typeConfig[type].icon} {typeConfig[type].label}
+            {typeConfig[type].label}
           </button>
         ))}
       </div>
 
       {/* Component Grid */}
       {filteredComponents.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <p className="text-gray-600 text-lg">No components yet.</p>
+        <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-700 font-medium">No components found</p>
           <p className="text-gray-500 text-sm mt-1">
             {components.length === 0
               ? 'Paste your CV above or add your first component manually.'
               : 'Try adjusting your search or filters.'}
           </p>
           {components.length === 0 && (
-            <Button onClick={onAdd} variant="outline" className="mt-4">
-              Add Your First Component
+            <Button onClick={onAdd} variant="outline" className="mt-3 text-sm">
+              Add component
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredComponents.map((component) => {
             const config = typeConfig[component.type]
 
@@ -156,51 +154,48 @@ export function ComponentLibraryUI({
             return (
               <div
                 key={component.id}
-                className={`bg-gradient-to-br ${config.color} rounded-lg p-5 border-2 border-gray-200 hover:border-blue-400 transition group cursor-pointer`}
+                className="bg-white rounded-lg p-3 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition group cursor-pointer"
               >
                 {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{config.icon}</span>
-                    <div>
-                      <p className="font-semibold text-gray-900">{component.title}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-600">{config.label}</p>
-                        {component.organization_name && (
-                          <p className="text-xs text-gray-500">· {component.organization_name}</p>
-                        )}
-                      </div>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 text-sm">{component.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-500">{config.label}</p>
+                      {component.organization_name && (
+                        <p className="text-xs text-gray-400">· {component.organization_name}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button
                       onClick={() => onEdit(component)}
-                      className="p-2 hover:bg-white rounded transition text-gray-600 hover:text-gray-900"
+                      className="p-1 hover:bg-gray-100 rounded text-sm text-gray-400 hover:text-gray-700 transition"
                       title="Edit"
                     >
-                      ✏️
+                      Edit
                     </button>
                     <button
                       onClick={() => onDelete(component.id)}
                       disabled={isDeletingComponent}
-                      className="p-2 hover:bg-white rounded transition text-gray-600 hover:text-red-600 disabled:opacity-50"
+                      className="p-1 hover:bg-gray-100 rounded text-sm text-gray-400 hover:text-red-600 disabled:opacity-50 transition"
                       title="Delete"
                     >
-                      🗑️
+                      Delete
                     </button>
                   </div>
                 </div>
 
                 {/* Description */}
                 {component.description && (
-                  <p className="text-sm text-gray-700 mb-3 line-clamp-2">
+                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">
                     {component.description}
                   </p>
                 )}
 
                 {/* Dates */}
                 {(component.start_date || component.end_date) && (
-                  <p className="text-xs text-gray-600 mb-2">
+                  <p className="text-xs text-gray-500 mb-2">
                     {component.start_date && new Date(component.start_date).getFullYear()}
                     {component.end_date && ` - ${new Date(component.end_date).getFullYear()}`}
                   </p>
@@ -208,46 +203,46 @@ export function ComponentLibraryUI({
 
                 {/* Location (for roles) */}
                 {component.primary_location && (
-                  <p className="text-xs text-gray-600 mb-2">
-                    📍 {component.primary_location}
+                  <p className="text-xs text-gray-500 mb-2">
+                    {component.primary_location}
                   </p>
                 )}
 
                 {/* Impact Metrics */}
                 {component.impact_metrics && (
-                  <p className="text-sm font-medium text-gray-800 mb-3">
-                    📈 {component.impact_metrics}
+                  <p className="text-xs text-gray-700 font-medium mb-2">
+                    {component.impact_metrics}
                   </p>
                 )}
 
                 {/* Tone Keywords (for Voice components) */}
                 {(component as any).tone_keywords && (
-                  <p className="text-sm text-gray-700 mb-3 italic">
-                    Tone: {(component as any).tone_keywords}
+                  <p className="text-xs text-gray-600 mb-2">
+                    <span className="text-gray-500">Tone:</span> {(component as any).tone_keywords}
                   </p>
                 )}
 
                 {/* Related Terms (for Context components) */}
                 {(component as any).related_terms && (
-                  <p className="text-sm text-gray-700 mb-3">
-                    Explains: {(component as any).related_terms}
+                  <p className="text-xs text-gray-600 mb-2">
+                    <span className="text-gray-500">Explains:</span> {(component as any).related_terms}
                   </p>
                 )}
 
                 {/* Tags */}
                 {component.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {component.tags.slice(0, 3).map((tag) => (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {component.tags.slice(0, 2).map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-1 bg-white bg-opacity-60 text-gray-700 text-xs rounded"
+                        className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
                       >
                         {tag}
                       </span>
                     ))}
-                    {component.tags.length > 3 && (
-                      <span className="px-2 py-1 text-gray-600 text-xs">
-                        +{component.tags.length - 3}
+                    {component.tags.length > 2 && (
+                      <span className="text-gray-500 text-xs">
+                        +{component.tags.length - 2}
                       </span>
                     )}
                   </div>
