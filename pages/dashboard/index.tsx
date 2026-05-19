@@ -822,61 +822,61 @@ function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="w-full space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full space-y-4">
             {/* Success Banner */}
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <p className="text-green-800">✅ {successMessage}</p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                <p className="text-green-800">{successMessage}</p>
               </div>
             )}
 
             {/* Tell Us More About You - if first name not set */}
             {!profileData.firstName && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
-                <h3 className="font-semibold text-purple-900 mb-2">Tell us more about you</h3>
-                <p className="text-purple-800 text-sm mb-4">
-                  Add your name and contact info to personalize your experience and make applications smoother.
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-1 text-sm">Complete your profile</h3>
+                <p className="text-blue-800 text-xs mb-3">
+                  Add your name and contact info to personalize your applications.
                 </p>
-                <Button onClick={() => setShowSettings(true)} variant="outline">
-                  Complete Your Profile
+                <Button onClick={() => setShowSettings(true)} variant="outline" className="text-sm">
+                  Complete Profile
                 </Button>
               </div>
             )}
 
             {/* Tabs for Library, Timeline, Just Apply, and My Applications */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex gap-4 border-b border-gray-200 overflow-x-auto">
                 {components.length > 0 && (
                   <>
                     <button
                       onClick={() => setActiveTab('library')}
-                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'library'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                          : 'border-transparent text-gray-600 hover:text-gray-700'
                       }`}
                     >
-                      Component Library
+                      Components
                     </button>
                     <button
                       onClick={() => setActiveTab('timeline')}
-                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'timeline'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                          : 'border-transparent text-gray-600 hover:text-gray-700'
                       }`}
                     >
-                      Timeline View
+                      Timeline
                     </button>
                   </>
                 )}
                 <button
                   onClick={() => setActiveTab('justApply')}
-                  className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                  className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                     activeTab === 'justApply'
                       ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                      : 'border-transparent text-gray-600 hover:text-gray-700'
                   }`}
                 >
                   Just Apply
@@ -885,20 +885,20 @@ function Dashboard() {
                   <>
                     <button
                       onClick={() => setActiveTab('myApplications')}
-                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'myApplications'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                          : 'border-transparent text-gray-600 hover:text-gray-700'
                       }`}
                     >
-                      My Applications ({applications.length})
+                      Applications ({applications.length})
                     </button>
                     <button
                       onClick={() => setActiveTab('candidateBoard')}
-                      className={`px-4 py-3 font-medium transition border-b-2 whitespace-nowrap ${
+                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
                         activeTab === 'candidateBoard'
                           ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900'
+                          : 'border-transparent text-gray-600 hover:text-gray-700'
                       }`}
                     >
                       Candidate Board
