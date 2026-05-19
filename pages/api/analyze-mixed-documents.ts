@@ -80,7 +80,13 @@ ${text}`,
       jsonText = jsonText.slice(0, -3)
     }
 
-    const classified = JSON.parse(jsonText.trim())
+    let classified
+    try {
+      classified = JSON.parse(jsonText.trim())
+    } catch (parseError) {
+      console.error('Failed to parse Claude response:', jsonText.substring(0, 500))
+      throw new Error('Failed to parse document classification - the content may be too complex. Try pasting smaller sections.')
+    }
     const documents: DocumentAnalysis[] = classified.documents || []
 
     if (documents.length === 0) {

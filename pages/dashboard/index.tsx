@@ -407,98 +407,100 @@ function Dashboard() {
     if (!session?.access_token || !session?.user?.id) return
 
     setAnalyzing(true)
-    try {
-      // Step 1: Classify and split documents (and extract voice from cover letters)
-      const classifyResponse = await fetch('/api/analyze-mixed-documents', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text }),
-      })
+    setSuccessMessage('✨ Analysis started! You can continue working while we process your documents.')
 
-      if (!classifyResponse.ok) {
-        const data = await classifyResponse.json()
-        throw new Error(data.error || 'Failed to classify documents')
-      }
-
-      const { documents, voice } = await classifyResponse.json()
-
-      if (!documents || documents.length === 0) {
-        throw new Error('No documents found in the pasted text')
-      }
-
-      // Step 2: Extract components from each document
-      for (const doc of documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>) {
-        const response = await fetch('/api/extract-components', {
+    // Run analysis in the background without blocking
+    ;(async () => {
+      try {
+        // Step 1: Classify and split documents
+        const classifyResponse = await fetch('/api/analyze-mixed-documents', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ text: doc.content }),
+          body: JSON.stringify({ text }),
         })
 
-        if (!response.ok) {
-          console.error(`Failed to extract components from ${doc.type}`)
+        if (!classifyResponse.ok) {
+          const data = await classifyResponse.json()
+          throw new Error(data.error || 'Failed to classify documents')
         }
-      }
 
-      // Step 3: If there's voice data from cover letters, create/update voice component
-      if (voice?.toneKeywords) {
-        const existingVoice = components.find((c) => c.type === 'voice')
+        const { documents, voice } = await classifyResponse.json()
 
-        if (existingVoice) {
-          // Update existing voice component
-          const { error } = await supabase
-            .from('career_components')
-            .update({
+        if (!documents || documents.length === 0) {
+          throw new Error('No documents found in the pasted text')
+        }
+
+        // Step 2: Extract components from each document (in parallel)
+        await Promise.all(
+          (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).map((doc) =>
+            fetch('/api/extract-components', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ text: doc.content }),
+            }).catch((err) => console.error(`Failed to extract components from ${doc.type}:`, err))
+          )
+        )
+
+        // Step 3: If there's voice data from cover letters, create/update voice component
+        if (voice?.toneKeywords) {
+          const existingVoice = components.find((c) => c.type === 'voice')
+
+          if (existingVoice) {
+            // Update existing voice component
+            await supabase
+              .from('career_components')
+              .update({
+                tone_keywords: voice.toneKeywords,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingVoice.id)
+          } else {
+            // Create new voice component
+            await supabase.from('career_components').insert({
+              user_id: session.user.id,
+              type: 'voice',
+              title: 'My Voice',
+              description: 'Your communication style and tone extracted from cover letters',
               tone_keywords: voice.toneKeywords,
-              updated_at: new Date().toISOString(),
+              tags: [],
+              source: 'auto-extracted',
             })
-            .eq('id', existingVoice.id)
-
-          if (error) console.error('Failed to update voice component:', error)
-        } else {
-          // Create new voice component
-          const { error } = await supabase.from('career_components').insert({
-            user_id: session.user.id,
-            type: 'voice',
-            title: 'My Voice',
-            description: 'Your communication style and tone extracted from cover letters',
-            tone_keywords: voice.toneKeywords,
-            tags: [],
-            source: 'auto-extracted',
-          })
-
-          if (error) console.error('Failed to create voice component:', error)
+          }
         }
-      }
 
-      // Step 4: Refetch all components
-      const { data: updatedComponents } = await supabase
-        .from('career_components')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
+        // Step 4: Refetch all components
+        const { data: updatedComponents } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
 
-      if (updatedComponents) {
-        const normalizedComponents = updatedComponents.map((comp: any) => ({
-          ...comp,
-          type: normalizeComponentType(comp.type),
-        }))
-        setComponents(normalizedComponents)
+        if (updatedComponents) {
+          const normalizedComponents = updatedComponents.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
 
-        const cvCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'cv').length
-        const clCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'coverLetter').length
-        const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
-        alert(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
-        setActiveTab('library')
+          const cvCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'cv').length
+          const clCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'coverLetter').length
+          const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
+          setSuccessMessage(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
+          setTimeout(() => {
+            setActiveTab('library')
+            setTimeout(() => setSuccessMessage(''), 2000)
+          }, 1500)
+        }
       }
     } catch (err) {
       console.error('Analysis error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to analyze text')
-    } finally {
+      setSuccessMessage(`❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`)
+      setTimeout(() => setSuccessMessage(''), 4000)
       setAnalyzing(false)
     }
   }
