@@ -36,8 +36,8 @@ export default function PreviewPage() {
           return
         }
 
-        const { applicationId, template, documentType } = JSON.parse(data)
-        setPreviewData({ applicationId, template, documentType })
+        const { applicationId, template, documentType, accessToken } = JSON.parse(data)
+        setPreviewData({ applicationId, template, documentType, accessToken })
 
         // Initialize Supabase client
         const supabase = createClient(

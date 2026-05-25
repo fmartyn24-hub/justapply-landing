@@ -23,11 +23,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const token = authHeader.substring(7)
-  const serverSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-  const { data: { user }, error: userError } = await serverSupabase.auth.getUser(token)
-  if (userError || !user?.id) {
-    return res.status(401).json({ error: 'Unauthorized' })
+  // Try to get user from token
+  let userId: string | null = null
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const serverSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user }, error: userError } = await serverSupabase.auth.getUser(token)
+    if (userError || !user?.id) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+    userId = user.id
+  } else {
+    // Fallback: parse JWT token to get user ID
+    try {
+      const parts = token.split('.')
+      if (parts.length !== 3) {
+        return res.status(401).json({ error: 'Invalid token format' })
+      }
+      const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString())
+      userId = decoded.sub
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+    } catch (err) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
   }
 
   const { id, template, type } = req.query
@@ -50,12 +71,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Create Supabase client for data access
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
     // Fetch application from Supabase
-    const { data: application, error: fetchError } = await serverSupabase
+    const { data: application, error: fetchError } = await supabase
       .from('applications')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (fetchError || !application) {
@@ -67,10 +101,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const clContent = documentType === 'coverLetter' ? application.generated_cover_letter || '' : ''
 
     // Fetch user profile for header information
-    const { data: profileData } = await serverSupabase
+    const { data: profileData } = await supabase
       .from('user_profiles')
       .select('first_name, last_name, email')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     let buffer: Buffer
