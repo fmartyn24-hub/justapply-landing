@@ -147,7 +147,7 @@ export default async function handler(
           originalFilename: filename,
           uploadedAt: new Date().toISOString(),
         },
-      })
+      } as any)
       .select('id')
       .single()
 

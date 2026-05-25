@@ -121,7 +121,7 @@ function ProfilePage() {
         impact_metrics: formData.impact_metrics || null,
         tags: formData.tags,
         source: 'manual',
-      })
+      } as any)
 
       if (!error) {
         // Refetch components

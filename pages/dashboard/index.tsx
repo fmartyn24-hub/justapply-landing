@@ -468,7 +468,7 @@ function Dashboard() {
               .update({
                 tone_keywords: voice.toneKeywords,
                 updated_at: new Date().toISOString(),
-              })
+              } as any)
               .eq('id', existingVoice.id)
           } else {
             // Create new voice component
@@ -480,7 +480,7 @@ function Dashboard() {
               tone_keywords: voice.toneKeywords,
               tags: [],
               source: 'auto-extracted',
-            })
+            } as any)
           }
         }
 
@@ -551,7 +551,7 @@ function Dashboard() {
           tone_keywords: editFormData.tone_keywords || null,
           related_terms: editFormData.related_terms || null,
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq('id', editingComponent.id)
 
       if (!error) {
@@ -611,7 +611,7 @@ function Dashboard() {
         generated_cv: data.cv,
         generated_cover_letter: data.coverLetter,
         status: 'draft',
-      })
+      } as any)
 
       if (error) throw error
 
