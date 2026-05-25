@@ -1,5 +1,6 @@
 // Modern HTML CV template with professional design
 // Designed to be converted to PDF using puppeteer
+import { StructuredCV, CoverLetterData } from '@/lib/exportConverters'
 
 interface CVData {
   header?: {
@@ -40,7 +41,37 @@ const COLORS = {
   white: '#FFFFFF',
 }
 
-export function generateModernHtml(cvData: CVData): string {
+export function generateModernHtml(
+  cvData: StructuredCV,
+  documentType: 'cv' | 'coverLetter' = 'cv',
+  clData?: CoverLetterData
+): string {
+  // For cover letters or if cvData is empty, return simple HTML
+  if (documentType === 'coverLetter' && clData) {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Cover Letter</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', sans-serif; line-height: 1.7; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+          .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 1in; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+          p { margin-bottom: 1.2rem; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          ${clData?.opening ? '<p>' + clData.opening + '</p>' : ''}
+          ${clData?.body_paragraphs?.map((p) => '<p>' + p + '</p>').join('') || ''}
+          ${clData?.closing ? '<p>' + clData.closing + '</p>' : ''}
+        </div>
+      </body>
+      </html>
+    `
+  }
   const contactItems = [
     cvData.header?.email,
     cvData.header?.phone,

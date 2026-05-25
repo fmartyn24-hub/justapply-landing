@@ -1,5 +1,11 @@
 // Helper functions to convert between plain text and structured CV formats
 
+export interface CoverLetterData {
+  opening?: string
+  body_paragraphs?: string[]
+  closing?: string
+}
+
 export interface StructuredCV {
   header?: {
     name?: string
