@@ -463,12 +463,12 @@ function Dashboard() {
 
           if (existingVoice) {
             // Update existing voice component
-            await supabase
-              .from('career_components')
+            await (supabase
+              .from('career_components') as any)
               .update({
                 tone_keywords: voice.toneKeywords,
                 updated_at: new Date().toISOString(),
-              } as any)
+              })
               .eq('id', existingVoice.id)
           } else {
             // Create new voice component
@@ -537,8 +537,8 @@ function Dashboard() {
 
     setSavingEdit(true)
     try {
-      const { error } = await supabase
-        .from('career_components')
+      const { error } = await (supabase
+        .from('career_components') as any)
         .update({
           type: editFormData.type,
           title: editFormData.title,
@@ -551,7 +551,7 @@ function Dashboard() {
           tone_keywords: editFormData.tone_keywords || null,
           related_terms: editFormData.related_terms || null,
           updated_at: new Date().toISOString(),
-        } as any)
+        })
         .eq('id', editingComponent.id)
 
       if (!error) {
