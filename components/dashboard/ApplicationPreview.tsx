@@ -318,53 +318,28 @@ export function ApplicationPreview({
                 </Button>
               </>
             )}
-            <div className="flex-1 flex flex-col gap-2">
-              <p className="text-xs font-medium text-gray-600">📄 CV Export</p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleExportCvDocx}
-                  disabled={showTemplateSelector || !id || !authToken}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                >
-                  DOCX
-                </Button>
-                <Button
-                  onClick={handleExportCvPdf}
-                  disabled={showTemplateSelector || !id || !authToken}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                >
-                  PDF
-                </Button>
-              </div>
-            </div>
+            <Button
+              onClick={() => {
+                setSelectedDocumentType('cv')
+                setShowTemplateSelector(true)
+              }}
+              disabled={showTemplateSelector || !id || !authToken}
+              className="flex-1"
+            >
+              📄 Export CV
+            </Button>
 
-            <div className="flex-1 flex flex-col gap-2">
-              <p className="text-xs font-medium text-gray-600">📝 Cover Letter Export</p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleExportCoverLetterDocx}
-                  disabled={showTemplateSelector || !id || !authToken}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                >
-                  DOCX
-                </Button>
-                <Button
-                  onClick={handleExportCoverLetterPdf}
-                  disabled={showTemplateSelector || !id || !authToken}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                >
-                  PDF
-                </Button>
-              </div>
-            </div>
+            <Button
+              onClick={() => {
+                setSelectedDocumentType('coverLetter')
+                setShowTemplateSelector(true)
+              }}
+              disabled={showTemplateSelector || !id || !authToken}
+              variant="outline"
+              className="flex-1"
+            >
+              📝 Export Cover Letter
+            </Button>
             <Button onClick={onClose} variant="outline" disabled={saving || exportingDocx || exportingPdf} className="flex-1">
               Close
             </Button>

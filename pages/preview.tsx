@@ -24,6 +24,7 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<any>(null)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     async function loadPreview() {
@@ -108,17 +109,20 @@ export default function PreviewPage() {
   async function downloadFile(format: 'pdf' | 'docx') {
     if (!previewData) return
 
+    setDownloading(true)
     try {
-      const { applicationId, template, documentType } = previewData
+      const { applicationId, template, documentType, accessToken } = previewData
       const response = await fetch(
         `/api/applications/export-${format}?id=${applicationId}&template=${template}&type=${documentType}`,
         {
           method: 'GET',
+          headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
         }
       )
 
       if (!response.ok) {
-        throw new Error(`Failed to download ${format.toUpperCase()}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to download ${format.toUpperCase()}`)
       }
 
       const blob = await response.blob()
@@ -132,6 +136,8 @@ export default function PreviewPage() {
       document.body.removeChild(a)
     } catch (err) {
       alert(err instanceof Error ? err.message : `Error downloading ${format.toUpperCase()}`)
+    } finally {
+      setDownloading(false)
     }
   }
 

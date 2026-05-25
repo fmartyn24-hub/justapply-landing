@@ -32,11 +32,19 @@ export function ExportTemplateSelector({
     setExporting(true)
     setError(null)
     try {
+      // Get current session to pass auth context
+      const supabase = (await import('@supabase/supabase-js')).createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { data: { session } } = await supabase.auth.getSession()
+
       // Open preview page in new tab - pass data via session storage to avoid auth issues
       const previewData = {
         applicationId,
         template: template.id,
-        documentType
+        documentType,
+        accessToken: session?.access_token
       }
       sessionStorage.setItem('previewData', JSON.stringify(previewData))
 
