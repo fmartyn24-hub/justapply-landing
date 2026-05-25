@@ -6,6 +6,7 @@ interface ExportTemplateSelectorProps {
   isOpen: boolean
   documentType: 'cv' | 'coverLetter'
   exportFormat: 'docx' | 'pdf'
+  applicationId: string
   onSelectTemplate: (template: ExportTemplate) => Promise<void>
   onChangeDocumentType: (type: 'cv' | 'coverLetter') => void
   onClose: () => void
@@ -15,6 +16,7 @@ export function ExportTemplateSelector({
   isOpen,
   documentType,
   exportFormat,
+  applicationId,
   onSelectTemplate,
   onChangeDocumentType,
   onClose,
@@ -30,7 +32,11 @@ export function ExportTemplateSelector({
     setExporting(true)
     setError(null)
     try {
-      await onSelectTemplate(template)
+      // Open preview page in new tab with template and document type params
+      const previewUrl = `/api/preview/${applicationId}?template=${template.id}&type=${documentType}`
+      window.open(previewUrl, '_blank')
+      setExporting(false)
+      onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed')
       setExporting(false)
@@ -182,7 +188,7 @@ export function ExportTemplateSelector({
             Cancel
           </button>
           <div className="flex-1" />
-          <p className="text-xs text-gray-500 py-2">Click a template above to download</p>
+          <p className="text-xs text-gray-500 py-2">Click a template to preview and download</p>
         </div>
       </div>
     </div>

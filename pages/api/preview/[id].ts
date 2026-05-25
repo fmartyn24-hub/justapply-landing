@@ -40,8 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const { id, template } = req.query
+  const { id, template, type } = req.query
   const templateId = (template as string) || 'modern'
+  const documentType = (type as string) || 'cv'
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ error: 'Missing application ID' })
@@ -69,15 +70,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', user.id)
       .single()
 
-    const cvContent = application.generated_cv || ''
-    const structuredCv = convertPlainTextCvToStructured(
-      cvContent,
-      profileData?.email,
-      `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
-    )
-
     const templateGenerator = templateGenerators[templateId]
-    const htmlContent = templateGenerator(structuredCv, 'cv')
+    let htmlContent = ''
+
+    if (documentType === 'coverLetter') {
+      const clContent = application.generated_cover_letter || ''
+      // Parse cover letter into structured format
+      const clData = {
+        opening: '',
+        body_paragraphs: clContent ? [clContent] : [],
+        closing: '',
+      }
+      htmlContent = templateGenerator(null, 'coverLetter', clData)
+    } else {
+      const cvContent = application.generated_cv || ''
+      const structuredCv = convertPlainTextCvToStructured(
+        cvContent,
+        profileData?.email,
+        `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+      )
+      htmlContent = templateGenerator(structuredCv, 'cv')
+    }
 
     // Wrap HTML with preview controls
     const previewHtml = `
@@ -125,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </head>
       <body>
         <div class="preview-controls">
-          <div class="preview-title">CV Preview - ${templateId.charAt(0).toUpperCase() + templateId.slice(1)}</div>
+          <div class="preview-title">${documentType === 'coverLetter' ? 'Cover Letter' : 'CV'} Preview - ${templateId.charAt(0).toUpperCase() + templateId.slice(1)}</div>
           <div class="preview-buttons">
             <button class="btn btn-pdf" onclick="downloadPDF()">Download as PDF</button>
             <button class="btn btn-docx" onclick="downloadDOCX()">Download as DOCX</button>
@@ -139,8 +152,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           function downloadPDF() {
             const appId = '${id}';
             const template = '${templateId}';
+            const docType = '${documentType}';
             const token = localStorage.getItem('auth_token');
-            fetch(\`/api/applications/export-pdf?id=\${appId}&template=\${template}&type=cv\`, {
+            fetch(\`/api/applications/export-pdf?id=\${appId}&template=\${template}&type=\${docType}\`, {
               headers: { 'Authorization': \`Bearer \${token}\` }
             })
             .then(res => res.blob())
@@ -148,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'CV_\${template}.pdf';
+              a.download = '${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_\${template}.pdf';
               document.body.appendChild(a);
               a.click();
               window.URL.revokeObjectURL(url);
@@ -159,8 +173,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           function downloadDOCX() {
             const appId = '${id}';
             const template = '${templateId}';
+            const docType = '${documentType}';
             const token = localStorage.getItem('auth_token');
-            fetch(\`/api/applications/export-docx?id=\${appId}&template=\${template}&type=cv\`, {
+            fetch(\`/api/applications/export-docx?id=\${appId}&template=\${template}&type=\${docType}\`, {
               headers: { 'Authorization': \`Bearer \${token}\` }
             })
             .then(res => res.blob())
@@ -168,7 +183,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'CV_\${template}.docx';
+              a.download = '${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_\${template}.docx';
               document.body.appendChild(a);
               a.click();
               window.URL.revokeObjectURL(url);

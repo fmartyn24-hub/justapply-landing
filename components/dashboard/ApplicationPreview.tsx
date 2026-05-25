@@ -378,6 +378,7 @@ export function ApplicationPreview({
           isOpen={showTemplateSelector}
           documentType={selectedDocumentType}
           exportFormat={selectedExportFormat}
+          applicationId={id || ''}
           onSelectTemplate={handleTemplateSelected}
           onChangeDocumentType={setSelectedDocumentType}
           onClose={() => setShowTemplateSelector(false)}

@@ -1,6 +1,6 @@
 export interface ExportTemplate {
   name: string
-  id: 'modern' | 'professional' | 'ats'
+  id: 'modern' | 'professional' | 'ats' | 'minimalist' | 'creative' | 'academic' | 'executive'
   description: string
   colors: {
     primary: string
@@ -47,6 +47,72 @@ export const EXPORT_TEMPLATES: ExportTemplate[] = [
     fonts: {
       headingSize: 24,
       bodySize: 11,
+      lineHeight: 260,
+    },
+  },
+  {
+    name: 'Minimalist',
+    id: 'minimalist',
+    description: 'Clean, elegant, and modern. Focuses on content and readability.',
+    colors: {
+      primary: '000000', // Black
+      heading: '1A1A1A', // Dark black
+      text: '2A2A2A', // Dark gray
+      accent: 'E0E0E0', // Light gray
+    },
+    fonts: {
+      headingSize: 22,
+      bodySize: 10,
+      lineHeight: 260,
+    },
+  },
+  {
+    name: 'Creative',
+    id: 'creative',
+    description: 'Bold, eye-catching design with sidebar layout. Perfect for designers and creatives.',
+    colors: {
+      primary: '667EEA', // Purple
+      heading: '667EEA', // Purple
+      text: '333333', // Dark gray
+      background: '764BA2', // Dark purple
+      accent: 'FF6B35', // Orange
+    },
+    fonts: {
+      headingSize: 24,
+      bodySize: 11,
+      lineHeight: 280,
+    },
+  },
+  {
+    name: 'Academic',
+    id: 'academic',
+    description: 'Scholarly and structured format. Ideal for research, education, and academic roles.',
+    colors: {
+      primary: '1F1F1F', // Dark black
+      heading: '1F1F1F', // Dark black
+      text: '333333', // Dark gray
+      accent: '555555', // Medium gray
+    },
+    fonts: {
+      headingSize: 24,
+      bodySize: 11,
+      lineHeight: 280,
+    },
+  },
+  {
+    name: 'Executive',
+    id: 'executive',
+    description: 'Premium, sophisticated design. Perfect for C-suite and senior leadership roles.',
+    colors: {
+      primary: '1A1A2E', // Dark navy
+      heading: '1A1A2E', // Dark navy
+      text: '2C3E50', // Slate gray
+      background: 'F8F9FA', // Light gray
+      accent: 'D4A574', // Gold/tan
+    },
+    fonts: {
+      headingSize: 22,
+      bodySize: 10,
       lineHeight: 260,
     },
   },
