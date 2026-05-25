@@ -148,12 +148,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <div class="preview-content">
           ${htmlContent}
         </div>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script>
-          function downloadPDF() {
+          async function downloadPDF() {
             const appId = '${id}';
             const template = '${templateId}';
             const docType = '${documentType}';
-            const token = localStorage.getItem('auth_token');
+            const supabase = window.supabase?.createClient(
+              '${process.env.NEXT_PUBLIC_SUPABASE_URL}',
+              '${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}'
+            );
+            const { data } = await supabase.auth.getSession();
+            const token = data.session?.access_token;
+            if (!token) {
+              alert('Authentication required. Please refresh and try again.');
+              return;
+            }
             fetch(\`/api/applications/export-pdf?id=\${appId}&template=\${template}&type=\${docType}\`, {
               headers: { 'Authorization': \`Bearer \${token}\` }
             })
@@ -170,11 +180,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .catch(err => alert('Error downloading PDF: ' + err.message));
           }
 
-          function downloadDOCX() {
+          async function downloadDOCX() {
             const appId = '${id}';
             const template = '${templateId}';
             const docType = '${documentType}';
-            const token = localStorage.getItem('auth_token');
+            const supabase = window.supabase?.createClient(
+              '${process.env.NEXT_PUBLIC_SUPABASE_URL}',
+              '${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}'
+            );
+            const { data } = await supabase.auth.getSession();
+            const token = data.session?.access_token;
+            if (!token) {
+              alert('Authentication required. Please refresh and try again.');
+              return;
+            }
             fetch(\`/api/applications/export-docx?id=\${appId}&template=\${template}&type=\${docType}\`, {
               headers: { 'Authorization': \`Bearer \${token}\` }
             })
