@@ -197,7 +197,16 @@ export default function PreviewPage() {
         .btn-docx:hover { background: #2980b9; }
         .btn-close { background: rgba(255,255,255,0.2); color: white; }
         .btn-close:hover { background: rgba(255,255,255,0.3); }
-        .preview-content { margin-top: 70px; }
+        .preview-content {
+          margin-top: 70px;
+          min-height: calc(100vh - 70px);
+          padding: 40px;
+          background: white;
+        }
+        .preview-content > * {
+          max-width: 100%;
+          margin: 0 auto;
+        }
       `}</style>
 
       <div className="preview-controls">
