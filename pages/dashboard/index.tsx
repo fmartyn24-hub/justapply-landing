@@ -222,13 +222,14 @@ function Dashboard() {
       if (!session?.user?.id) return
 
       // Fetch user profile
-      const { data: profileData } = await supabase
+      const { data: rawProfileData } = await supabase
         .from('user_profiles')
         .select('first_name, last_name, phone, address, website, linkedin_url, photo_path')
         .eq('id', session.user.id)
         .single()
 
-      if (profileData) {
+      if (rawProfileData) {
+        const profileData = rawProfileData as any
         setProfileData({
           firstName: profileData.first_name || '',
           lastName: profileData.last_name || '',
