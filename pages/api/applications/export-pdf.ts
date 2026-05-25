@@ -5,6 +5,8 @@ import { EXPORT_TEMPLATES } from '@/lib/exportTemplates'
 import { generateModernPdf } from '@/lib/templates/modern'
 import { generateProfessionalPdf } from '@/lib/templates/professional'
 import { generateAtsPdf } from '@/lib/templates/ats'
+import { generateModernHtml } from '@/lib/templates/modernHtml'
+import { htmlToPdf } from '@/lib/htmlToPdf'
 import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
 
 interface ErrorResponse {
@@ -83,7 +85,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
 
       if (exportTemplate.id === 'modern') {
-        buffer = await generateModernPdf(structuredCv, 'cv')
+        // Use HTML-based Modern template with puppeteer
+        const html = generateModernHtml(structuredCv)
+        buffer = await htmlToPdf(html)
       } else if (exportTemplate.id === 'professional') {
         buffer = await generateProfessionalPdf(structuredCv, 'cv')
       } else if (exportTemplate.id === 'ats') {
@@ -107,7 +111,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (exportTemplate.id === 'modern') {
-        buffer = await generateModernPdf({}, 'coverLetter', clData)
+        // Use HTML-based Modern template for cover letter
+        const html = generateModernHtml({})
+        buffer = await htmlToPdf(html)
       } else if (exportTemplate.id === 'professional') {
         buffer = await generateProfessionalPdf({}, 'coverLetter', clData)
       } else if (exportTemplate.id === 'ats') {
