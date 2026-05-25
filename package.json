@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
+    "@sparticuz/chromium": "^148.0.0",
     "@supabase/supabase-js": "^2.38.0",
     "@types/pdfkit": "^0.17.6",
     "docx": "^9.6.1",
