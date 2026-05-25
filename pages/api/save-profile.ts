@@ -6,6 +6,9 @@ interface ProfileRequest {
   lastName: string
   phone?: string
   address?: string
+  website?: string
+  linkedinUrl?: string
+  photoPath?: string
 }
 
 interface ProfileResponse {
@@ -39,7 +42,7 @@ export default async function handler(
       return res.status(401).json({ success: false, error: 'Unauthorized' })
     }
 
-    const { firstName, lastName, phone, address } = req.body as ProfileRequest
+    const { firstName, lastName, phone, address, website, linkedinUrl, photoPath } = req.body as ProfileRequest
 
     if (!firstName || !lastName) {
       return res.status(400).json({
@@ -58,6 +61,9 @@ export default async function handler(
         last_name: lastName,
         phone: phone || null,
         address: address || null,
+        website: website || null,
+        linkedin_url: linkedinUrl || null,
+        photo_path: photoPath || null,
         updated_at: new Date().toISOString(),
       })
 

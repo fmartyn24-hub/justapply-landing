@@ -86,6 +86,9 @@ function Dashboard() {
     lastName: '',
     phone: '',
     address: '',
+    website: '',
+    linkedinUrl: '',
+    photoPath: '',
   })
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -221,7 +224,7 @@ function Dashboard() {
       // Fetch user profile
       const { data: profileData } = await supabase
         .from('user_profiles')
-        .select('first_name, last_name, phone, address')
+        .select('first_name, last_name, phone, address, website, linkedin_url, photo_path')
         .eq('id', session.user.id)
         .single()
 
@@ -231,6 +234,9 @@ function Dashboard() {
           lastName: profileData.last_name || '',
           phone: profileData.phone || '',
           address: profileData.address || '',
+          website: profileData.website || '',
+          linkedinUrl: profileData.linkedin_url || '',
+          photoPath: profileData.photo_path || '',
         })
       }
 
@@ -1111,6 +1117,33 @@ function Dashboard() {
                       onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
                       rows={2}
+                      placeholder="e.g., San Francisco, CA"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Professional Website or Portfolio
+                    </label>
+                    <input
+                      type="url"
+                      value={profileData.website}
+                      onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="https://yourportfolio.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      LinkedIn Profile URL
+                    </label>
+                    <input
+                      type="url"
+                      value={profileData.linkedinUrl}
+                      onChange={(e) => setProfileData({ ...profileData, linkedinUrl: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="https://linkedin.com/in/yourprofile"
                     />
                   </div>
 

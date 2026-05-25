@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { generateDocxBuffer } from '@/lib/exportHelpers'
 import { EXPORT_TEMPLATES } from '@/lib/exportTemplates'
+import { generateModernDocx } from '@/lib/templates/modern'
+import { generateProfessionalDocx } from '@/lib/templates/professional'
+import { generateAtsDocx } from '@/lib/templates/ats'
+import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
 
 interface ErrorResponse {
   error: string
@@ -58,16 +62,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get content based on document type
-    const content = documentType === 'cv' ? application.generated_cv || '' : application.generated_cover_letter || ''
+    const cvContent = documentType === 'cv' ? application.generated_cv || '' : ''
+    const clContent = documentType === 'coverLetter' ? application.generated_cover_letter || '' : ''
 
-    // Generate DOCX buffer
-    const buffer = await generateDocxBuffer(
-      content,
-      application.job_title || 'Application',
-      application.company_name || 'Company',
-      exportTemplate,
-      documentType
-    )
+    // Convert plain text to structured format for new templates
+    const { data: profileData } = await serverSupabase
+      .from('user_profiles')
+      .select('first_name, last_name, email')
+      .eq('id', user.id)
+      .single()
+
+    let buffer: Buffer
+
+    // Use new template generators for Modern and Professional templates
+    if (documentType === 'cv') {
+      const structuredCv = convertPlainTextCvToStructured(
+        cvContent,
+        profileData?.email,
+        `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+      )
+
+      if (exportTemplate.id === 'modern') {
+        buffer = await generateModernDocx(structuredCv, 'cv')
+      } else if (exportTemplate.id === 'professional') {
+        buffer = await generateProfessionalDocx(structuredCv, 'cv')
+      } else if (exportTemplate.id === 'ats') {
+        buffer = await generateAtsDocx(structuredCv, 'cv')
+      } else {
+        // Fallback to generic formatter for unknown templates
+        buffer = await generateDocxBuffer(
+          cvContent,
+          application.job_title || 'Application',
+          application.company_name || 'Company',
+          exportTemplate,
+          documentType
+        )
+      }
+    } else {
+      // Cover letter export - use simple text-based templates
+      const clData = {
+        opening: clContent.split('\n\n')[0] || '',
+        body_paragraphs: clContent.split('\n\n').slice(1, -1) || [],
+        closing: clContent.split('\n\n').slice(-1)[0] || '',
+      }
+
+      if (exportTemplate.id === 'modern') {
+        buffer = await generateModernDocx({}, 'coverLetter', clData)
+      } else if (exportTemplate.id === 'professional') {
+        buffer = await generateProfessionalDocx({}, 'coverLetter', clData)
+      } else if (exportTemplate.id === 'ats') {
+        buffer = await generateAtsDocx({}, 'coverLetter', clData)
+      } else {
+        // Fallback
+        buffer = await generateDocxBuffer(
+          clContent,
+          application.job_title || 'Application',
+          application.company_name || 'Company',
+          exportTemplate,
+          documentType
+        )
+      }
+    }
 
     // Generate safe filename
     const typeLabel = documentType === 'cv' ? 'CV' : 'CoverLetter'

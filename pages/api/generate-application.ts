@@ -51,7 +51,7 @@ export default async function handler(
     // Fetch user profile
     const { data: profileData, error: profileError } = await serverSupabase
       .from('user_profiles')
-      .select('first_name, last_name, email, phone, address')
+      .select('first_name, last_name, email, phone, address, website, linkedin_url')
       .eq('id', user.id)
       .single()
 
@@ -78,6 +78,8 @@ Name: ${profileData?.first_name || ''} ${profileData?.last_name || ''}
 Email: ${profileData?.email || user.email}
 Phone: ${profileData?.phone || ''}
 Address: ${profileData?.address || ''}
+${profileData?.website ? `Portfolio/Website: ${profileData.website}` : ''}
+${profileData?.linkedin_url ? `LinkedIn: ${profileData.linkedin_url}` : ''}
 
 ## Career Components
 
@@ -222,11 +224,55 @@ Privately check your draft against these:
 ═══════════════════════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════════════════════
-Respond with valid JSON only — no preamble, no commentary, no markdown code fences, no trailing text. The JSON must contain exactly these two fields:
-- "cv": The complete CV as plain text. Use line breaks (\\n) for structure. No markdown formatting characters (no #, *, **, _). Clean, scannable, professional.
-- "coverLetter": The complete cover letter as plain text. Use line breaks (\\n) between paragraphs. No markdown.
+Respond with valid JSON only — no preamble, no commentary, no markdown code fences, no trailing text. The JSON must have this structure:
 
-Both fields must be properly JSON-escaped strings. Ensure quotes and newlines are escaped correctly so the JSON parses cleanly on the first try.`,
+{
+  "cv": {
+    "header": {
+      "name": "Full Name",
+      "email": "email@example.com",
+      "phone": "phone number",
+      "location": "city, state",
+      "portfolio_url": "url or null",
+      "linkedin_url": "url or null"
+    },
+    "professional_summary": "2-4 sentence summary",
+    "skills": [
+      {"category": "Category Name", "items": ["skill1", "skill2", "skill3"]}
+    ],
+    "experience": [
+      {
+        "title": "Job Title",
+        "company": "Company Name",
+        "location": "City, State",
+        "start_date": "YYYY-MM or similar",
+        "end_date": "YYYY-MM or 'Present'",
+        "description": "Brief role description",
+        "achievements": [
+          "Achievement bullet point 1",
+          "Achievement bullet point 2"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "Bachelor of Science",
+        "school": "University Name",
+        "graduation_date": "YYYY",
+        "gpa": "3.8 or null if not strong"
+      }
+    ],
+    "certifications": ["Cert 1", "Cert 2"],
+    "additional": "Any additional sections like languages, awards, publications"
+  },
+  "coverLetter": {
+    "opening": "Engaging opening paragraph",
+    "body_paragraphs": ["Paragraph 1", "Paragraph 2", "Paragraph 3"],
+    "closing": "Professional closing paragraph"
+  }
+}
+
+All text fields must be plain text with newlines escaped as \\n where needed. Include only non-null fields. Ensure all JSON is valid and properly escaped.`,
         },
       ],
     })
@@ -253,8 +299,27 @@ Both fields must be properly JSON-escaped strings. Ensure quotes and newlines ar
       }
 
       const parsed = JSON.parse(jsonText.trim())
-      cv = parsed.cv || ''
-      coverLetter = parsed.coverLetter || ''
+
+      // Handle both structured and plain text responses for backward compatibility
+      if (typeof parsed.cv === 'object' && parsed.cv !== null) {
+        // Structured CV format — convert to plain text
+        cv = convertStructuredCVToPlainText(parsed.cv)
+      } else if (typeof parsed.cv === 'string') {
+        // Plain text CV (backward compatibility)
+        cv = parsed.cv
+      } else {
+        throw new Error('CV is missing or invalid')
+      }
+
+      if (typeof parsed.coverLetter === 'object' && parsed.coverLetter !== null) {
+        // Structured cover letter format — convert to plain text
+        coverLetter = convertStructuredCoverLetterToPlainText(parsed.coverLetter)
+      } else if (typeof parsed.coverLetter === 'string') {
+        // Plain text cover letter (backward compatibility)
+        coverLetter = parsed.coverLetter
+      } else {
+        throw new Error('Cover letter is missing or invalid')
+      }
     } catch {
       throw new Error('Failed to parse JSON response from Claude. Response was: ' + content.text.substring(0, 200))
     }
@@ -275,4 +340,110 @@ Both fields must be properly JSON-escaped strings. Ensure quotes and newlines ar
       error: error instanceof Error ? error.message : 'Failed to generate application',
     })
   }
+}
+
+// Helper function to convert structured CV to plain text
+function convertStructuredCVToPlainText(cvData: any): string {
+  const lines: string[] = []
+
+  // Header
+  if (cvData.header) {
+    const { name, email, phone, location, portfolio_url, linkedin_url } = cvData.header
+    if (name) lines.push(name)
+    const contactParts = []
+    if (email) contactParts.push(email)
+    if (phone) contactParts.push(phone)
+    if (location) contactParts.push(location)
+    if (portfolio_url) contactParts.push(portfolio_url)
+    if (linkedin_url) contactParts.push(linkedin_url)
+    if (contactParts.length > 0) lines.push(contactParts.join(' | '))
+    lines.push('')
+  }
+
+  // Professional Summary
+  if (cvData.professional_summary) {
+    lines.push('PROFESSIONAL SUMMARY')
+    lines.push(cvData.professional_summary)
+    lines.push('')
+  }
+
+  // Skills
+  if (cvData.skills && Array.isArray(cvData.skills)) {
+    lines.push('SKILLS')
+    cvData.skills.forEach((skillGroup: any) => {
+      if (skillGroup.category && skillGroup.items) {
+        lines.push(`${skillGroup.category}: ${skillGroup.items.join(', ')}`)
+      }
+    })
+    lines.push('')
+  }
+
+  // Experience
+  if (cvData.experience && Array.isArray(cvData.experience)) {
+    lines.push('PROFESSIONAL EXPERIENCE')
+    cvData.experience.forEach((job: any) => {
+      lines.push(`${job.title} at ${job.company}${job.location ? ` (${job.location})` : ''}`)
+      if (job.start_date || job.end_date) {
+        lines.push(`${job.start_date || ''} ${job.end_date || 'Present'}`)
+      }
+      if (job.description) lines.push(job.description)
+      if (job.achievements && Array.isArray(job.achievements)) {
+        job.achievements.forEach((achievement: string) => {
+          lines.push(`• ${achievement}`)
+        })
+      }
+      lines.push('')
+    })
+  }
+
+  // Education
+  if (cvData.education && Array.isArray(cvData.education)) {
+    lines.push('EDUCATION')
+    cvData.education.forEach((edu: any) => {
+      lines.push(`${edu.degree}${edu.school ? ` from ${edu.school}` : ''}`)
+      if (edu.graduation_date) lines.push(`Graduated: ${edu.graduation_date}`)
+      if (edu.gpa) lines.push(`GPA: ${edu.gpa}`)
+      lines.push('')
+    })
+  }
+
+  // Certifications
+  if (cvData.certifications && Array.isArray(cvData.certifications) && cvData.certifications.length > 0) {
+    lines.push('CERTIFICATIONS')
+    cvData.certifications.forEach((cert: string) => {
+      lines.push(`• ${cert}`)
+    })
+    lines.push('')
+  }
+
+  // Additional
+  if (cvData.additional) {
+    lines.push('ADDITIONAL')
+    lines.push(cvData.additional)
+  }
+
+  return lines.join('\n').trim()
+}
+
+// Helper function to convert structured cover letter to plain text
+function convertStructuredCoverLetterToPlainText(clData: any): string {
+  const lines: string[] = []
+
+  if (clData.opening) {
+    lines.push(clData.opening)
+    lines.push('')
+  }
+
+  if (clData.body_paragraphs && Array.isArray(clData.body_paragraphs)) {
+    clData.body_paragraphs.forEach((paragraph: string) => {
+      lines.push(paragraph)
+      lines.push('')
+    })
+  }
+
+  if (clData.closing) {
+    lines.push(clData.closing)
+  }
+
+  return lines.join('\n').trim()
 }
