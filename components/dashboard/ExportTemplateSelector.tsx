@@ -32,8 +32,15 @@ export function ExportTemplateSelector({
     setExporting(true)
     setError(null)
     try {
-      // Open preview page in new tab with template and document type params
-      const previewUrl = `/api/preview/${applicationId}?template=${template.id}&type=${documentType}`
+      // Open preview page in new tab - pass data via session storage to avoid auth issues
+      const previewData = {
+        applicationId,
+        template: template.id,
+        documentType
+      }
+      sessionStorage.setItem('previewData', JSON.stringify(previewData))
+
+      const previewUrl = `/preview`
       window.open(previewUrl, '_blank')
       setExporting(false)
       onClose()
