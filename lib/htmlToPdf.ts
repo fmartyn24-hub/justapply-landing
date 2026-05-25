@@ -1,22 +1,9 @@
-// Convert HTML to PDF using puppeteer
-import puppeteer from 'puppeteer'
+// Convert HTML to PDF using html-pdf-node
+import { convertHtmlString } from 'html-pdf-node'
 
 export async function htmlToPdf(html: string): Promise<Buffer> {
-  let browser
   try {
-    // Launch browser
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
-
-    const page = await browser.newPage()
-
-    // Set content
-    await page.setContent(html, { waitUntil: 'load' })
-
-    // Generate PDF with A4 size
-    const pdf = await page.pdf({
+    const options = {
       format: 'A4',
       margin: {
         top: 0,
@@ -25,12 +12,16 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         left: 0,
       },
       printBackground: true,
-    })
-
-    return Buffer.from(pdf)
-  } finally {
-    if (browser) {
-      await browser.close()
     }
+
+    const file = {
+      content: html,
+    }
+
+    const buffer = await convertHtmlString(file, options)
+    return buffer
+  } catch (error) {
+    console.error('HTML to PDF conversion error:', error)
+    throw new Error(`Failed to convert HTML to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
