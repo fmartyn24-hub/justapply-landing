@@ -40,9 +40,9 @@ function ApplyPage() {
         .order('created_at', { ascending: false })
 
       if (!fetchError && data) {
-        setCvs(data)
+        setCvs(data as CV[])
         if (data.length > 0) {
-          setSelectedCvId(data[0].id)
+          setSelectedCvId((data as CV[])[0].id)
         }
       }
       setIsLoadingCvs(false)
