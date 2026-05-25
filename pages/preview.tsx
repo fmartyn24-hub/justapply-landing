@@ -206,6 +206,14 @@ export default function PreviewPage() {
         .preview-content > * {
           max-width: 100%;
           margin: 0 auto;
+          height: auto !important;
+        }
+        .preview-content .container {
+          height: auto !important;
+          margin-bottom: 40px;
+        }
+        .preview-content body {
+          background: transparent !important;
         }
       `}</style>
 

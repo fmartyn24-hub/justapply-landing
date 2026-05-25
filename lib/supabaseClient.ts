@@ -37,5 +37,16 @@ export function getSupabase() {
   return client
 }
 
-// Lazy-loaded supabase instance
-export const supabase = typeof window !== 'undefined' ? (initSupabase()!) : (null as any)
+// Lazy-loaded supabase instance - only create when accessed
+let cachedSupabase: ReturnType<typeof createClient> | null | undefined
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(target, prop) {
+    if (cachedSupabase === undefined) {
+      cachedSupabase = initSupabase()
+    }
+    if (!cachedSupabase) {
+      throw new Error('Supabase client is only available on the client side')
+    }
+    return Reflect.get(cachedSupabase, prop)
+  },
+})
