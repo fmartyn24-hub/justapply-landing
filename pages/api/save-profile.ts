@@ -52,8 +52,8 @@ export default async function handler(
     }
 
     // Upsert user_profiles (update if exists, insert if not)
-    const { error: upsertError } = await serverSupabase
-      .from('user_profiles')
+    const { error: upsertError } = await (serverSupabase
+      .from('user_profiles') as any)
       .upsert({
         id: user.id,
         email: user.email,

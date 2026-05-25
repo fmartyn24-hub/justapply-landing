@@ -678,7 +678,7 @@ function Dashboard() {
     setSavingProfileQuestions(true)
     try {
       // Save answers to the voice component or a new profile_answers table
-      const { error } = await supabase.from('profile_answers').upsert(
+      const { error } = await (supabase.from('profile_answers') as any).upsert(
         {
           user_id: session.user.id,
           answers,
