@@ -1,14 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-let supabase: ReturnType<typeof createClient> | null = null
+let supabaseClient: ReturnType<typeof createClient> | null = null
 
-export function getSupabaseClient() {
-  // Only create client on client side
+function initSupabase() {
   if (typeof window === 'undefined') {
     return null
   }
 
-  if (!supabase) {
+  if (!supabaseClient) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -18,7 +17,7 @@ export function getSupabaseClient() {
       )
     }
 
-    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -27,16 +26,16 @@ export function getSupabaseClient() {
     })
   }
 
-  return supabase
+  return supabaseClient
 }
 
-// For convenience in components, provide a getter
-export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
-  get(target, prop) {
-    const client = getSupabaseClient()
-    if (!client) {
-      throw new Error('Supabase client is only available on the client side')
-    }
-    return (client as any)[prop]
-  },
-})
+export function getSupabase() {
+  const client = initSupabase()
+  if (!client) {
+    throw new Error('Supabase client is only available on the client side')
+  }
+  return client
+}
+
+// Lazy-loaded supabase instance
+export const supabase = typeof window !== 'undefined' ? (initSupabase()!) : (null as any)
