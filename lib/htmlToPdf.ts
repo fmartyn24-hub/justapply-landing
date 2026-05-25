@@ -1,5 +1,7 @@
 // Convert HTML to PDF using html-pdf-node with Chrome support
 import { generatePdf } from 'html-pdf-node'
+import { execSync } from 'child_process'
+import { existsSync } from 'fs'
 
 let browserPath: string | undefined
 
@@ -18,15 +20,32 @@ async function getBrowserPath(): Promise<string | undefined> {
     }
   }
 
-  // For local development, system Chrome will be used automatically
+  // For local development, detect Chrome/Chromium
+  const chromePaths = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS Chrome
+    '/opt/homebrew/bin/chromium', // macOS Homebrew Chromium
+    '/usr/bin/chromium', // Linux Chromium
+    '/usr/bin/google-chrome', // Linux Chrome
+    '/snap/bin/chromium', // Linux snap
+  ]
+
+  for (const path of chromePaths) {
+    if (existsSync(path)) {
+      browserPath = path
+      return browserPath
+    }
+  }
+
   return undefined
 }
 
 export async function htmlToPdf(html: string): Promise<Buffer> {
   try {
+    const executablePath = await getBrowserPath()
+
     const args = ['--no-sandbox', '--disable-setuid-sandbox']
 
-    const options = {
+    const options: any = {
       format: 'A4',
       margin: {
         top: 0,
@@ -36,6 +55,11 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
       },
       printBackground: true,
       args: args,
+    }
+
+    // Add executable path if detected
+    if (executablePath) {
+      options.executablePath = executablePath
     }
 
     const file = {
@@ -52,7 +76,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     if (errorMsg.includes('Could not find Chrome') || errorMsg.includes('ENOENT') || errorMsg.includes('Failed to launch')) {
       throw new Error(
         'Chrome/Chromium is not installed. ' +
-          'Please install Chrome from https://www.google.com/chrome/ or Chromium for PDF export to work.'
+          'Please install Chrome from https://www.google.com/chrome/ or use: brew install chromium'
       )
     }
 
