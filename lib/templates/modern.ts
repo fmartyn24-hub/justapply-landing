@@ -1,12 +1,12 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, BorderStyle, convertInchesToTwip } from 'docx'
+import { Document, Packer, Paragraph, TextRun, Table, TableCell, TableRow, BorderStyle, WidthType, UnderlineType, convertInchesToTwip, VerticalAlign } from 'docx'
 import PDFDocument from 'pdfkit'
 
 // Modern template design spec:
-// - Colorful header with accent colors
+// - Colorful header with accent colors and visual blocks
 // - Modern sans-serif fonts (Calibri)
-// - Generous spacing
-// - Accent color bars for sections
-// - Optional: skills sidebar or accent highlights
+// - Generous spacing with visual separators
+// - Colored accent bars for sections
+// - Colored background blocks for key sections
 
 interface ModernTemplateConfig {
   colors: {
@@ -15,6 +15,7 @@ interface ModernTemplateConfig {
     heading: string // #1F2937 (dark gray)
     text: string // #374151 (medium gray)
     background: string // #F3F4F6 (light gray)
+    lightBg: string // #EFF6FF (very light blue)
   }
   fonts: {
     nameSize: number // 18-20pt
@@ -31,6 +32,7 @@ const MODERN_CONFIG: ModernTemplateConfig = {
     heading: '1F2937',
     text: '374151',
     background: 'F3F4F6',
+    lightBg: 'EFF6FF',
   },
   fonts: {
     nameSize: 20,
@@ -83,68 +85,180 @@ function hexToRgb(hex: string): [number, number, number] {
     : [0, 0, 0]
 }
 
+// Helper function to create section headers with colored left accent bar
+function createSectionHeader(title: string): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 5, type: WidthType.PERCENTAGE },
+            shading: { fill: MODERN_CONFIG.colors.accent },
+            borders: {
+              top: { style: BorderStyle.NONE },
+              bottom: { style: BorderStyle.NONE },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE },
+            },
+            margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            children: [new Paragraph({ text: '' })],
+          }),
+          new TableCell({
+            width: { size: 95, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE },
+              bottom: { style: BorderStyle.NONE },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE },
+            },
+            margins: { top: 100, bottom: 100, left: 150, right: 0 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: title,
+                    size: MODERN_CONFIG.fonts.headerSize * 2,
+                    bold: true,
+                    color: MODERN_CONFIG.colors.primary,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
 export async function generateModernDocx(
   cvData: CVData,
   documentType: 'cv' | 'coverLetter',
   clData?: CoverLetterData
 ): Promise<Buffer> {
-  const paragraphs: Paragraph[] = []
+  const children: (Paragraph | Table)[] = []
 
   if (documentType === 'cv') {
-    // Header
-    if (cvData.header?.name) {
-      paragraphs.push(
-        new Paragraph({
+    // Header with colored accent bar
+    const headerTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
           children: [
-            new TextRun({
-              text: cvData.header.name,
-              size: MODERN_CONFIG.fonts.nameSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
+            new TableCell({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              shading: { fill: MODERN_CONFIG.colors.primary },
+              borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                left: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+              },
+              margins: { top: 200, bottom: 200, left: 200, right: 200 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cvData.header?.name || 'YOUR NAME',
+                      size: MODERN_CONFIG.fonts.nameSize * 2,
+                      bold: true,
+                      color: 'FFFFFF',
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cvData.header?.email || '',
+                      size: MODERN_CONFIG.fonts.contactSize * 2,
+                      color: 'FFFFFF',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+              ],
             }),
           ],
-          spacing: { after: 100 },
-        })
-      )
-    }
+        }),
+      ],
+    })
 
-    // Contact info
+    children.push(headerTable)
+
+    // Contact info with accent
     const contactParts = []
-    if (cvData.header?.email) contactParts.push(cvData.header.email)
     if (cvData.header?.phone) contactParts.push(cvData.header.phone)
     if (cvData.header?.location) contactParts.push(cvData.header.location)
     if (cvData.header?.portfolio_url) contactParts.push(cvData.header.portfolio_url)
     if (cvData.header?.linkedin_url) contactParts.push(cvData.header.linkedin_url)
 
     if (contactParts.length > 0) {
-      paragraphs.push(
+      children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: contactParts.join(' | '),
+              text: contactParts.join('  •  '),
               size: MODERN_CONFIG.fonts.contactSize * 2,
               color: MODERN_CONFIG.colors.text,
             }),
           ],
-          spacing: { after: 200 },
+          spacing: { before: 100, after: 300 },
         })
       )
     }
 
-    // Professional Summary
+    // Professional Summary with accent bar
     if (cvData.professional_summary) {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'PROFESSIONAL SUMMARY',
-              size: MODERN_CONFIG.fonts.headerSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
-            }),
-          ],
-          spacing: { before: 200, after: 150 },
-        }),
+      // Section header with colored left bar
+      const summaryHeaderTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 5, type: WidthType.PERCENTAGE },
+                shading: { fill: MODERN_CONFIG.colors.accent },
+                borders: {
+                  top: { style: BorderStyle.NONE },
+                  bottom: { style: BorderStyle.NONE },
+                  left: { style: BorderStyle.NONE },
+                  right: { style: BorderStyle.NONE },
+                },
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                children: [new Paragraph({ text: '' })],
+              }),
+              new TableCell({
+                width: { size: 95, type: WidthType.PERCENTAGE },
+                borders: {
+                  top: { style: BorderStyle.NONE },
+                  bottom: { style: BorderStyle.NONE },
+                  left: { style: BorderStyle.NONE },
+                  right: { style: BorderStyle.NONE },
+                },
+                margins: { top: 100, bottom: 100, left: 150, right: 0 },
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: 'PROFESSIONAL SUMMARY',
+                        size: MODERN_CONFIG.fonts.headerSize * 2,
+                        bold: true,
+                        color: MODERN_CONFIG.colors.primary,
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })
+
+      children.push(summaryHeaderTable)
+
+      children.push(
         new Paragraph({
           children: [
             new TextRun({
@@ -153,36 +267,25 @@ export async function generateModernDocx(
               color: MODERN_CONFIG.colors.text,
             }),
           ],
-          spacing: { after: 200, line: 300 },
+          spacing: { before: 100, after: 200, line: 300 },
         })
       )
     }
 
-    // Skills
+    // Skills with accent bar
     if (cvData.skills && cvData.skills.length > 0) {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'SKILLS',
-              size: MODERN_CONFIG.fonts.headerSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
-            }),
-          ],
-          spacing: { before: 200, after: 150 },
-        })
-      )
+      children.push(createSectionHeader('SKILLS'))
+      children.push(new Paragraph({ text: '', spacing: { before: 50, after: 100 } }))
 
       cvData.skills.forEach((skillGroup) => {
-        paragraphs.push(
+        children.push(
           new Paragraph({
             children: [
               new TextRun({
                 text: skillGroup.category,
                 size: MODERN_CONFIG.fonts.bodySize * 2,
                 bold: true,
-                color: MODERN_CONFIG.colors.heading,
+                color: MODERN_CONFIG.colors.primary,
               }),
               new TextRun({
                 text: ': ' + skillGroup.items.join(', '),
@@ -195,27 +298,16 @@ export async function generateModernDocx(
         )
       })
 
-      paragraphs.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+      children.push(new Paragraph({ text: '', spacing: { after: 150 } }))
     }
 
-    // Experience
+    // Experience with accent bar
     if (cvData.experience && cvData.experience.length > 0) {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'PROFESSIONAL EXPERIENCE',
-              size: MODERN_CONFIG.fonts.headerSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
-            }),
-          ],
-          spacing: { before: 200, after: 150 },
-        })
-      )
+      children.push(createSectionHeader('PROFESSIONAL EXPERIENCE'))
+      children.push(new Paragraph({ text: '', spacing: { before: 50, after: 100 } }))
 
       cvData.experience.forEach((job) => {
-        paragraphs.push(
+        children.push(
           new Paragraph({
             children: [
               new TextRun({
@@ -235,7 +327,7 @@ export async function generateModernDocx(
         )
 
         if (job.start_date || job.end_date) {
-          paragraphs.push(
+          children.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -251,7 +343,7 @@ export async function generateModernDocx(
         }
 
         if (job.description) {
-          paragraphs.push(
+          children.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -267,7 +359,7 @@ export async function generateModernDocx(
 
         if (job.achievements && job.achievements.length > 0) {
           job.achievements.forEach((achievement) => {
-            paragraphs.push(
+            children.push(
               new Paragraph({
                 children: [
                   new TextRun({
@@ -282,28 +374,17 @@ export async function generateModernDocx(
           })
         }
 
-        paragraphs.push(new Paragraph({ text: '', spacing: { after: 150 } }))
+        children.push(new Paragraph({ text: '', spacing: { after: 150 } }))
       })
     }
 
-    // Education
+    // Education with accent bar
     if (cvData.education && cvData.education.length > 0) {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'EDUCATION',
-              size: MODERN_CONFIG.fonts.headerSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
-            }),
-          ],
-          spacing: { before: 200, after: 150 },
-        })
-      )
+      children.push(createSectionHeader('EDUCATION'))
+      children.push(new Paragraph({ text: '', spacing: { before: 50, after: 100 } }))
 
       cvData.education.forEach((edu) => {
-        paragraphs.push(
+        children.push(
           new Paragraph({
             children: [
               new TextRun({
@@ -327,7 +408,7 @@ export async function generateModernDocx(
         )
 
         if (edu.graduation_date) {
-          paragraphs.push(
+          children.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -342,7 +423,7 @@ export async function generateModernDocx(
         }
 
         if (edu.gpa) {
-          paragraphs.push(
+          children.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -358,24 +439,13 @@ export async function generateModernDocx(
       })
     }
 
-    // Certifications
+    // Certifications with accent bar
     if (cvData.certifications && cvData.certifications.length > 0) {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'CERTIFICATIONS',
-              size: MODERN_CONFIG.fonts.headerSize * 2,
-              bold: true,
-              color: MODERN_CONFIG.colors.primary,
-            }),
-          ],
-          spacing: { before: 200, after: 150 },
-        })
-      )
+      children.push(createSectionHeader('CERTIFICATIONS'))
+      children.push(new Paragraph({ text: '', spacing: { before: 50, after: 100 } }))
 
       cvData.certifications.forEach((cert) => {
-        paragraphs.push(
+        children.push(
           new Paragraph({
             children: [
               new TextRun({
@@ -392,7 +462,7 @@ export async function generateModernDocx(
   } else if (documentType === 'coverLetter' && clData) {
     // Cover Letter
     if (clData.opening) {
-      paragraphs.push(
+      children.push(
         new Paragraph({
           children: [
             new TextRun({
@@ -408,7 +478,7 @@ export async function generateModernDocx(
 
     if (clData.body_paragraphs && clData.body_paragraphs.length > 0) {
       clData.body_paragraphs.forEach((paragraph) => {
-        paragraphs.push(
+        children.push(
           new Paragraph({
             children: [
               new TextRun({
@@ -424,7 +494,7 @@ export async function generateModernDocx(
     }
 
     if (clData.closing) {
-      paragraphs.push(
+      children.push(
         new Paragraph({
           children: [
             new TextRun({
@@ -452,7 +522,7 @@ export async function generateModernDocx(
             },
           },
         },
-        children: paragraphs,
+        children: children,
       },
     ],
   })
@@ -481,20 +551,48 @@ export function generateModernPdf(
     const accentRgb = hexToRgb(MODERN_CONFIG.colors.accent)
     const headingRgb = hexToRgb(MODERN_CONFIG.colors.heading)
     const textRgb = hexToRgb(MODERN_CONFIG.colors.text)
+    const bgRgb = hexToRgb(MODERN_CONFIG.colors.lightBg)
+
+    // Helper function to draw a section header with accent bar
+    const drawSectionHeader = (title: string, yPos: number) => {
+      // Orange accent bar on the left
+      doc.rect(54, yPos - 5, 6, 20).fill(accentRgb)
+
+      // Section title
+      doc
+        .fontSize(MODERN_CONFIG.fonts.headerSize)
+        .font('Helvetica-Bold')
+        .fillColor(primaryRgb)
+        .text(title, 70, yPos, { width: 460 })
+
+      doc.moveDown(0.3)
+    }
 
     if (documentType === 'cv') {
-      // Header
-      if (cvData.header?.name) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.nameSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text(cvData.header.name, { width: 495 })
-      }
+      // Header with blue background
+      const headerHeight = 70
+      doc
+        .rect(54, 54, 495, headerHeight)
+        .fill(primaryRgb)
 
-      // Contact info
+      // Name in white on blue background
+      doc
+        .fontSize(MODERN_CONFIG.fonts.nameSize)
+        .font('Helvetica-Bold')
+        .fillColor('FFFFFF')
+        .text(cvData.header?.name || 'YOUR NAME', 70, 65, { width: 463 })
+
+      // Email in white
+      doc
+        .fontSize(MODERN_CONFIG.fonts.contactSize)
+        .font('Helvetica')
+        .fillColor('FFFFFF')
+        .text(cvData.header?.email || '', 70, doc.y, { width: 463 })
+
+      doc.moveDown(0.8)
+
+      // Contact info below header
       const contactParts = []
-      if (cvData.header?.email) contactParts.push(cvData.header.email)
       if (cvData.header?.phone) contactParts.push(cvData.header.phone)
       if (cvData.header?.location) contactParts.push(cvData.header.location)
       if (cvData.header?.portfolio_url) contactParts.push(cvData.header.portfolio_url)
@@ -502,22 +600,16 @@ export function generateModernPdf(
 
       if (contactParts.length > 0) {
         doc
-          .fontSize(MODERN_CONFIG.fonts.contactSize)
+          .fontSize(MODERN_CONFIG.fonts.contactSize - 1)
           .font('Helvetica')
           .fillColor(textRgb)
-          .text(contactParts.join(' | '), { width: 495 })
+          .text(contactParts.join('  •  '), { width: 495 })
         doc.moveDown(0.5)
       }
 
       // Professional Summary
       if (cvData.professional_summary) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.headerSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text('PROFESSIONAL SUMMARY', { width: 495 })
-        doc.moveDown(0.2)
-
+        drawSectionHeader('PROFESSIONAL SUMMARY', doc.y)
         doc
           .fontSize(MODERN_CONFIG.fonts.bodySize)
           .font('Helvetica')
@@ -528,18 +620,13 @@ export function generateModernPdf(
 
       // Skills
       if (cvData.skills && cvData.skills.length > 0) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.headerSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text('SKILLS', { width: 495 })
-        doc.moveDown(0.2)
+        drawSectionHeader('SKILLS', doc.y)
 
         cvData.skills.forEach((skillGroup) => {
           doc
             .fontSize(MODERN_CONFIG.fonts.bodySize)
             .font('Helvetica-Bold')
-            .fillColor(headingRgb)
+            .fillColor(primaryRgb)
             .text(skillGroup.category + ': ', { continued: true })
             .font('Helvetica')
             .fillColor(textRgb)
@@ -550,12 +637,7 @@ export function generateModernPdf(
 
       // Experience
       if (cvData.experience && cvData.experience.length > 0) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.headerSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text('PROFESSIONAL EXPERIENCE', { width: 495 })
-        doc.moveDown(0.2)
+        drawSectionHeader('PROFESSIONAL EXPERIENCE', doc.y)
 
         cvData.experience.forEach((job) => {
           doc
@@ -597,12 +679,7 @@ export function generateModernPdf(
 
       // Education
       if (cvData.education && cvData.education.length > 0) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.headerSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text('EDUCATION', { width: 495 })
-        doc.moveDown(0.2)
+        drawSectionHeader('EDUCATION', doc.y)
 
         cvData.education.forEach((edu) => {
           doc
@@ -630,12 +707,7 @@ export function generateModernPdf(
 
       // Certifications
       if (cvData.certifications && cvData.certifications.length > 0) {
-        doc
-          .fontSize(MODERN_CONFIG.fonts.headerSize)
-          .font('Helvetica-Bold')
-          .fillColor(primaryRgb)
-          .text('CERTIFICATIONS', { width: 495 })
-        doc.moveDown(0.2)
+        drawSectionHeader('CERTIFICATIONS', doc.y)
 
         cvData.certifications.forEach((cert) => {
           doc
