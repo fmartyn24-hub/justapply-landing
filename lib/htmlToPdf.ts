@@ -1,5 +1,5 @@
 // Convert HTML to PDF using html-pdf-node with Chrome support
-import { convertHtmlString } from 'html-pdf-node'
+import { generatePdf } from 'html-pdf-node'
 
 let browserPath: string | undefined
 
@@ -24,7 +24,7 @@ async function getBrowserPath(): Promise<string | undefined> {
 
 export async function htmlToPdf(html: string): Promise<Buffer> {
   try {
-    const executablePath = await getBrowserPath()
+    const args = ['--no-sandbox', '--disable-setuid-sandbox']
 
     const options = {
       format: 'A4',
@@ -35,22 +35,21 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         left: 0,
       },
       printBackground: true,
-      args: ['--no-sandbox'],
-      ...(executablePath && { args: ['--no-sandbox'] }),
+      args: args,
     }
 
     const file = {
       content: html,
     }
 
-    const buffer = await convertHtmlString(file, options)
+    const buffer = await generatePdf(file, options)
     return buffer
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error'
     console.error('HTML to PDF conversion error:', errorMsg)
 
     // Provide helpful error message for missing Chrome
-    if (errorMsg.includes('Could not find Chrome') || errorMsg.includes('ENOENT')) {
+    if (errorMsg.includes('Could not find Chrome') || errorMsg.includes('ENOENT') || errorMsg.includes('Failed to launch')) {
       throw new Error(
         'Chrome/Chromium is not installed. ' +
           'Please install Chrome from https://www.google.com/chrome/ or Chromium for PDF export to work.'

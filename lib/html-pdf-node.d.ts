@@ -1,5 +1,5 @@
 declare module 'html-pdf-node' {
-  export interface ConvertOptions {
+  export interface PdfOptions {
     format?: string
     margin?: {
       top?: number
@@ -8,12 +8,15 @@ declare module 'html-pdf-node' {
       left?: number
     }
     printBackground?: boolean
+    args?: string[]
     [key: string]: any
   }
 
   export interface HtmlFile {
-    content: string
+    content?: string
+    url?: string
   }
 
-  export function convertHtmlString(file: HtmlFile, options: ConvertOptions): Promise<Buffer>
+  export function generatePdf(file: HtmlFile, options: PdfOptions, callback?: any): Promise<Buffer>
+  export function generatePdfs(files: HtmlFile[], options: PdfOptions, callback?: any): Promise<Buffer[]>
 }
