@@ -383,7 +383,7 @@ function Dashboard() {
         tone_keywords: formData.tone_keywords || null,
         related_terms: formData.related_terms || null,
         source: 'manual',
-      })
+      } as any)
 
       if (!error) {
         const { data } = await supabase
