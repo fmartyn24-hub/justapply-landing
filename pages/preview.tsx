@@ -276,8 +276,10 @@ export default function PreviewPage() {
 
   // Helper functions to extract parts from the generated HTML
   function extractStylesFromHtml(html: string): string {
-    const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i)
-    return styleMatch ? styleMatch[1] : ''
+    // Capture all style content, including multiple style tags
+    const styleMatches = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)
+    if (!styleMatches) return ''
+    return styleMatches.map(match => match.replace(/<\/?style[^>]*>/gi, '')).join('\n')
   }
 
   function extractBodyFromHtml(html: string): string {
