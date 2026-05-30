@@ -6,9 +6,27 @@ interface ExtractedComponent {
   type: string
   title: string
   organization_name?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  primary_location?: string | null
   description?: string | null
   impact_metrics?: string | null
   tags?: string[]
+}
+
+// The career_components.start_date / end_date columns are Postgres `date`
+// types, so loose values from the model ("2018-06", "2018", "Present") must be
+// coerced to a full YYYY-MM-DD date or null before insert.
+function normalizeDate(raw: any): string | null {
+  if (!raw || typeof raw !== 'string') return null
+  const s = raw.trim()
+  if (!s || /^(present|current|now|ongoing|n\/?a)$/i.test(s)) return null
+  const m = s.match(/(\d{4})(?:[-/.](\d{1,2}))?(?:[-/.](\d{1,2}))?/)
+  if (!m) return null
+  const year = m[1]
+  const month = (m[2] || '01').padStart(2, '0')
+  const day = (m[3] || '01').padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 interface ExtractResponse {
@@ -98,6 +116,8 @@ export default async function handler(
 
 Extract ONLY information that is explicitly stated in the documents. For each component, be specific and data-driven.
 
+IMPORTANT — career progression: Create a SEPARATE "role" component for EVERY distinct position the person has held, INCLUDING multiple positions within the SAME company over time (promotions, title changes, lateral moves). Do NOT collapse a company into a single role and do NOT keep only the most recent title — each position is its own role component. For every role, include start_date and end_date (use "YYYY-MM" format, or "YYYY" if only the year is known) so growth within a company is preserved. For a role the person currently holds, set end_date to null. Include primary_location (e.g. "London, UK") when stated.
+
 Return ONLY valid JSON in this exact format:
 {
   "components": [
@@ -132,8 +152,11 @@ Return ONLY valid JSON in this exact format:
       "type": "role",
       "title": "job title or position",
       "organization_name": "company or organization name",
+      "start_date": "YYYY-MM when this position started (or YYYY if only year known)",
+      "end_date": "YYYY-MM when this position ended, or null if it is the current role",
+      "primary_location": "city, country if stated",
       "description": "key responsibilities and achievements",
-      "impact_metrics": "duration or key achievement in role",
+      "impact_metrics": "key achievement in role",
       "tags": ["industry"]
     },
     {
@@ -195,6 +218,9 @@ ${combinedText}`,
           type: component.type,
           title: component.title,
           organization_name: component.organization_name || null,
+          start_date: normalizeDate(component.start_date),
+          end_date: normalizeDate(component.end_date),
+          primary_location: component.primary_location || null,
           description: component.description || null,
           impact_metrics: component.impact_metrics || null,
           tags: Array.isArray(component.tags) ? component.tags : [],
@@ -214,6 +240,9 @@ ${combinedText}`,
           type: component.type,
           title: component.title,
           organization_name: component.organization_name || null,
+          start_date: normalizeDate(component.start_date),
+          end_date: normalizeDate(component.end_date),
+          primary_location: component.primary_location || null,
           description: component.description || null,
           impact_metrics: component.impact_metrics || null,
           tags: component.tags || [],

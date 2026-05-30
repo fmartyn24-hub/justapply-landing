@@ -56,6 +56,9 @@ interface ExtractedComponentPreview {
   type: string
   title: string
   organization_name?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  primary_location?: string | null
   description?: string | null
   impact_metrics?: string | null
   tags: string[]
@@ -74,6 +77,19 @@ interface Application {
   status: 'draft' | 'applied'
   created_at: string
   updated_at: string
+}
+
+// Format a role's start/end dates ("YYYY-MM-DD") into a year range like
+// "2015 – 2018" or "2018 – Present". Years are parsed from the string directly
+// to avoid timezone off-by-one issues with Date().
+function formatComponentDateRange(start?: string | null, end?: string | null): string {
+  const year = (d?: string | null) => (d && /^\d{4}/.test(d) ? d.slice(0, 4) : null)
+  const sy = year(start)
+  const ey = year(end)
+  if (sy && ey) return `${sy} – ${ey}`
+  if (sy && !ey) return `${sy} – Present`
+  if (!sy && ey) return ey
+  return ''
 }
 
 function Dashboard() {
@@ -327,6 +343,9 @@ function Dashboard() {
         type: normalizeComponentType(c.type),
         title: c.title || 'Untitled',
         organization_name: c.organization_name || null,
+        start_date: c.start_date || null,
+        end_date: c.end_date || null,
+        primary_location: c.primary_location || null,
         description: c.description || null,
         impact_metrics: c.impact_metrics || null,
         tags: Array.isArray(c.tags) ? c.tags : [],
@@ -385,6 +404,9 @@ function Dashboard() {
           type: c.type,
           title: c.title,
           organization_name: c.organization_name || null,
+          start_date: c.start_date || null,
+          end_date: c.end_date || null,
+          primary_location: c.primary_location || null,
           description: c.description || null,
           impact_metrics: c.impact_metrics || null,
           tags: c.tags || [],
@@ -1575,8 +1597,16 @@ function Dashboard() {
                         </span>
                         <span className="font-semibold text-gray-900">{comp.title}</span>
                       </div>
-                      {comp.organization_name && (
-                        <p className="text-sm text-gray-600 mt-0.5">{comp.organization_name}</p>
+                      {(comp.organization_name || comp.start_date || comp.end_date || comp.primary_location) && (
+                        <p className="text-sm text-gray-600 mt-0.5">
+                          {[
+                            comp.organization_name,
+                            formatComponentDateRange(comp.start_date, comp.end_date),
+                            comp.primary_location,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
                       )}
                       {comp.description && (
                         <p className="text-sm text-gray-700 mt-1">{comp.description}</p>

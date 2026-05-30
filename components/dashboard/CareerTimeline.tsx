@@ -34,6 +34,35 @@ function sortRolesByDate(roles: TimelineComponent[]): TimelineComponent[] {
   })
 }
 
+// Parse a 4-digit year straight from a "YYYY-MM-DD" string to avoid timezone
+// off-by-one errors with Date().
+function getYear(date?: string): string | null {
+  return date && /^\d{4}/.test(date) ? date.slice(0, 4) : null
+}
+
+// A role's own date range, e.g. "2018 – Present" or "2015 – 2017".
+function roleDateRange(role: TimelineComponent): string {
+  const sy = getYear(role.start_date)
+  const ey = getYear(role.end_date)
+  if (sy && ey) return `${sy} – ${ey}`
+  if (sy && !ey) return `${sy} – Present`
+  if (!sy && ey) return ey
+  return ''
+}
+
+// The full span a person spent at a company: earliest start → latest end
+// (or Present if any role there is still open).
+function companyDateRange(roles: TimelineComponent[]): string {
+  const startYears = roles.map((r) => getYear(r.start_date)).filter(Boolean) as string[]
+  const endYears = roles.map((r) => getYear(r.end_date)).filter(Boolean) as string[]
+  const earliest = startYears.length ? startYears.reduce((a, b) => (a < b ? a : b)) : null
+  const hasOpenRole = roles.some((r) => getYear(r.start_date) && !getYear(r.end_date))
+  const latest = endYears.length ? endYears.reduce((a, b) => (a > b ? a : b)) : null
+  if (!earliest && !latest) return ''
+  const end = hasOpenRole ? 'Present' : latest || 'Present'
+  return `${earliest || '?'} – ${end}`
+}
+
 export function CareerTimeline({ components, expandedRole, onRoleClick }: CareerTimelineProps) {
   // Filter to only roles
   const roles = useMemo(() => {
@@ -84,87 +113,98 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
       <div className="hidden md:block space-y-8">
         {rolesByOrganization.map(([ org, orgRoles ]) => {
           const orgRolesSorted = sortRolesByDate(orgRoles)
-          const lastRole = orgRolesSorted[orgRolesSorted.length - 1]
+          const hasProgression = orgRolesSorted.length > 1
 
           return (
             <div key={org} className="relative">
               {/* Organization Header */}
               <div className="mb-6 pb-3 border-b-2 border-orange-300">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">{org}</h3>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 className="text-lg font-semibold text-gray-900">{org}</h3>
+                  {hasProgression && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full px-2 py-0.5">
+                      ↗ {orgRolesSorted.length} positions
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500">
-                  {orgRoles.length} {orgRoles.length === 1 ? 'role' : 'roles'} · {new Date(orgRolesSorted[0].start_date || '').getFullYear() || '?'}
-                  {lastRole?.end_date ? ` - ${new Date(lastRole.end_date).getFullYear()}` : ' - Present'}
+                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'role' : 'roles'}`}
                 </p>
               </div>
 
-              {/* Roles under this organization */}
-              <div className="space-y-3 ml-6">
-                {orgRolesSorted.map((role) => {
-                  const startYear = role.start_date ? new Date(role.start_date).getFullYear() : null
-                  const endYear = role.end_date ? new Date(role.end_date).getFullYear() : null
+              {/* Roles under this organization — a connected sub-timeline so
+                  internal progression (promotions, title changes) reads as growth */}
+              <div className="relative ml-3 pl-6 space-y-3">
+                {/* Vertical connector line spanning the roles */}
+                {hasProgression && (
+                  <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-purple-300 to-orange-200" />
+                )}
+                {orgRolesSorted.map((role, roleIndex) => {
+                  const range = roleDateRange(role)
+                  const isCurrent = !!getYear(role.start_date) && !getYear(role.end_date)
 
                   return (
-                    <div
-                      key={role.id}
-                      onClick={() => onRoleClick?.(role)}
-                      className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
-                    >
-                      {/* Header */}
-                      <div className="mb-2">
-                        <p className="font-medium text-gray-900">
-                          {role.title}
-                        </p>
-                      </div>
-
-                      {/* Year indicator */}
-                      {(startYear || endYear) && (
-                        <div className="mb-2">
-                          <span className="text-xs text-gray-500">
-                            {startYear}
-                            {endYear ? ` - ${endYear}` : role.end_date ? ` - ${new Date(role.end_date).getFullYear()}` : ' - Present'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Location */}
-                      {role.primary_location && (
-                        <p className="text-xs text-gray-500 mb-2">
-                          {role.primary_location}
-                        </p>
-                      )}
-
-                      {/* Description */}
-                      {role.description && (
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                          {role.description}
-                        </p>
-                      )}
-
-                      {/* Impact metrics */}
-                      {role.impact_metrics && (
-                        <p className="text-xs text-gray-700 font-medium mb-2">
-                          {role.impact_metrics}
-                        </p>
-                      )}
-
-                      {/* Tags */}
-                      {role.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {role.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {role.tags.length > 3 && (
-                            <span className="text-gray-500 text-xs">
-                              +{role.tags.length - 3}
+                    <div key={role.id} className="relative">
+                      {/* Timeline dot */}
+                      <div
+                        className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white ${
+                          isCurrent ? 'bg-purple-500' : 'bg-orange-300'
+                        }`}
+                        style={{ boxShadow: '0 0 0 2px #e5e7eb' }}
+                      />
+                      <div
+                        onClick={() => onRoleClick?.(role)}
+                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
+                      >
+                        {/* Header: title + progression hint */}
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="font-medium text-gray-900">{role.title}</p>
+                          {hasProgression && roleIndex === 0 && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 flex-shrink-0">
+                              Most recent
                             </span>
                           )}
                         </div>
-                      )}
+
+                        {/* Date range */}
+                        {range && (
+                          <div className="mb-2">
+                            <span className="text-xs text-gray-500">{range}</span>
+                          </div>
+                        )}
+
+                        {/* Location */}
+                        {role.primary_location && (
+                          <p className="text-xs text-gray-500 mb-2">{role.primary_location}</p>
+                        )}
+
+                        {/* Description */}
+                        {role.description && (
+                          <p className="text-xs text-gray-600 mb-2 line-clamp-2">{role.description}</p>
+                        )}
+
+                        {/* Impact metrics */}
+                        {role.impact_metrics && (
+                          <p className="text-xs text-gray-700 font-medium mb-2">{role.impact_metrics}</p>
+                        )}
+
+                        {/* Tags */}
+                        {role.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {role.tags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {role.tags.length > 3 && (
+                              <span className="text-gray-500 text-xs">+{role.tags.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -178,30 +218,40 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
       <div className="md:hidden space-y-6">
         {rolesByOrganization.map(([ org, orgRoles ]) => {
           const orgRolesSorted = sortRolesByDate(orgRoles)
-          const lastRole = orgRolesSorted[orgRolesSorted.length - 1]
+          const hasProgression = orgRolesSorted.length > 1
 
           return (
             <div key={org}>
               {/* Organization Header */}
               <div className="mb-3 pb-2 border-b-2 border-orange-300">
-                <h3 className="text-base font-semibold text-gray-900 mb-1">{org}</h3>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 className="text-base font-semibold text-gray-900">{org}</h3>
+                  {hasProgression && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full px-2 py-0.5">
+                      ↗ {orgRolesSorted.length} positions
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500">
-                  {orgRoles.length} {orgRoles.length === 1 ? 'role' : 'roles'} · {new Date(orgRolesSorted[0].start_date || '').getFullYear() || '?'}
-                  {lastRole?.end_date ? ` - ${new Date(lastRole.end_date).getFullYear()}` : ' - Present'}
+                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'role' : 'roles'}`}
                 </p>
               </div>
 
               {/* Roles under this organization */}
               <div className="space-y-2">
                 {orgRolesSorted.map((role) => {
-                  const startYear = role.start_date ? new Date(role.start_date).getFullYear() : null
-                  const endYear = role.end_date ? new Date(role.end_date).getFullYear() : null
+                  const range = roleDateRange(role)
+                  const isCurrent = !!getYear(role.start_date) && !getYear(role.end_date)
 
                   return (
                     <div key={role.id} className="relative pl-4">
                       {/* Vertical accent line */}
                       <div className="absolute left-0 top-0 w-0.5 h-full bg-gray-200" />
-                      <div className="absolute left-0 top-1.5 -translate-x-1.5 w-3 h-3 bg-white border-2 border-gray-300 rounded-full" />
+                      <div
+                        className={`absolute left-0 top-1.5 -translate-x-1.5 w-3 h-3 bg-white border-2 rounded-full ${
+                          isCurrent ? 'border-purple-500' : 'border-gray-300'
+                        }`}
+                      />
 
                       {/* Card */}
                       <div
@@ -213,13 +263,10 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                           {role.title}
                         </p>
 
-                        {/* Year indicator */}
-                        {(startYear || endYear) && (
+                        {/* Date range */}
+                        {range && (
                           <div className="mb-2">
-                            <span className="text-xs text-gray-500">
-                              {startYear}
-                              {endYear ? ` - ${endYear}` : role.end_date ? ` - ${new Date(role.end_date).getFullYear()}` : ' - Present'}
-                            </span>
+                            <span className="text-xs text-gray-500">{range}</span>
                           </div>
                         )}
 
