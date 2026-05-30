@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
 import { generateModernHtml } from '@/lib/templates/modernHtml'
@@ -19,12 +19,52 @@ const templateGenerators: { [key: string]: Function } = {
   ats: generateAtsHtml,
 }
 
+// Override styles injected into the rendered document so that fixed-height,
+// overflow:hidden template containers can grow and flow across multiple pages.
+// Without this, templates designed as a single 8.5x11in page clip extra content.
+const OVERRIDE_STYLES = `
+  <style id="preview-overrides">
+    html, body {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+    }
+    .container {
+      height: auto !important;
+      min-height: 11in;
+      max-height: none !important;
+      overflow: visible !important;
+      box-shadow: none !important;
+      margin: 0 auto !important;
+    }
+    .content {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+  </style>
+`
+
+// Inject the override styles right before </head> (or prepend if no head)
+function buildDocument(html: string): string {
+  if (/<\/head>/i.test(html)) {
+    return html.replace(/<\/head>/i, OVERRIDE_STYLES + '</head>')
+  }
+  return OVERRIDE_STYLES + html
+}
+
 export default function PreviewPage() {
   const [htmlContent, setHtmlContent] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<any>(null)
   const [downloading, setDownloading] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     async function loadPreview() {
@@ -33,6 +73,7 @@ export default function PreviewPage() {
         const data = sessionStorage.getItem('previewData')
         if (!data) {
           setError('Preview data not found')
+          setLoading(false)
           return
         }
 
@@ -49,6 +90,7 @@ export default function PreviewPage() {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         if (sessionError || !session?.user?.id) {
           setError('Not authenticated. Please log in again.')
+          setLoading(false)
           return
         }
 
@@ -62,6 +104,7 @@ export default function PreviewPage() {
 
         if (fetchError || !application) {
           setError('Application not found')
+          setLoading(false)
           return
         }
 
@@ -73,7 +116,7 @@ export default function PreviewPage() {
           .single()
 
         // Generate HTML based on document type
-        const templateGenerator = templateGenerators[template]
+        const templateGenerator = templateGenerators[template] || generateModernHtml
         let html = ''
 
         if (documentType === 'coverLetter') {
@@ -94,7 +137,7 @@ export default function PreviewPage() {
           html = templateGenerator(structuredCv, 'cv')
         }
 
-        setHtmlContent(html)
+        setHtmlContent(buildDocument(html))
         setLoading(false)
       } catch (err) {
         console.error('Error loading preview:', err)
@@ -106,6 +149,20 @@ export default function PreviewPage() {
     loadPreview()
   }, [])
 
+  // Resize the iframe to fit its content height so the whole document is visible
+  function handleIframeLoad() {
+    const iframe = iframeRef.current
+    if (!iframe || !iframe.contentDocument) return
+    try {
+      const doc = iframe.contentDocument
+      const target = (doc.querySelector('.container') as HTMLElement) || doc.body
+      const height = Math.max(target.scrollHeight, doc.body.scrollHeight)
+      iframe.style.height = `${height + 40}px`
+    } catch {
+      // ignore cross-origin (shouldn't happen with srcDoc)
+    }
+  }
+
   async function downloadFile(format: 'pdf' | 'docx') {
     if (!previewData) return
 
@@ -115,48 +172,32 @@ export default function PreviewPage() {
       const fileName = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}`
 
       if (format === 'pdf') {
-        // Client-side PDF generation using html2canvas + jsPDF
         console.log('Starting client-side PDF generation...')
         const html2canvas = (await import('html2canvas')).default
         const jsPDF = (await import('jspdf')).jsPDF
 
-        // Find the actual CV content
-        const previewContent = document.querySelector('.preview-content')
-        if (!previewContent) throw new Error('Preview content not found')
+        // Capture the rendered document from inside the iframe
+        const iframe = iframeRef.current
+        if (!iframe || !iframe.contentDocument) {
+          throw new Error('Preview not ready')
+        }
+        const doc = iframe.contentDocument
+        const target =
+          (doc.querySelector('.container') as HTMLElement) || doc.body
 
-        console.log('Rendering to canvas...')
-
-        // A4 dimensions
-        const a4WidthMm = 210
-        const mmToPx = 3.78
-        const targetWidthPx = a4WidthMm * mmToPx
-
-        // Save original width
-        const previewElement = previewContent as HTMLElement
-        const originalWidth = previewElement.style.width
-
-        // Set width to A4 for accurate rendering
-        previewElement.style.width = `${targetWidthPx}px`
-
-        const canvas = await html2canvas(previewElement, {
+        console.log('Rendering iframe content to canvas...')
+        const canvas = await html2canvas(target, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
-          windowHeight: previewElement.scrollHeight,
-          width: targetWidthPx,
+          windowWidth: target.scrollWidth,
+          windowHeight: target.scrollHeight,
         })
 
-        // Restore original width
-        if (originalWidth) {
-          previewElement.style.width = originalWidth
-        } else {
-          previewElement.style.width = ''
-        }
-
-        // Create PDF
-        console.log('Creating PDF...')
+        // Build an A4 PDF, fitting the canvas width to the page width and
+        // slicing the canvas vertically into page-height chunks.
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
@@ -166,59 +207,51 @@ export default function PreviewPage() {
         const pageWidthMm = pdf.internal.pageSize.getWidth() // 210mm
         const pageHeightMm = pdf.internal.pageSize.getHeight() // 297mm
 
-        // Calculate how many pixels per mm in the canvas
-        const pxPerMmWidth = canvas.width / targetWidthPx // should be ~0.265
-        const pxPerMmHeight = pxPerMmWidth // maintain aspect ratio
+        // Conversion: how many canvas pixels equal 1mm when width is fit to page
+        const pxPerMm = canvas.width / pageWidthMm
+        // Canvas pixels that correspond to a single full PDF page height
+        const pageHeightPx = pageHeightMm * pxPerMm
 
-        // Calculate pixel heights for each page
-        const pageHeightPx = pageHeightMm * pxPerMmHeight
-        console.log(`Canvas: ${canvas.width}x${canvas.height}px, Page: ${pageHeightPx}px tall`)
+        const totalPages = Math.max(1, Math.ceil(canvas.height / pageHeightPx))
+        console.log(
+          `Canvas: ${canvas.width}x${canvas.height}px, page=${Math.round(
+            pageHeightPx
+          )}px, totalPages=${totalPages}`
+        )
 
-        // Calculate total pages needed
-        const totalPages = Math.ceil(canvas.height / pageHeightPx)
-        console.log(`Total pages needed: ${totalPages}`)
-
-        // Process each page
         for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-          // Calculate crop area for this page
           const startY = pageNum * pageHeightPx
-          const endY = Math.min(startY + pageHeightPx, canvas.height)
-          const cropHeight = endY - startY
+          const sliceHeight = Math.min(pageHeightPx, canvas.height - startY)
+          if (sliceHeight <= 0) break
 
-          // Create temporary canvas for this page
+          // Copy this slice into a temporary canvas
           const pageCanvas = document.createElement('canvas')
           pageCanvas.width = canvas.width
-          pageCanvas.height = cropHeight
-
-          // Copy the relevant portion from the main canvas
+          pageCanvas.height = sliceHeight
           const ctx = pageCanvas.getContext('2d')
           if (ctx) {
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
             ctx.drawImage(
               canvas,
-              0, startY, // source position
-              canvas.width, cropHeight, // source size
-              0, 0, // destination position
-              canvas.width, cropHeight // destination size
+              0, startY,
+              canvas.width, sliceHeight,
+              0, 0,
+              canvas.width, sliceHeight
             )
           }
 
-          // Convert page canvas to image and add to PDF
-          const pageImgData = pageCanvas.toDataURL('image/png')
+          const imgData = pageCanvas.toDataURL('image/png')
+          if (pageNum > 0) pdf.addPage()
 
-          // Add page to PDF (except first which is auto-created)
-          if (pageNum > 0) {
-            pdf.addPage()
-          }
-
-          // Each sliced canvas chunk represents exactly one A4 page height
-          // So the image height should always be the full A4 height (297mm)
-          pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidthMm, pageHeightMm)
-
-          console.log(`Added page ${pageNum + 1}: ${cropHeight}px of canvas`)
+          // Height of this slice in mm (partial last page stays proportional)
+          const sliceHeightMm = sliceHeight / pxPerMm
+          pdf.addImage(imgData, 'PNG', 0, 0, pageWidthMm, sliceHeightMm)
+          console.log(`Page ${pageNum + 1}: ${Math.round(sliceHeight)}px -> ${sliceHeightMm.toFixed(1)}mm`)
         }
 
         pdf.save(`${fileName}.pdf`)
-        console.log(`✓ PDF downloaded successfully (${totalPages} pages)`)
+        console.log(`✓ PDF downloaded (${totalPages} page(s))`)
       } else {
         // Server-side DOCX generation
         console.log('Downloading DOCX...')
@@ -226,7 +259,7 @@ export default function PreviewPage() {
           `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`,
           {
             method: 'GET',
-            headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
           }
         )
 
@@ -274,30 +307,11 @@ export default function PreviewPage() {
     )
   }
 
-  // Helper functions to extract parts from the generated HTML
-  function extractStylesFromHtml(html: string): string {
-    // Capture all style content, including multiple style tags
-    const styleMatches = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)
-    if (!styleMatches) return ''
-    let styles = styleMatches.map(match => match.replace(/<\/?style[^>]*>/gi, '')).join('\n')
-
-    // Replace body selector with .preview-content so body styles apply to our container
-    // This handles both "body {" and "body{" (with/without spaces)
-    styles = styles.replace(/\bbody\s*\{/gi, '.preview-content {')
-
-    return styles
-  }
-
-  function extractBodyFromHtml(html: string): string {
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
-    return bodyMatch ? bodyMatch[1] : html
-  }
-
   return (
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e5e7eb; }
         .preview-controls {
           position: fixed;
           top: 0;
@@ -323,75 +337,41 @@ export default function PreviewPage() {
           font-size: 14px;
           transition: all 0.3s ease;
         }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-pdf { background: #e74c3c; color: white; }
-        .btn-pdf:hover { background: #c0392b; }
+        .btn-pdf:hover:not(:disabled) { background: #c0392b; }
         .btn-docx { background: #3498db; color: white; }
-        .btn-docx:hover { background: #2980b9; }
+        .btn-docx:hover:not(:disabled) { background: #2980b9; }
         .btn-close { background: rgba(255,255,255,0.2); color: white; }
         .btn-close:hover { background: rgba(255,255,255,0.3); }
-        .preview-content {
+        .preview-stage {
           margin-top: 70px;
-          padding: 0;
-          background: transparent;
-          min-height: 100vh;
+          padding: 24px 12px;
+          display: flex;
+          justify-content: center;
         }
-        .preview-content-inner {
-          padding: 20px;
-          background: white;
-          margin-bottom: 20px;
-        }
-        /* Force all content to display naturally */
-        .preview-content > * {
+        .preview-frame {
+          width: 8.5in;
           max-width: 100%;
-          margin: 0;
-          height: auto !important;
-          max-height: none !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        /* Override any container constraints */
-        .preview-content div[style*="max-height"],
-        .preview-content div[style*="height: "],
-        .preview-content div[style*="overflow: hidden"] {
-          max-height: none !important;
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        /* Ensure page breaks work - show all pages */
-        .preview-content .page,
-        .preview-content [class*="page"],
-        .preview-content [class*="document"],
-        .preview-content [role="document"] {
-          page-break-after: auto;
-          break-after: auto;
-          display: block !important;
-          height: auto !important;
-          margin: 0;
-          padding: 0;
-          width: 100%;
-        }
-        /* Show all sections */
-        .preview-content section,
-        .preview-content article,
-        .preview-content main {
-          display: block !important;
-          height: auto !important;
-          margin: 0;
-          padding: 0;
+          border: none;
+          background: white;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+          display: block;
         }
       `}</style>
 
       <div className="preview-controls">
         <div className="preview-title">
           {previewData?.documentType === 'coverLetter' ? 'Cover Letter' : 'CV'} Preview -{' '}
-          {previewData?.template.charAt(0).toUpperCase() + previewData?.template.slice(1)}
+          {previewData?.template
+            ? previewData.template.charAt(0).toUpperCase() + previewData.template.slice(1)
+            : ''}
         </div>
         <div className="preview-buttons">
-          <button className="btn btn-pdf" onClick={() => downloadFile('pdf')}>
-            Download as PDF
+          <button className="btn btn-pdf" onClick={() => downloadFile('pdf')} disabled={downloading}>
+            {downloading ? 'Generating...' : 'Download as PDF'}
           </button>
-          <button className="btn btn-docx" onClick={() => downloadFile('docx')}>
+          <button className="btn btn-docx" onClick={() => downloadFile('docx')} disabled={downloading}>
             Download as DOCX
           </button>
           <button className="btn btn-close" onClick={() => window.close()}>
@@ -399,12 +379,16 @@ export default function PreviewPage() {
           </button>
         </div>
       </div>
+
       {htmlContent && (
-        <div className="preview-content">
-          {/* Extract and apply styles from the HTML */}
-          <style>{extractStylesFromHtml(htmlContent)}</style>
-          {/* Extract and render body content */}
-          <div dangerouslySetInnerHTML={{ __html: extractBodyFromHtml(htmlContent) }} />
+        <div className="preview-stage">
+          <iframe
+            ref={iframeRef}
+            className="preview-frame"
+            srcDoc={htmlContent}
+            title="Document Preview"
+            onLoad={handleIframeLoad}
+          />
         </div>
       )}
     </>
