@@ -210,11 +210,11 @@ export default function PreviewPage() {
             pdf.addPage()
           }
 
-          // Calculate the image height for this page
-          const pageImgHeightMm = (cropHeight / canvas.width) * pageWidthMm
-          pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidthMm, pageImgHeightMm)
+          // Each sliced canvas chunk represents exactly one A4 page height
+          // So the image height should always be the full A4 height (297mm)
+          pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidthMm, pageHeightMm)
 
-          console.log(`Added page ${pageNum + 1}: ${cropHeight}px → ${pageImgHeightMm}mm`)
+          console.log(`Added page ${pageNum + 1}: ${cropHeight}px of canvas`)
         }
 
         pdf.save(`${fileName}.pdf`)
