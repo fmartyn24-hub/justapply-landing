@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer'
 import { existsSync } from 'fs'
 
 let cachedBrowser: any = null
+let browserCreationInProgress: Promise<any> | null = null
 
 // Get Chromium executable path for Vercel
 async function getChromiumPath(): Promise<string | undefined> {
@@ -38,36 +39,80 @@ async function getChromiumPath(): Promise<string | undefined> {
 }
 
 async function getBrowser() {
+  // If browser creation is already in progress, wait for it
+  if (browserCreationInProgress) {
+    return browserCreationInProgress
+  }
+
+  // If we have a cached browser, check if it's still connected
   if (cachedBrowser) {
-    return cachedBrowser
+    try {
+      await cachedBrowser.version()
+      return cachedBrowser
+    } catch (error) {
+      console.log('Cached browser disconnected, creating new one')
+      cachedBrowser = null
+    }
   }
 
-  const executablePath = await getChromiumPath()
+  // Create a new browser
+  browserCreationInProgress = (async () => {
+    try {
+      const executablePath = await getChromiumPath()
 
-  const launchOptions: any = {
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  }
+      const launchOptions: any = {
+        headless: 'new',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage', // Important for low-memory environments
+          '--disable-gpu',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--disable-default-apps',
+        ],
+      }
 
-  if (executablePath) {
-    launchOptions.executablePath = executablePath
-  }
+      if (executablePath) {
+        launchOptions.executablePath = executablePath
+      }
 
-  cachedBrowser = await puppeteer.launch(launchOptions)
-  return cachedBrowser
+      cachedBrowser = await puppeteer.launch(launchOptions)
+      return cachedBrowser
+    } finally {
+      browserCreationInProgress = null
+    }
+  })()
+
+  return browserCreationInProgress
 }
 
 export async function htmlToPdf(html: string): Promise<Buffer> {
-  let browser = null
+  let page = null
   try {
-    browser = await getBrowser()
-    const page = await browser.newPage()
+    const browser = await getBrowser()
+    page = await browser.newPage()
 
-    // Set viewport and paper format for PDF
-    await page.setViewport({ width: 1200, height: 1600 })
+    // Set up error handlers
+    page.on('error', (err: Error) => {
+      console.error('Page error:', err)
+    })
 
-    // Load HTML content
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    page.on('pageerror', (err: Error) => {
+      console.error('Page javascript error:', err)
+    })
+
+    // Set viewport for A4 size
+    await page.setViewport({ width: 794, height: 1123 })
+
+    // Load HTML content with longer timeout
+    await page.setContent(html, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000 // 30 second timeout
+    })
+
+    // Wait a bit for any styles to load
+    await page.waitForTimeout(1000)
 
     // Generate PDF
     const buffer = await page.pdf({
@@ -79,10 +124,9 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         left: 0,
       },
       printBackground: true,
+      preferCSSPageSize: true,
       scale: 1,
     })
-
-    await page.close()
 
     return Buffer.from(buffer)
   } catch (error) {
@@ -95,5 +139,14 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     })
 
     throw new Error(`Failed to convert HTML to PDF: ${errorMsg}`)
+  } finally {
+    // Always close the page, but don't close browser (keep it cached)
+    if (page) {
+      try {
+        await page.close()
+      } catch (err) {
+        console.error('Error closing page:', err)
+      }
+    }
   }
 }
