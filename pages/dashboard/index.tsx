@@ -74,6 +74,8 @@ interface Application {
   job_url?: string
   generated_cv: string
   generated_cover_letter: string
+  generated_cv_json?: any
+  generated_cover_letter_json?: any
   deadline?: string
   persons_of_interest?: string
   status: 'draft' | 'applied'
@@ -561,14 +563,57 @@ function Dashboard() {
         throw new Error(data.error || 'Upload failed')
       }
 
+      const uploadResult = await response.json().catch(() => ({} as any))
       await refetchCvs()
       setImportUploadSuccess(true)
       setImportFile(null)
+
+      // Don't leave the user at a dead-end: immediately extract components from
+      // the file they just uploaded and surface them in the review modal.
+      const uploadedText: string = uploadResult?.extractedText || ''
+      if (uploadedText.trim().length > 0) {
+        await extractAndReviewFromText(uploadedText)
+      }
     } catch (err) {
       console.error('Import upload error:', err)
       setImportUploadError(err instanceof Error ? err.message : 'An error occurred during upload')
     } finally {
       setImportUploading(false)
+    }
+  }
+
+  // Extract components (preview) from a single chunk of text and open the review
+  // modal. Shared by the file-upload and paste-analyze flows.
+  const extractAndReviewFromText = async (text: string) => {
+    if (!session?.access_token) return
+    try {
+      const r = await fetch('/api/extract-components?preview=1', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Extraction failed')
+      }
+      const d = await r.json()
+      const extracted = prepareReviewComponents(d.components || [])
+      if (extracted.length === 0) {
+        setSuccessMessage('Uploaded — but we couldn’t pull any components out of that file.')
+        setTimeout(() => setSuccessMessage(''), 4000)
+        return
+      }
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      console.error('Extract-after-upload error:', err)
+      // Non-fatal: the CV is saved; the user can still use "Extract components now".
+      setSuccessMessage('Uploaded. Click “Extract components now” to add components.')
+      setTimeout(() => setSuccessMessage(''), 4000)
     }
   }
 
@@ -853,16 +898,24 @@ function Dashboard() {
 
       const data = await response.json()
 
-      // Insert the application into the database
-      const { error } = await supabase.from('applications').insert({
-        user_id: session.user.id,
-        job_title: jobTitle || 'Untitled Position',
-        company_name: company || 'Unknown Company',
-        job_description: jobDescription,
-        generated_cv: data.cv,
-        generated_cover_letter: data.coverLetter,
-        status: 'draft',
-      } as any)
+      // Insert the application into the database. We persist Claude's STRUCTURED
+      // JSON (the source of truth for exports) alongside the flattened text, so
+      // templates render real fields instead of regex-guessing them back.
+      const { data: inserted, error } = await supabase
+        .from('applications')
+        .insert({
+          user_id: session.user.id,
+          job_title: jobTitle || 'Untitled Position',
+          company_name: company || 'Unknown Company',
+          job_description: jobDescription,
+          generated_cv: data.cv,
+          generated_cover_letter: data.coverLetter,
+          generated_cv_json: data.cvStructured ?? null,
+          generated_cover_letter_json: data.coverLetterStructured ?? null,
+          status: 'draft',
+        } as any)
+        .select()
+        .single()
 
       if (error) throw error
 
@@ -878,6 +931,7 @@ function Dashboard() {
       }
 
       alert('✅ Application generated successfully!')
+      return inserted
     } catch (err) {
       console.error('Generation error:', err)
       throw err
@@ -906,20 +960,57 @@ function Dashboard() {
   }
 
   const handleRegenerateApplication = async (id: string) => {
+    if (!session?.access_token || !session?.user?.id) return
     const app = applications.find((a) => a.id === id)
     if (!app) return
 
+    setGeneratingApplication(true)
     try {
-      await handleGenerateApplication(app.job_description || '', app.job_title, app.company_name)
+      // Regenerate content for THIS application and update it in place. (The old
+      // implementation called the create handler, which inserted a duplicate row
+      // and left the original showing stale content.)
+      const response = await fetch('/api/generate-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          jobDescription: app.job_description || '',
+          jobTitle: app.job_title,
+          company: app.company_name,
+        }),
+      })
 
-      // Update the existing application with regenerated content
-      const { data } = await supabase.from('applications').select('*').eq('id', id).single()
-      if (data) {
-        setApplications(applications.map((a) => (a.id === id ? data : a)))
+      if (!response.ok) {
+        const d = await response.json().catch(() => ({}))
+        throw new Error(d.error || 'Failed to regenerate application')
+      }
+
+      const data = await response.json()
+
+      const { data: updated, error } = await (supabase.from('applications') as any)
+        .update({
+          generated_cv: data.cv,
+          generated_cover_letter: data.coverLetter,
+          generated_cv_json: data.cvStructured ?? null,
+          generated_cover_letter_json: data.coverLetterStructured ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      if (updated) {
+        setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
       }
     } catch (err) {
       console.error('Regenerate error:', err)
       throw err
+    } finally {
+      setGeneratingApplication(false)
     }
   }
 

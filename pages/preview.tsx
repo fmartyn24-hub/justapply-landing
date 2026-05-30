@@ -151,20 +151,44 @@ export default function PreviewPage() {
         let html = ''
 
         if (documentType === 'coverLetter') {
-          const clContent = application.generated_cover_letter || ''
-          const clData = {
-            opening: '',
-            body_paragraphs: clContent ? [clContent] : [],
-            closing: '',
+          // Prefer the structured cover letter from generation; fall back to
+          // splitting the stored plain text into paragraphs for old records.
+          const clStructured = application.generated_cover_letter_json
+          let clData
+          if (clStructured && typeof clStructured === 'object') {
+            clData = {
+              opening: clStructured.opening || '',
+              body_paragraphs: Array.isArray(clStructured.body_paragraphs)
+                ? clStructured.body_paragraphs
+                : [],
+              closing: clStructured.closing || '',
+            }
+          } else {
+            const paras = (application.generated_cover_letter || '')
+              .split('\n\n')
+              .map((p: string) => p.trim())
+              .filter(Boolean)
+            clData = {
+              opening: paras[0] || '',
+              body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
+              closing: paras.length > 1 ? paras[paras.length - 1] : '',
+            }
           }
           html = templateGenerator(null, 'coverLetter', clData)
         } else {
-          const cvContent = application.generated_cv || ''
-          const structuredCv = convertPlainTextCvToStructured(
-            cvContent,
-            profileData?.email,
-            `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
-          )
+          // Prefer the structured CV from generation (real fields). Fall back to
+          // the lossy plain-text reparser only for legacy records without JSON.
+          const cvStructured = application.generated_cv_json
+          let structuredCv
+          if (cvStructured && typeof cvStructured === 'object') {
+            structuredCv = cvStructured
+          } else {
+            structuredCv = convertPlainTextCvToStructured(
+              application.generated_cv || '',
+              profileData?.email,
+              `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+            )
+          }
           html = templateGenerator(structuredCv, 'cv')
         }
 

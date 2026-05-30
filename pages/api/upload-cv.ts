@@ -8,6 +8,7 @@ interface UploadResponse {
   cvId?: string
   filename?: string
   extractedTextLength?: number
+  extractedText?: string
   error?: string
   details?: string
   status?: number
@@ -183,6 +184,10 @@ export default async function handler(
       cvId: cvRecord.id,
       filename: sanitizedFilename,
       extractedTextLength: extractedText.length,
+      // Returned so the client can immediately extract components from this
+      // upload and show the review modal, instead of leaving the user at a
+      // dead-end with the CV stored but nothing surfaced.
+      extractedText,
     })
   } catch (error) {
     console.error('Upload handler error:', error)

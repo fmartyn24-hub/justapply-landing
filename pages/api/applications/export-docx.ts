@@ -99,22 +99,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cvContent = documentType === 'cv' ? application.generated_cv || '' : ''
     const clContent = documentType === 'coverLetter' ? application.generated_cover_letter || '' : ''
 
-    // Convert plain text to structured format for new templates
+    // Profile (used only as a fallback header source for legacy records).
     const { data: profileData } = await supabase
       .from('user_profiles')
       .select('first_name, last_name, email')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     let buffer: Buffer
 
     // Use new template generators for Modern and Professional templates
     if (documentType === 'cv') {
-      const structuredCv = convertPlainTextCvToStructured(
-        cvContent,
-        profileData?.email,
-        `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
-      )
+      // Prefer the structured CV stored at generation time; only fall back to
+      // the lossy plain-text reparser for legacy records without JSON.
+      const structuredCv =
+        application.generated_cv_json && typeof application.generated_cv_json === 'object'
+          ? application.generated_cv_json
+          : convertPlainTextCvToStructured(
+              cvContent,
+              profileData?.email,
+              `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+            )
 
       if (exportTemplate.id === 'modern') {
         buffer = await generateModernDocx(structuredCv, 'cv')
@@ -133,12 +138,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         )
       }
     } else {
-      // Cover letter export - use simple text-based templates
-      const clData = {
-        opening: clContent.split('\n\n')[0] || '',
-        body_paragraphs: clContent.split('\n\n').slice(1, -1) || [],
-        closing: clContent.split('\n\n').slice(-1)[0] || '',
-      }
+      // Cover letter export — prefer the structured JSON; fall back to splitting
+      // the stored plain text into paragraphs for legacy records.
+      const clStructured = application.generated_cover_letter_json
+      const paras = clContent.split('\n\n').map((p: string) => p.trim()).filter(Boolean)
+      const clData =
+        clStructured && typeof clStructured === 'object'
+          ? {
+              opening: clStructured.opening || '',
+              body_paragraphs: Array.isArray(clStructured.body_paragraphs)
+                ? clStructured.body_paragraphs
+                : [],
+              closing: clStructured.closing || '',
+            }
+          : {
+              opening: paras[0] || '',
+              body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
+              closing: paras.length > 1 ? paras[paras.length - 1] : '',
+            }
 
       if (exportTemplate.id === 'modern') {
         buffer = await generateModernDocx({}, 'coverLetter', clData)

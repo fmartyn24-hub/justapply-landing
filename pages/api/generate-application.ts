@@ -6,6 +6,10 @@ interface ApiResponse {
   success: boolean
   cv?: string
   coverLetter?: string
+  // Structured data straight from Claude — the source of truth for exports.
+  // The plain-text fields above are a flattened fallback for display/legacy.
+  cvStructured?: any
+  coverLetterStructured?: any
   error?: string
 }
 
@@ -48,14 +52,14 @@ export default async function handler(
 
     if (componentError) throw componentError
 
-    // Fetch user profile
-    const { data: profileData, error: profileError } = await serverSupabase
+    // Fetch user profile. Use maybeSingle so a brand-new user who hasn't saved
+    // a profile yet (no row) still gets a generated application instead of a
+    // hard 500 — we fall back to their auth email and empty contact fields.
+    const { data: profileData } = await serverSupabase
       .from('user_profiles')
       .select('first_name, last_name, email, phone, address, website, linkedin_url')
       .eq('id', user.id)
-      .single()
-
-    if (profileError) throw profileError
+      .maybeSingle()
 
     // Fetch profile answers/voice
     const { data: profileAnswers } = await serverSupabase
@@ -285,6 +289,8 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
 
     let cv = ''
     let coverLetter = ''
+    let cvStructured: any = null
+    let coverLetterStructured: any = null
 
     try {
       // Strip markdown code block wrapper if present
@@ -302,7 +308,9 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
 
       // Handle both structured and plain text responses for backward compatibility
       if (typeof parsed.cv === 'object' && parsed.cv !== null) {
-        // Structured CV format — convert to plain text
+        // Structured CV format — keep the structured data (source of truth for
+        // exports) AND a flattened plain-text version for display/legacy.
+        cvStructured = parsed.cv
         cv = convertStructuredCVToPlainText(parsed.cv)
       } else if (typeof parsed.cv === 'string') {
         // Plain text CV (backward compatibility)
@@ -312,7 +320,7 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
       }
 
       if (typeof parsed.coverLetter === 'object' && parsed.coverLetter !== null) {
-        // Structured cover letter format — convert to plain text
+        coverLetterStructured = parsed.coverLetter
         coverLetter = convertStructuredCoverLetterToPlainText(parsed.coverLetter)
       } else if (typeof parsed.coverLetter === 'string') {
         // Plain text cover letter (backward compatibility)
@@ -324,6 +332,22 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
       throw new Error('Failed to parse JSON response from Claude. Response was: ' + content.text.substring(0, 200))
     }
 
+    // Authoritatively set the CV header from the user's real profile so the
+    // exported document always shows correct contact details (and never an
+    // address/phone the model might have invented or dropped).
+    if (cvStructured && typeof cvStructured === 'object') {
+      const fullName = `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+      cvStructured.header = {
+        ...(cvStructured.header || {}),
+        name: fullName || cvStructured.header?.name || '',
+        email: profileData?.email || user.email || cvStructured.header?.email || '',
+        phone: profileData?.phone || cvStructured.header?.phone || null,
+        location: profileData?.address || cvStructured.header?.location || null,
+        portfolio_url: profileData?.website || cvStructured.header?.portfolio_url || null,
+        linkedin_url: profileData?.linkedin_url || cvStructured.header?.linkedin_url || null,
+      }
+    }
+
     if (!cv || !coverLetter) {
       throw new Error('CV or cover letter is empty in the response')
     }
@@ -332,6 +356,8 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
       success: true,
       cv,
       coverLetter,
+      cvStructured,
+      coverLetterStructured,
     })
   } catch (error) {
     console.error('Generate application error:', error)
