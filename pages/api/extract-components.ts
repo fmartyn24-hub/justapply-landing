@@ -2,9 +2,19 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 
+interface ExtractedComponent {
+  type: string
+  title: string
+  organization_name?: string | null
+  description?: string | null
+  impact_metrics?: string | null
+  tags?: string[]
+}
+
 interface ExtractResponse {
   success: boolean
   componentsAdded?: number
+  components?: ExtractedComponent[]
   error?: string
 }
 
@@ -172,6 +182,27 @@ ${combinedText}`,
       return res.status(200).json({
         success: true,
         componentsAdded: 0,
+        components: [],
+      })
+    }
+
+    // Preview mode: return the extracted components for user review/approval
+    // WITHOUT writing them to the library yet. The client adds the approved
+    // ones via a follow-up insert. Triggered with ?preview=1.
+    if (req.query.preview === '1') {
+      const previewComponents: ExtractedComponent[] = extractedComponents.components.map(
+        (component: any) => ({
+          type: component.type,
+          title: component.title,
+          organization_name: component.organization_name || null,
+          description: component.description || null,
+          impact_metrics: component.impact_metrics || null,
+          tags: Array.isArray(component.tags) ? component.tags : [],
+        })
+      )
+      return res.status(200).json({
+        success: true,
+        components: previewComponents,
       })
     }
 

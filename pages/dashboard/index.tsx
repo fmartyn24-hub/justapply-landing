@@ -52,6 +52,15 @@ interface NewComponent {
   related_terms?: string
 }
 
+interface ExtractedComponentPreview {
+  type: string
+  title: string
+  organization_name?: string | null
+  description?: string | null
+  impact_metrics?: string | null
+  tags: string[]
+}
+
 interface Application {
   id: string
   job_title: string
@@ -73,6 +82,10 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [extracting, setExtracting] = useState(false)
+  const [reviewComponents, setReviewComponents] = useState<ExtractedComponentPreview[]>([])
+  const [reviewSelected, setReviewSelected] = useState<boolean[]>([])
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [approvingComponents, setApprovingComponents] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -295,7 +308,9 @@ function Dashboard() {
 
     setExtracting(true)
     try {
-      const response = await fetch('/api/extract-components', {
+      // Preview mode: get the extracted components back WITHOUT saving them,
+      // so the user can review and approve/deny before they hit the library.
+      const response = await fetch('/api/extract-components?preview=1', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -308,31 +323,108 @@ function Dashboard() {
       }
 
       const data = await response.json()
+      const extracted: ExtractedComponentPreview[] = (data.components || []).map((c: any) => ({
+        type: normalizeComponentType(c.type),
+        title: c.title || 'Untitled',
+        organization_name: c.organization_name || null,
+        description: c.description || null,
+        impact_metrics: c.impact_metrics || null,
+        tags: Array.isArray(c.tags) ? c.tags : [],
+      }))
 
-      // Refetch components
-      if (session?.user?.id) {
-        const { data: updatedComponents } = await supabase
-          .from('career_components')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-
-        if (updatedComponents) {
-          const normalizedComponents = updatedComponents.map((comp: any) => ({
-            ...comp,
-            type: normalizeComponentType(comp.type),
-          }))
-          setComponents(normalizedComponents)
-        }
+      if (extracted.length === 0) {
+        alert('No components could be extracted from your documents. Try uploading a more detailed CV.')
+        return
       }
 
-      alert(`✅ Extracted ${data.componentsAdded} components from your documents!`)
+      // Close the import modal (if open) and open the review modal with
+      // everything selected by default.
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      setImportFile(null)
+      setReviewComponents(extracted)
+      setReviewSelected(extracted.map(() => true))
+      setShowReviewModal(true)
     } catch (err) {
       console.error('Extraction error:', err)
       alert(err instanceof Error ? err.message : 'Failed to extract components')
     } finally {
       setExtracting(false)
     }
+  }
+
+  const toggleReviewComponent = (index: number) => {
+    setReviewSelected((prev) => prev.map((sel, i) => (i === index ? !sel : sel)))
+  }
+
+  const setAllReviewSelected = (value: boolean) => {
+    setReviewSelected(reviewComponents.map(() => value))
+  }
+
+  const closeReviewModal = () => {
+    setShowReviewModal(false)
+    setReviewComponents([])
+    setReviewSelected([])
+  }
+
+  // Approve: insert the selected components into the library.
+  const handleApproveComponents = async () => {
+    if (!session?.user?.id) return
+
+    const approved = reviewComponents.filter((_, i) => reviewSelected[i])
+    if (approved.length === 0) {
+      alert('Select at least one component to add, or discard them all.')
+      return
+    }
+
+    setApprovingComponents(true)
+    try {
+      const { error: insertError } = await (supabase.from('career_components') as any).insert(
+        approved.map((c) => ({
+          user_id: session.user.id,
+          type: c.type,
+          title: c.title,
+          organization_name: c.organization_name || null,
+          description: c.description || null,
+          impact_metrics: c.impact_metrics || null,
+          tags: c.tags || [],
+          source: 'parsed_from_documents',
+        }))
+      )
+
+      if (insertError) throw new Error(insertError.message)
+
+      // Refetch components so the library reflects the additions.
+      const { data: updatedComponents } = await supabase
+        .from('career_components')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (updatedComponents) {
+        setComponents(
+          updatedComponents.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+        )
+      }
+
+      closeReviewModal()
+      setActiveTab('library')
+      setSuccessMessage(`✅ Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library`)
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      console.error('Approve components error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to add components')
+    } finally {
+      setApprovingComponents(false)
+    }
+  }
+
+  // Deny: discard the extracted components without saving anything.
+  const handleDenyComponents = () => {
+    closeReviewModal()
   }
 
   const refetchCvs = async () => {
@@ -1412,6 +1504,125 @@ function Dashboard() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Review Extracted Components Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-8 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Review extracted components</h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  We found {reviewComponents.length} component{reviewComponents.length !== 1 ? 's' : ''} in your
+                  document{reviewComponents.length !== 1 ? 's' : ''}. Pick which to add to your library — anything you
+                  uncheck won't be saved.
+                </p>
+              </div>
+              <button
+                onClick={handleDenyComponents}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold ml-4"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Select all / none */}
+            <div className="flex items-center gap-4 text-sm mb-4">
+              <span className="text-gray-700 font-medium">
+                {reviewSelected.filter(Boolean).length} of {reviewComponents.length} selected
+              </span>
+              <button
+                onClick={() => setAllReviewSelected(true)}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                Select all
+              </button>
+              <button
+                onClick={() => setAllReviewSelected(false)}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                Select none
+              </button>
+            </div>
+
+            {/* Component list */}
+            <div className="flex-1 overflow-y-auto space-y-3 -mx-2 px-2">
+              {reviewComponents.map((comp, index) => {
+                const selected = reviewSelected[index]
+                return (
+                  <label
+                    key={index}
+                    className={`flex gap-3 p-4 rounded-lg border cursor-pointer transition ${
+                      selected
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-200 bg-gray-50 opacity-60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleReviewComponent(index)}
+                      className="mt-1 h-4 w-4 flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-block text-xs font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 rounded px-2 py-0.5">
+                          {comp.type}
+                        </span>
+                        <span className="font-semibold text-gray-900">{comp.title}</span>
+                      </div>
+                      {comp.organization_name && (
+                        <p className="text-sm text-gray-600 mt-0.5">{comp.organization_name}</p>
+                      )}
+                      {comp.description && (
+                        <p className="text-sm text-gray-700 mt-1">{comp.description}</p>
+                      )}
+                      {comp.impact_metrics && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          <span className="font-medium">Impact:</span> {comp.impact_metrics}
+                        </p>
+                      )}
+                      {comp.tags && comp.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {comp.tags.map((tag, t) => (
+                            <span
+                              key={t}
+                              className="text-xs text-gray-600 bg-gray-200 rounded-full px-2 py-0.5"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-gray-200">
+              <Button
+                onClick={handleApproveComponents}
+                loading={approvingComponents}
+                disabled={reviewSelected.filter(Boolean).length === 0}
+                className="flex-1"
+              >
+                Add {reviewSelected.filter(Boolean).length || ''} to library
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDenyComponents}
+                disabled={approvingComponents}
+                className="flex-1"
+              >
+                Discard all
+              </Button>
+            </div>
           </div>
         </div>
       )}
