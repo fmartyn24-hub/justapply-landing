@@ -185,6 +185,15 @@ export default function PreviewPage() {
         const target =
           (doc.querySelector('.container') as HTMLElement) || doc.body
 
+        // Make sure fonts inside the iframe are ready so text isn't blank
+        try {
+          if ((doc as any).fonts?.ready) {
+            await (doc as any).fonts.ready
+          }
+        } catch {
+          /* non-fatal */
+        }
+
         console.log('Rendering iframe content to canvas...')
         const canvas = await html2canvas(target, {
           scale: 2,
