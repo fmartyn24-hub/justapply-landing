@@ -199,21 +199,38 @@ export default function PreviewPage() {
         .btn-close:hover { background: rgba(255,255,255,0.3); }
         .preview-content {
           margin-top: 70px;
-          min-height: calc(100vh - 70px);
-          padding: 40px;
-          background: white;
+          padding: 40px 20px;
+          background: #f5f5f5;
+          min-height: 100vh;
         }
+        /* Force all content to display naturally */
         .preview-content > * {
           max-width: 100%;
-          margin: 0 auto;
+          margin: 0 auto 20px;
           height: auto !important;
+          max-height: none !important;
+          overflow: visible !important;
         }
-        .preview-content .container {
+        /* Override any container constraints */
+        .preview-content div[style*="max-height"],
+        .preview-content div[style*="height: "],
+        .preview-content div[style*="overflow: hidden"] {
+          max-height: none !important;
           height: auto !important;
-          margin-bottom: 40px;
+          overflow: visible !important;
         }
-        .preview-content body {
-          background: transparent !important;
+        /* Ensure page breaks work */
+        .preview-content .page,
+        .preview-content [class*="page"] {
+          page-break-after: always;
+          break-after: always;
+          display: block !important;
+          height: auto !important;
+          margin-bottom: 20px;
+        }
+        /* Override any print-specific styles */
+        .preview-content {
+          page-break-after: avoid;
         }
       `}</style>
 
