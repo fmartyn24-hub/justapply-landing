@@ -7,6 +7,12 @@ interface ErrorResponse {
   error: string
 }
 
+// Headless Chrome + a one-time ~66MB Chromium download on cold start can exceed
+// the default serverless timeout, so give this route extra headroom.
+export const config = {
+  maxDuration: 60,
+}
+
 // Server-side PDF export that renders the EXACT preview HTML with headless
 // Chrome. Unlike the pdfkit-based `/api/applications/export-pdf`, this produces
 // a true one-click download that pixel-matches the on-screen design for ALL
