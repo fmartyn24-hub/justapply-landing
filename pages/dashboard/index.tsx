@@ -61,6 +61,9 @@ interface ExtractedComponentPreview {
   description?: string | null
   impact_metrics?: string | null
   tags: string[]
+  // True when a component matching this one already exists in the library, so
+  // the review UI can flag it as "Already in library" and skip it by default.
+  isExisting?: boolean
 }
 
 interface Application {
@@ -91,6 +94,19 @@ function formatComponentDateRange(start?: string | null, end?: string | null): s
   return ''
 }
 
+// A normalized identity key for a component, used to detect whether an
+// extracted component already exists in the library (so re-uploading a CV
+// surfaces only what's genuinely new). Roles are keyed by title + organization
+// so multiple positions at the same company are treated as distinct.
+function componentMatchKey(c: {
+  type: string
+  title?: string | null
+  organization_name?: string | null
+}): string {
+  const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+  return `${norm(c.type)}::${norm(c.title)}::${norm(c.organization_name)}`
+}
+
 function Dashboard() {
   const [components, setComponents] = useState<CareerComponent[]>([])
   const [cvs, setCvs] = useState<CV[]>([])
@@ -101,6 +117,9 @@ function Dashboard() {
   const [reviewSelected, setReviewSelected] = useState<boolean[]>([])
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [approvingComponents, setApprovingComponents] = useState(false)
+  // Voice tone keywords detected during the Analyze flow, applied (create/update
+  // the "My Voice" component) only when the user approves the review.
+  const [pendingVoice, setPendingVoice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -320,6 +339,36 @@ function Dashboard() {
     fetchData()
   }, [session])
 
+  // Normalize raw extracted components from the API into review previews and
+  // flag any that already exist in the current library.
+  const prepareReviewComponents = (raw: any[]): ExtractedComponentPreview[] => {
+    const existingKeys = new Set(components.map((c) => componentMatchKey(c)))
+    return (raw || []).map((c: any) => {
+      const type = normalizeComponentType(c.type)
+      const title = c.title || 'Untitled'
+      const organization_name = c.organization_name || null
+      return {
+        type,
+        title,
+        organization_name,
+        start_date: c.start_date || null,
+        end_date: c.end_date || null,
+        primary_location: c.primary_location || null,
+        description: c.description || null,
+        impact_metrics: c.impact_metrics || null,
+        tags: Array.isArray(c.tags) ? c.tags : [],
+        isExisting: existingKeys.has(componentMatchKey({ type, title, organization_name })),
+      }
+    })
+  }
+
+  // Open the review modal with new (non-duplicate) components pre-selected.
+  const openReviewModal = (extracted: ExtractedComponentPreview[]) => {
+    setReviewComponents(extracted)
+    setReviewSelected(extracted.map((c) => !c.isExisting))
+    setShowReviewModal(true)
+  }
+
   const handleExtractComponents = async () => {
     if (!session?.access_token) return
 
@@ -340,31 +389,20 @@ function Dashboard() {
       }
 
       const data = await response.json()
-      const extracted: ExtractedComponentPreview[] = (data.components || []).map((c: any) => ({
-        type: normalizeComponentType(c.type),
-        title: c.title || 'Untitled',
-        organization_name: c.organization_name || null,
-        start_date: c.start_date || null,
-        end_date: c.end_date || null,
-        primary_location: c.primary_location || null,
-        description: c.description || null,
-        impact_metrics: c.impact_metrics || null,
-        tags: Array.isArray(c.tags) ? c.tags : [],
-      }))
+      const extracted = prepareReviewComponents(data.components || [])
 
       if (extracted.length === 0) {
         alert('No components could be extracted from your documents. Try uploading a more detailed CV.')
         return
       }
 
-      // Close the import modal (if open) and open the review modal with
-      // everything selected by default.
+      // Close the import modal (if open) and open the review modal. Pre-select
+      // only the components that aren't already in the library so re-extracting
+      // surfaces the update loop instead of duplicating everything.
       setShowImportModal(false)
       setImportUploadSuccess(false)
       setImportFile(null)
-      setReviewComponents(extracted)
-      setReviewSelected(extracted.map(() => true))
-      setShowReviewModal(true)
+      openReviewModal(extracted)
     } catch (err) {
       console.error('Extraction error:', err)
       alert(err instanceof Error ? err.message : 'Failed to extract components')
@@ -385,6 +423,7 @@ function Dashboard() {
     setShowReviewModal(false)
     setReviewComponents([])
     setReviewSelected([])
+    setPendingVoice(null)
   }
 
   // Approve: insert the selected components into the library.
@@ -417,6 +456,31 @@ function Dashboard() {
 
       if (insertError) throw new Error(insertError.message)
 
+      // Apply any voice detected during analysis (create or update "My Voice").
+      let voiceApplied = false
+      if (pendingVoice) {
+        const existingVoice = components.find((c) => c.type === 'voice')
+        if (existingVoice) {
+          await (supabase.from('career_components') as any)
+            .update({
+              tone_keywords: pendingVoice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingVoice.id)
+        } else {
+          await (supabase.from('career_components') as any).insert({
+            user_id: session.user.id,
+            type: 'voice',
+            title: 'My Voice',
+            description: 'Your communication style and tone extracted from cover letters',
+            tone_keywords: pendingVoice,
+            tags: [],
+            source: 'auto-extracted',
+          })
+        }
+        voiceApplied = true
+      }
+
       // Refetch components so the library reflects the additions.
       const { data: updatedComponents } = await supabase
         .from('career_components')
@@ -435,7 +499,8 @@ function Dashboard() {
 
       closeReviewModal()
       setActiveTab('library')
-      setSuccessMessage(`✅ Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library`)
+      const voiceMsg = voiceApplied ? ' + Voice profile updated' : ''
+      setSuccessMessage(`✅ Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library${voiceMsg}`)
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
       console.error('Approve components error:', err)
@@ -600,110 +665,107 @@ function Dashboard() {
 
     setAnalyzing(true)
     setAnalyzeStatus({
-      text: '✨ Analyzing your documents… This can take a moment. You can close this window — we’ll keep working in the background, and your components will appear in your library.',
+      text: '✨ Analyzing your documents… This can take a moment.',
       variant: 'info',
     })
 
-    // Run analysis in the background without blocking
-    ;(async () => {
-      try {
-        // Step 1: Classify and split documents
-        const classifyResponse = await fetch('/api/analyze-mixed-documents', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ text }),
-        })
+    try {
+      // Step 1: Classify and split the pasted text into documents + voice.
+      const classifyResponse = await fetch('/api/analyze-mixed-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
 
-        if (!classifyResponse.ok) {
-          const data = await classifyResponse.json()
-          throw new Error(data.error || 'Failed to classify documents')
-        }
+      if (!classifyResponse.ok) {
+        const data = await classifyResponse.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to classify documents')
+      }
 
-        const { documents, voice } = await classifyResponse.json()
+      const { documents, voice } = await classifyResponse.json()
 
-        if (!documents || documents.length === 0) {
-          throw new Error('No documents found in the pasted text')
-        }
+      if (!documents || documents.length === 0) {
+        throw new Error('No documents found in the pasted text')
+      }
 
-        // Step 2: Extract components from each document (in parallel)
-        await Promise.all(
-          (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).map((doc) =>
-            fetch('/api/extract-components', {
+      const docs = documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>
+
+      setAnalyzeStatus({
+        text: '✨ Pulling out your roles, skills and achievements…',
+        variant: 'info',
+      })
+
+      // Step 2: Extract components from EACH document in preview mode. The text
+      // is passed in the request body so we extract from exactly what was
+      // pasted (not stale stored CVs). Nothing is saved yet — the user reviews
+      // and approves below.
+      const previewResults = await Promise.all(
+        docs.map(async (doc) => {
+          try {
+            const r = await fetch('/api/extract-components?preview=1', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}`,
               },
               body: JSON.stringify({ text: doc.content }),
-            }).catch((err) => console.error(`Failed to extract components from ${doc.type}:`, err))
-          )
-        )
-
-        // Step 3: If there's voice data from cover letters, create/update voice component
-        if (voice?.toneKeywords) {
-          const existingVoice = components.find((c) => c.type === 'voice')
-
-          if (existingVoice) {
-            // Update existing voice component
-            await (supabase
-              .from('career_components') as any)
-              .update({
-                tone_keywords: voice.toneKeywords,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existingVoice.id)
-          } else {
-            // Create new voice component
-            await supabase.from('career_components').insert({
-              user_id: session.user.id,
-              type: 'voice',
-              title: 'My Voice',
-              description: 'Your communication style and tone extracted from cover letters',
-              tone_keywords: voice.toneKeywords,
-              tags: [],
-              source: 'auto-extracted',
-            } as any)
+            })
+            if (!r.ok) {
+              const d = await r.json().catch(() => ({}))
+              throw new Error(d.error || `Extraction failed for a ${doc.type}`)
+            }
+            const d = await r.json()
+            return (d.components || []) as any[]
+          } catch (err) {
+            console.error(`Failed to extract components from ${doc.type}:`, err)
+            return [] as any[]
           }
-        }
+        })
+      )
 
-        // Step 4: Refetch all components
-        const { data: updatedComponents } = await supabase
-          .from('career_components')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
+      // Flatten, then de-duplicate within this batch (the same role can appear
+      // in multiple pasted docs) by identity key.
+      const seen = new Set<string>()
+      const rawComponents: any[] = []
+      for (const comp of previewResults.flat()) {
+        const key = componentMatchKey({
+          type: normalizeComponentType(comp.type),
+          title: comp.title,
+          organization_name: comp.organization_name,
+        })
+        if (seen.has(key)) continue
+        seen.add(key)
+        rawComponents.push(comp)
+      }
 
-        if (updatedComponents) {
-          const normalizedComponents = updatedComponents.map((comp: any) => ({
-            ...comp,
-            type: normalizeComponentType(comp.type),
-          }))
-          setComponents(normalizedComponents)
+      const extracted = prepareReviewComponents(rawComponents)
 
-          const cvCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'cv').length
-          const clCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'coverLetter').length
-          const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
-          const doneText = `✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}. Added to your library — you can close this window.`
-          // Move the library into focus for when the user closes the modal.
-          setActiveTab('library')
-          setAnalyzeStatus({ text: doneText, variant: 'success' })
-          // Also surface a banner for the case where the user already closed
-          // the modal (it's hidden while any modal is open).
-          setSuccessMessage(doneText)
-          setTimeout(() => setSuccessMessage(''), 6000)
-        }
-      } catch (err) {
-        console.error('Analysis error:', err)
+      if (extracted.length === 0) {
         setAnalyzeStatus({
-          text: `❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`,
+          text: '⚠️ We couldn’t pull any components out of that text. Try pasting a more detailed CV.',
           variant: 'error',
         })
-      } finally {
-        setAnalyzing(false)
+        return
       }
-    })()
+
+      // Stash voice so it's applied only if the user approves the review.
+      setPendingVoice(voice?.toneKeywords || null)
+
+      // Hand off to the review modal. The user sees exactly what was found
+      // (including multiple roles at the same company) and what's new vs.
+      // already in their library, then approves.
+      setAnalyzeStatus(null)
+      setShowImportModal(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      console.error('Analysis error:', err)
+      setAnalyzeStatus({
+        text: `❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`,
+        variant: 'error',
+      })
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   const handleEditComponent = (component: CareerComponent) => {
@@ -1543,9 +1605,22 @@ function Dashboard() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Review extracted components</h2>
                 <p className="text-gray-600 text-sm mt-1">
-                  We found {reviewComponents.length} component{reviewComponents.length !== 1 ? 's' : ''} in your
-                  document{reviewComponents.length !== 1 ? 's' : ''}. Pick which to add to your library — anything you
-                  uncheck won't be saved.
+                  {(() => {
+                    const newCount = reviewComponents.filter((c) => !c.isExisting).length
+                    const existingCount = reviewComponents.length - newCount
+                    return (
+                      <>
+                        We found {reviewComponents.length} component{reviewComponents.length !== 1 ? 's' : ''} in your
+                        document{reviewComponents.length !== 1 ? 's' : ''}
+                        {existingCount > 0 ? (
+                          <> — <span className="font-semibold text-green-700">{newCount} new</span> and {existingCount} already in your library</>
+                        ) : (
+                          <> — all new</>
+                        )}
+                        . New ones are pre-selected; uncheck anything you don't want.
+                      </>
+                    )
+                  })()}
                 </p>
               </div>
               <button
@@ -1568,6 +1643,14 @@ function Dashboard() {
               >
                 Select all
               </button>
+              {reviewComponents.some((c) => c.isExisting) && (
+                <button
+                  onClick={() => setReviewSelected(reviewComponents.map((c) => !c.isExisting))}
+                  className="text-blue-600 font-semibold hover:underline"
+                >
+                  Select new only
+                </button>
+              )}
               <button
                 onClick={() => setAllReviewSelected(false)}
                 className="text-blue-600 font-semibold hover:underline"
@@ -1600,6 +1683,15 @@ function Dashboard() {
                         <span className="inline-block text-xs font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 rounded px-2 py-0.5">
                           {comp.type}
                         </span>
+                        {comp.isExisting ? (
+                          <span className="inline-block text-xs font-semibold text-gray-600 bg-gray-200 rounded px-2 py-0.5">
+                            Already in library
+                          </span>
+                        ) : (
+                          <span className="inline-block text-xs font-semibold text-green-700 bg-green-100 rounded px-2 py-0.5">
+                            New
+                          </span>
+                        )}
                         <span className="font-semibold text-gray-900">{comp.title}</span>
                       </div>
                       {(comp.organization_name || comp.start_date || comp.end_date || comp.primary_location) && (

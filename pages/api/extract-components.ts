@@ -69,41 +69,59 @@ export default async function handler(
       return res.status(401).json({ success: false, error: 'Unauthorized' })
     }
 
-    // Fetch all user's CVs
-    const { data: cvs, error: cvError } = await serverSupabase
-      .from('cvs')
-      .select('filename, extracted_text')
-      .eq('user_id', user.id)
+    // Resolve the source text to extract from. Two modes:
+    //   1. Body text provided (e.g. freshly pasted CV from the Analyze flow):
+    //      extract directly from that text.
+    //   2. No body text (e.g. the "Extract components now" button): fall back to
+    //      the user's stored CVs.
+    const bodyText =
+      typeof req.body?.text === 'string' ? req.body.text.trim() : ''
 
-    if (cvError || !cvs || cvs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'No CVs found to extract from',
+    let combinedText: string
+
+    if (bodyText.length > 0) {
+      combinedText = bodyText
+      console.log('=== CV Component Extraction Debug (body text) ===')
+      console.log('Body text length:', combinedText.length)
+      console.log('First 500 chars:', combinedText.substring(0, 500))
+      console.log('================================================')
+    } else {
+      // Fetch all user's stored CVs
+      const { data: cvs, error: cvError } = await serverSupabase
+        .from('cvs')
+        .select('filename, extracted_text')
+        .eq('user_id', user.id)
+
+      if (cvError || !cvs || cvs.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No CVs found to extract from',
+        })
+      }
+
+      // Combine all CV texts
+      combinedText = cvs
+        .map((cv) => `### ${cv.filename}\n${cv.extracted_text}`)
+        .join('\n\n---\n\n')
+
+      // Log details for debugging
+      console.log('=== CV Component Extraction Debug (stored CVs) ===')
+      console.log('Number of CVs found:', cvs.length)
+      cvs.forEach((cv, idx) => {
+        const textLength = cv.extracted_text?.length || 0
+        console.log(`CV ${idx + 1}: "${cv.filename}"`)
+        console.log(`  - extracted_text length: ${textLength}`)
+        if (cv.extracted_text?.includes('[Text extraction failed')) {
+          console.warn(`  - ⚠️ Contains extraction error message`)
+        }
+        if (textLength < 100) {
+          console.warn(`  - ⚠️ Very short text (< 100 chars)`)
+        }
       })
+      console.log('Combined text length:', combinedText.length)
+      console.log('First 500 chars of combined text:', combinedText.substring(0, 500))
+      console.log('=================================================')
     }
-
-    // Combine all CV texts
-    const combinedText = cvs
-      .map((cv) => `### ${cv.filename}\n${cv.extracted_text}`)
-      .join('\n\n---\n\n')
-
-    // Log details for debugging
-    console.log('=== CV Component Extraction Debug ===')
-    console.log('Number of CVs found:', cvs.length)
-    cvs.forEach((cv, idx) => {
-      const textLength = cv.extracted_text?.length || 0
-      console.log(`CV ${idx + 1}: "${cv.filename}"`)
-      console.log(`  - extracted_text length: ${textLength}`)
-      if (cv.extracted_text?.includes('[Text extraction failed')) {
-        console.warn(`  - ⚠️ Contains extraction error message`)
-      }
-      if (textLength < 100) {
-        console.warn(`  - ⚠️ Very short text (< 100 chars)`)
-      }
-    })
-    console.log('Combined text length:', combinedText.length)
-    console.log('First 500 chars of combined text:', combinedText.substring(0, 500))
-    console.log('=====================================')
 
     // Use Claude to extract components
     const message = await anthropic.messages.create({
