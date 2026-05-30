@@ -120,19 +120,40 @@ export default function PreviewPage() {
         const html2canvas = (await import('html2canvas')).default
         const jsPDF = (await import('jspdf')).jsPDF
 
-        const element = document.querySelector('.preview-content')
-        if (!element) throw new Error('Preview content not found')
+        // Find the actual CV content
+        const previewContent = document.querySelector('.preview-content')
+        if (!previewContent) throw new Error('Preview content not found')
 
-        // Render to canvas
         console.log('Rendering to canvas...')
-        const canvas = await html2canvas(element as HTMLElement, {
+
+        // A4 dimensions
+        const a4WidthMm = 210
+        const mmToPx = 3.78
+        const targetWidthPx = a4WidthMm * mmToPx
+
+        // Save original width
+        const previewElement = previewContent as HTMLElement
+        const originalWidth = previewElement.style.width
+
+        // Set width to A4 for accurate rendering
+        previewElement.style.width = `${targetWidthPx}px`
+
+        const canvas = await html2canvas(previewElement, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
-          windowHeight: (element as HTMLElement).scrollHeight,
+          windowHeight: previewElement.scrollHeight,
+          width: targetWidthPx,
         })
+
+        // Restore original width
+        if (originalWidth) {
+          previewElement.style.width = originalWidth
+        } else {
+          previewElement.style.width = ''
+        }
 
         // Convert canvas to image
         const imgData = canvas.toDataURL('image/png')
@@ -146,25 +167,25 @@ export default function PreviewPage() {
           format: 'a4',
         })
 
-        const pageWidth = pdf.internal.pageSize.getWidth()
-        const pageHeight = pdf.internal.pageSize.getHeight()
-        const imgWidth = pageWidth
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
+        const pageWidth = pdf.internal.pageSize.getWidth() // 210mm
+        const pageHeight = pdf.internal.pageSize.getHeight() // 297mm
+        // Calculate image height based on canvas aspect ratio
+        const imgHeight = (canvas.height / canvas.width) * pageWidth
 
-        console.log(`PDF page size: ${pageWidth}x${pageHeight}mm, Image size: ${imgWidth}x${imgHeight}mm`)
+        console.log(`PDF: ${pageWidth}x${pageHeight}mm, Content: ${pageWidth}x${imgHeight}mm`)
 
         // Calculate number of pages needed
         const totalPages = Math.ceil(imgHeight / pageHeight)
         console.log(`Total pages needed: ${totalPages}`)
 
         // Add first page
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
 
         // Add remaining pages if content spans multiple pages
         for (let i = 1; i < totalPages; i++) {
           pdf.addPage()
-          const yPosition = -(pageHeight * i)
-          pdf.addImage(imgData, 'PNG', 0, yPosition, imgWidth, imgHeight)
+          const yOffset = -(i * pageHeight)
+          pdf.addImage(imgData, 'PNG', 0, yOffset, pageWidth, imgHeight)
         }
 
         pdf.save(`${fileName}.pdf`)
@@ -262,17 +283,23 @@ export default function PreviewPage() {
         .btn-close:hover { background: rgba(255,255,255,0.3); }
         .preview-content {
           margin-top: 70px;
-          padding: 40px 20px;
-          background: #f5f5f5;
+          padding: 0;
+          background: transparent;
           min-height: 100vh;
+        }
+        .preview-content-inner {
+          padding: 20px;
+          background: white;
+          margin-bottom: 20px;
         }
         /* Force all content to display naturally */
         .preview-content > * {
           max-width: 100%;
-          margin: 0 auto 20px;
+          margin: 0;
           height: auto !important;
           max-height: none !important;
           overflow: visible !important;
+          display: block !important;
         }
         /* Override any container constraints */
         .preview-content div[style*="max-height"],
@@ -281,19 +308,29 @@ export default function PreviewPage() {
           max-height: none !important;
           height: auto !important;
           overflow: visible !important;
+          display: block !important;
         }
-        /* Ensure page breaks work */
+        /* Ensure page breaks work - show all pages */
         .preview-content .page,
-        .preview-content [class*="page"] {
-          page-break-after: always;
-          break-after: always;
+        .preview-content [class*="page"],
+        .preview-content [class*="document"],
+        .preview-content [role="document"] {
+          page-break-after: auto;
+          break-after: auto;
           display: block !important;
           height: auto !important;
-          margin-bottom: 20px;
+          margin: 0;
+          padding: 0;
+          width: 100%;
         }
-        /* Override any print-specific styles */
-        .preview-content {
-          page-break-after: avoid;
+        /* Show all sections */
+        .preview-content section,
+        .preview-content article,
+        .preview-content main {
+          display: block !important;
+          height: auto !important;
+          margin: 0;
+          padding: 0;
         }
       `}</style>
 
