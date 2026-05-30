@@ -159,11 +159,42 @@ function UploadPage() {
                 )}
               </>
             ) : (
-              <UploadProgress
-                progress={uploadProgress}
-                status={uploadStatus}
-                error={error}
-              />
+              <>
+                <UploadProgress
+                  progress={uploadProgress}
+                  status={uploadStatus}
+                  error={error}
+                />
+
+                {uploadStatus === 'error' && (
+                  <div className="flex gap-4">
+                    <Button
+                      onClick={() => {
+                        setUploadStatus('idle')
+                        setUploadProgress(0)
+                        setError('')
+                      }}
+                      size="lg"
+                      className="flex-1"
+                    >
+                      Try Again
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSelectedFile(null)
+                        setUploadStatus('idle')
+                        setUploadProgress(0)
+                        setError('')
+                      }}
+                      variant="outline"
+                      size="lg"
+                      className="flex-1"
+                    >
+                      Choose Another File
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

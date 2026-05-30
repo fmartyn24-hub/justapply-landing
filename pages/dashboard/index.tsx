@@ -393,7 +393,11 @@ function Dashboard() {
           .order('created_at', { ascending: false })
 
         if (data) {
-          setComponents(data)
+          const normalizedComponents = data.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
         }
 
         setFormData({
@@ -787,14 +791,9 @@ function Dashboard() {
       <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-start gap-8">
-            <button
-              onClick={() => {
-                /* Stay on dashboard */
-              }}
-              className="cursor-default flex-shrink-0"
-            >
+            <Link href="/" className="flex-shrink-0">
               <img src="/logo-light.svg" alt="justapply" className="h-12" />
-            </button>
+            </Link>
 
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900">
