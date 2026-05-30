@@ -109,6 +109,10 @@ function Dashboard() {
   const [showSettings, setShowSettings] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  // Status shown INSIDE the Import modal while/after analyzing pasted text,
+  // so feedback appears where the user is working rather than as a banner on
+  // the page behind the modal.
+  const [analyzeStatus, setAnalyzeStatus] = useState<{ text: string; variant: 'info' | 'success' | 'error' } | null>(null)
   const [settingsTab, setSettingsTab] = useState<'profile' | 'security'>('profile')
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -595,7 +599,10 @@ function Dashboard() {
     if (!session?.access_token || !session?.user?.id) return
 
     setAnalyzing(true)
-    setSuccessMessage('✨ Analysis started! You can continue working while we process your documents.')
+    setAnalyzeStatus({
+      text: '✨ Analyzing your documents… This can take a moment. You can close this window — we’ll keep working in the background, and your components will appear in your library.',
+      variant: 'info',
+    })
 
     // Run analysis in the background without blocking
     ;(async () => {
@@ -678,17 +685,21 @@ function Dashboard() {
           const cvCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'cv').length
           const clCount = (documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>).filter((d) => d.type === 'coverLetter').length
           const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
-          setSuccessMessage(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
-          setTimeout(() => {
-            setShowImportModal(false)
-            setActiveTab('library')
-            setTimeout(() => setSuccessMessage(''), 2000)
-          }, 1500)
+          const doneText = `✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}. Added to your library — you can close this window.`
+          // Move the library into focus for when the user closes the modal.
+          setActiveTab('library')
+          setAnalyzeStatus({ text: doneText, variant: 'success' })
+          // Also surface a banner for the case where the user already closed
+          // the modal (it's hidden while any modal is open).
+          setSuccessMessage(doneText)
+          setTimeout(() => setSuccessMessage(''), 6000)
         }
       } catch (err) {
         console.error('Analysis error:', err)
-        setSuccessMessage(`❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`)
-        setTimeout(() => setSuccessMessage(''), 4000)
+        setAnalyzeStatus({
+          text: `❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`,
+          variant: 'error',
+        })
       } finally {
         setAnalyzing(false)
       }
@@ -981,12 +992,20 @@ function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="w-full space-y-4">
-            {/* Success Banner */}
-            {successMessage && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
-                <p className="text-orange-700">{successMessage}</p>
-              </div>
-            )}
+            {/* Success Banner — hidden while any modal is open so status never
+                appears on the dimmed page behind a pop-up; the modals surface
+                their own in-context status instead. */}
+            {successMessage &&
+              !showImportModal &&
+              !showSettings &&
+              !showReviewModal &&
+              !showAddForm &&
+              !editingComponent &&
+              !expandedRole && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                  <p className="text-orange-700">{successMessage}</p>
+                </div>
+              )}
 
             {/* Tell Us More About You - if first name not set */}
             {!profileData.firstName && (
@@ -1384,12 +1403,29 @@ function Dashboard() {
                   setImportFile(null)
                   setImportUploadError('')
                   setImportUploadSuccess(false)
+                  setAnalyzeStatus(null)
                 }}
                 className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
               >
                 ×
               </button>
             </div>
+
+            {/* Analyze status — shown inside the modal so feedback stays where
+                the user is working */}
+            {analyzeStatus && (
+              <div
+                className={`rounded-lg p-3 text-sm mb-6 border ${
+                  analyzeStatus.variant === 'success'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : analyzeStatus.variant === 'error'
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : 'bg-orange-50 border-orange-200 text-orange-700'
+                }`}
+              >
+                {analyzeStatus.text}
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex gap-4 border-b border-gray-200 mb-6">
