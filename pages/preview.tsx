@@ -131,7 +131,12 @@ export default function PreviewPage() {
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
+          windowHeight: (element as HTMLElement).scrollHeight,
         })
+
+        // Convert canvas to image
+        const imgData = canvas.toDataURL('image/png')
+        console.log(`Canvas size: ${canvas.width}x${canvas.height}`)
 
         // Create PDF
         console.log('Creating PDF...')
@@ -143,27 +148,27 @@ export default function PreviewPage() {
 
         const pageWidth = pdf.internal.pageSize.getWidth()
         const pageHeight = pdf.internal.pageSize.getHeight()
-        const imgWidth = pageWidth - 4 // Small margin
+        const imgWidth = pageWidth
         const imgHeight = (canvas.height * imgWidth) / canvas.width
-        const margin = 2
 
-        let heightLeft = imgHeight
-        let position = 0
+        console.log(`PDF page size: ${pageWidth}x${pageHeight}mm, Image size: ${imgWidth}x${imgHeight}mm`)
 
-        // Add first image
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, imgHeight)
-        heightLeft -= pageHeight
+        // Calculate number of pages needed
+        const totalPages = Math.ceil(imgHeight / pageHeight)
+        console.log(`Total pages needed: ${totalPages}`)
 
-        // Add remaining pages
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight
+        // Add first page
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+
+        // Add remaining pages if content spans multiple pages
+        for (let i = 1; i < totalPages; i++) {
           pdf.addPage()
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + margin, imgWidth, imgHeight)
-          heightLeft -= pageHeight
+          const yPosition = -(pageHeight * i)
+          pdf.addImage(imgData, 'PNG', 0, yPosition, imgWidth, imgHeight)
         }
 
         pdf.save(`${fileName}.pdf`)
-        console.log('✓ PDF downloaded successfully')
+        console.log(`✓ PDF downloaded successfully (${totalPages} pages)`)
       } else {
         // Server-side DOCX generation
         console.log('Downloading DOCX...')
