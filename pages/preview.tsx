@@ -47,6 +47,37 @@ const OVERRIDE_STYLES = `
       max-height: none !important;
       overflow: visible !important;
     }
+
+    /* Print rules: produce a multi-page PDF that matches the on-screen design.
+       The browser's print engine renders the real HTML/CSS (colors, gradients,
+       layout) and paginates natively, so the PDF looks exactly like the preview. */
+    @media print {
+      /* Force background colors/gradients to print (otherwise headers print white) */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      @page {
+        size: letter;
+        margin: 0;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
+      .container {
+        width: 100% !important;
+        min-height: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+      /* Keep individual entries/items from being sliced across a page break */
+      .entry, .job, .education-item, .skill-group, .sidebar-section, .header {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
   </style>
 `
 
@@ -163,23 +194,44 @@ export default function PreviewPage() {
     }
   }
 
+  // Export the visible document as a PDF using the browser's own print engine.
+  // This renders the exact HTML/CSS shown in the preview (colors, gradients,
+  // multi-column layouts) and paginates natively — so the PDF looks identical
+  // to the preview. It needs no server-side Chrome, keeping the app
+  // self-contained: the user picks "Save as PDF" in the print dialog.
+  function printToPdf() {
+    const iframe = iframeRef.current
+    const frameWindow = iframe?.contentWindow
+    if (!frameWindow) {
+      alert('Preview not ready yet. Please wait a moment and try again.')
+      return
+    }
+    try {
+      frameWindow.focus()
+      frameWindow.print()
+    } catch (err) {
+      console.error('Print error:', err)
+      alert('Could not open the print dialog. Please try again.')
+    }
+  }
+
   async function downloadFile(format: 'pdf' | 'docx') {
     if (!previewData) return
+
+    // PDF is produced client-side via the browser print dialog so it matches
+    // the on-screen design exactly. DOCX is still generated server-side.
+    if (format === 'pdf') {
+      printToPdf()
+      return
+    }
 
     setDownloading(true)
     try {
       const { applicationId, template, documentType, accessToken } = previewData
       const fileName = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}`
 
-      // Both PDF and DOCX are generated server-side. The PDF generators
-      // (pdfkit) lay out real text and add pages with proper margins, so
-      // content flows cleanly across pages instead of being sliced from a
-      // rasterised screenshot.
-      const endpoint = format === 'pdf' ? 'export-pdf' : 'export-docx'
-      console.log(`Downloading ${format.toUpperCase()} from ${endpoint}...`)
-
       const response = await fetch(
-        `/api/applications/${endpoint}?id=${applicationId}&template=${template}&type=${documentType}`,
+        `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`,
         {
           method: 'GET',
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
@@ -188,22 +240,21 @@ export default function PreviewPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to download ${format.toUpperCase()}`)
+        throw new Error(errorData.error || 'Failed to download DOCX')
       }
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${fileName}.${format}`
+      a.download = `${fileName}.docx`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-      console.log(`✓ ${format.toUpperCase()} downloaded successfully`)
     } catch (err) {
       console.error('Download error:', err)
-      alert(err instanceof Error ? err.message : `Error downloading ${format.toUpperCase()}`)
+      alert(err instanceof Error ? err.message : 'Error downloading DOCX')
     } finally {
       setDownloading(false)
     }
@@ -291,7 +342,7 @@ export default function PreviewPage() {
         </div>
         <div className="preview-buttons">
           <button className="btn btn-pdf" onClick={() => downloadFile('pdf')} disabled={downloading}>
-            {downloading ? 'Generating...' : 'Download as PDF'}
+            Save as PDF
           </button>
           <button className="btn btn-docx" onClick={() => downloadFile('docx')} disabled={downloading}>
             Download as DOCX
