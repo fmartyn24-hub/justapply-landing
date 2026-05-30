@@ -155,10 +155,6 @@ export default function PreviewPage() {
           previewElement.style.width = ''
         }
 
-        // Convert canvas to image
-        const imgData = canvas.toDataURL('image/png')
-        console.log(`Canvas size: ${canvas.width}x${canvas.height}`)
-
         // Create PDF
         console.log('Creating PDF...')
         const pdf = new jsPDF({
@@ -167,25 +163,58 @@ export default function PreviewPage() {
           format: 'a4',
         })
 
-        const pageWidth = pdf.internal.pageSize.getWidth() // 210mm
-        const pageHeight = pdf.internal.pageSize.getHeight() // 297mm
-        // Calculate image height based on canvas aspect ratio
-        const imgHeight = (canvas.height / canvas.width) * pageWidth
+        const pageWidthMm = pdf.internal.pageSize.getWidth() // 210mm
+        const pageHeightMm = pdf.internal.pageSize.getHeight() // 297mm
 
-        console.log(`PDF: ${pageWidth}x${pageHeight}mm, Content: ${pageWidth}x${imgHeight}mm`)
+        // Calculate how many pixels per mm in the canvas
+        const pxPerMmWidth = canvas.width / targetWidthPx // should be ~0.265
+        const pxPerMmHeight = pxPerMmWidth // maintain aspect ratio
 
-        // Calculate number of pages needed
-        const totalPages = Math.ceil(imgHeight / pageHeight)
+        // Calculate pixel heights for each page
+        const pageHeightPx = pageHeightMm * pxPerMmHeight
+        console.log(`Canvas: ${canvas.width}x${canvas.height}px, Page: ${pageHeightPx}px tall`)
+
+        // Calculate total pages needed
+        const totalPages = Math.ceil(canvas.height / pageHeightPx)
         console.log(`Total pages needed: ${totalPages}`)
 
-        // Add first page
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, imgHeight)
+        // Process each page
+        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+          // Calculate crop area for this page
+          const startY = pageNum * pageHeightPx
+          const endY = Math.min(startY + pageHeightPx, canvas.height)
+          const cropHeight = endY - startY
 
-        // Add remaining pages if content spans multiple pages
-        for (let i = 1; i < totalPages; i++) {
-          pdf.addPage()
-          const yOffset = -(i * pageHeight)
-          pdf.addImage(imgData, 'PNG', 0, yOffset, pageWidth, imgHeight)
+          // Create temporary canvas for this page
+          const pageCanvas = document.createElement('canvas')
+          pageCanvas.width = canvas.width
+          pageCanvas.height = cropHeight
+
+          // Copy the relevant portion from the main canvas
+          const ctx = pageCanvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(
+              canvas,
+              0, startY, // source position
+              canvas.width, cropHeight, // source size
+              0, 0, // destination position
+              canvas.width, cropHeight // destination size
+            )
+          }
+
+          // Convert page canvas to image and add to PDF
+          const pageImgData = pageCanvas.toDataURL('image/png')
+
+          // Add page to PDF (except first which is auto-created)
+          if (pageNum > 0) {
+            pdf.addPage()
+          }
+
+          // Calculate the image height for this page
+          const pageImgHeightMm = (cropHeight / canvas.width) * pageWidthMm
+          pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidthMm, pageImgHeightMm)
+
+          console.log(`Added page ${pageNum + 1}: ${cropHeight}px → ${pageImgHeightMm}mm`)
         }
 
         pdf.save(`${fileName}.pdf`)
