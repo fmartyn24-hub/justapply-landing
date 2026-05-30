@@ -10,7 +10,6 @@ import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
 import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
 import { CandidateBoard } from '@/components/dashboard/CandidateBoard'
-import { ProfileQuestionsModal } from '@/components/dashboard/ProfileQuestionsModal'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -154,8 +153,6 @@ function Dashboard() {
   const [expandedRole, setExpandedRole] = useState<CareerComponent | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [generatingApplication, setGeneratingApplication] = useState(false)
-  const [showProfileQuestions, setShowProfileQuestions] = useState(false)
-  const [savingProfileQuestions, setSavingProfileQuestions] = useState(false)
   const [savingApplicationStatus, setSavingApplicationStatus] = useState<string | null>(null)
   const { user, signOut } = useAuth()
   const { session } = useAuth()
@@ -853,33 +850,6 @@ function Dashboard() {
     }
   }
 
-  const handleSaveProfileQuestions = async (answers: Record<string, string>) => {
-    if (!session?.user?.id) return
-
-    setSavingProfileQuestions(true)
-    try {
-      // Save answers to the voice component or a new profile_answers table
-      const { error } = await (supabase.from('profile_answers') as any).upsert(
-        {
-          user_id: session.user.id,
-          answers,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-
-      if (error) throw error
-
-      setShowProfileQuestions(false)
-      alert('✅ Profile enriched successfully!')
-    } catch (err) {
-      console.error('Save profile questions error:', err)
-      throw err
-    } finally {
-      setSavingProfileQuestions(false)
-    }
-  }
-
   const handleUpdateApplicationStatus = async (id: string, status: 'draft' | 'applied') => {
     if (!session?.access_token) return
 
@@ -1102,7 +1072,6 @@ function Dashboard() {
                   onDelete={handleDeleteComponent}
                   onAdd={() => setShowAddForm(true)}
                   onImport={() => setShowImportModal(true)}
-                  onEnrichProfile={() => setShowProfileQuestions(true)}
                   isDeleting={(id) => deletingComponent === id}
                 />
               )}
@@ -2086,15 +2055,6 @@ function Dashboard() {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Profile Questions Modal */}
-      {showProfileQuestions && (
-        <ProfileQuestionsModal
-          onSubmit={handleSaveProfileQuestions}
-          onClose={() => setShowProfileQuestions(false)}
-          saving={savingProfileQuestions}
-        />
       )}
     </div>
   )
