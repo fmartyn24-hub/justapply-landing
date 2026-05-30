@@ -1,93 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
-import { generateModernHtml } from '@/lib/templates/modernHtml'
-import { generateProfessionalHtml } from '@/lib/templates/professionalHtml'
-import { generateMinimalistHtml } from '@/lib/templates/minimalistHtml'
-import { generateCreativeHtml } from '@/lib/templates/creativeHtml'
-import { generateAcademicHtml } from '@/lib/templates/academicHtml'
-import { generateExecutiveHtml } from '@/lib/templates/executiveHtml'
-import { generateAtsHtml } from '@/lib/templates/atsHtml'
-
-const templateGenerators: { [key: string]: Function } = {
-  modern: generateModernHtml,
-  professional: generateProfessionalHtml,
-  minimalist: generateMinimalistHtml,
-  creative: generateCreativeHtml,
-  academic: generateAcademicHtml,
-  executive: generateExecutiveHtml,
-  ats: generateAtsHtml,
-}
-
-// Override styles injected into the rendered document so that fixed-height,
-// overflow:hidden template containers can grow and flow across multiple pages.
-// Without this, templates designed as a single 8.5x11in page clip extra content.
-const OVERRIDE_STYLES = `
-  <style id="preview-overrides">
-    html, body {
-      height: auto !important;
-      min-height: 0 !important;
-      max-height: none !important;
-      overflow: visible !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #ffffff !important;
-    }
-    .container {
-      height: auto !important;
-      min-height: 11in;
-      max-height: none !important;
-      overflow: visible !important;
-      box-shadow: none !important;
-      margin: 0 auto !important;
-    }
-    .content {
-      height: auto !important;
-      min-height: 0 !important;
-      max-height: none !important;
-      overflow: visible !important;
-    }
-
-    /* Print rules: produce a multi-page PDF that matches the on-screen design.
-       The browser's print engine renders the real HTML/CSS (colors, gradients,
-       layout) and paginates natively, so the PDF looks exactly like the preview. */
-    @media print {
-      /* Force background colors/gradients to print (otherwise headers print white) */
-      * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      @page {
-        size: letter;
-        margin: 0;
-      }
-      html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-      }
-      .container {
-        width: 100% !important;
-        min-height: 0 !important;
-        box-shadow: none !important;
-        margin: 0 !important;
-      }
-      /* Keep individual entries/items from being sliced across a page break */
-      .entry, .job, .education-item, .skill-group, .sidebar-section, .header {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-    }
-  </style>
-`
-
-// Inject the override styles right before </head> (or prepend if no head)
-function buildDocument(html: string): string {
-  if (/<\/head>/i.test(html)) {
-    return html.replace(/<\/head>/i, OVERRIDE_STYLES + '</head>')
-  }
-  return OVERRIDE_STYLES + html
-}
+import { buildPreviewHtml } from '@/lib/previewHtml'
 
 export default function PreviewPage() {
   const [htmlContent, setHtmlContent] = useState<string>('')
@@ -146,53 +59,9 @@ export default function PreviewPage() {
           .eq('id', session.user.id)
           .single()
 
-        // Generate HTML based on document type
-        const templateGenerator = templateGenerators[template] || generateModernHtml
-        let html = ''
-
-        if (documentType === 'coverLetter') {
-          // Prefer the structured cover letter from generation; fall back to
-          // splitting the stored plain text into paragraphs for old records.
-          const clStructured = application.generated_cover_letter_json
-          let clData
-          if (clStructured && typeof clStructured === 'object') {
-            clData = {
-              opening: clStructured.opening || '',
-              body_paragraphs: Array.isArray(clStructured.body_paragraphs)
-                ? clStructured.body_paragraphs
-                : [],
-              closing: clStructured.closing || '',
-            }
-          } else {
-            const paras = (application.generated_cover_letter || '')
-              .split('\n\n')
-              .map((p: string) => p.trim())
-              .filter(Boolean)
-            clData = {
-              opening: paras[0] || '',
-              body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
-              closing: paras.length > 1 ? paras[paras.length - 1] : '',
-            }
-          }
-          html = templateGenerator(null, 'coverLetter', clData)
-        } else {
-          // Prefer the structured CV from generation (real fields). Fall back to
-          // the lossy plain-text reparser only for legacy records without JSON.
-          const cvStructured = application.generated_cv_json
-          let structuredCv
-          if (cvStructured && typeof cvStructured === 'object') {
-            structuredCv = cvStructured
-          } else {
-            structuredCv = convertPlainTextCvToStructured(
-              application.generated_cv || '',
-              profileData?.email,
-              `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
-            )
-          }
-          html = templateGenerator(structuredCv, 'cv')
-        }
-
-        setHtmlContent(buildDocument(html))
+        // Build the print-ready HTML via the shared builder so the on-screen
+        // preview and the server-side PDF render from one source of truth.
+        setHtmlContent(buildPreviewHtml(application, profileData, template, documentType))
         setLoading(false)
       } catch (err) {
         console.error('Error loading preview:', err)
@@ -218,67 +87,47 @@ export default function PreviewPage() {
     }
   }
 
-  // Export the visible document as a PDF using the browser's own print engine.
-  // This renders the exact HTML/CSS shown in the preview (colors, gradients,
-  // multi-column layouts) and paginates natively — so the PDF looks identical
-  // to the preview. It needs no server-side Chrome, keeping the app
-  // self-contained: the user picks "Save as PDF" in the print dialog.
-  function printToPdf() {
-    const iframe = iframeRef.current
-    const frameWindow = iframe?.contentWindow
-    if (!frameWindow) {
-      alert('Preview not ready yet. Please wait a moment and try again.')
-      return
-    }
-    try {
-      frameWindow.focus()
-      frameWindow.print()
-    } catch (err) {
-      console.error('Print error:', err)
-      alert('Could not open the print dialog. Please try again.')
-    }
-  }
-
+  // Download the document. Both formats are generated server-side so the result
+  // is a true one-click file download with no browser print dialog:
+  //   • PDF  → headless-Chrome renders the EXACT preview HTML (colors, gradients,
+  //            multi-column layouts) with native pagination, so it pixel-matches
+  //            what's on screen.
+  //   • DOCX → template-specific docx generators.
   async function downloadFile(format: 'pdf' | 'docx') {
     if (!previewData) return
-
-    // PDF is produced client-side via the browser print dialog so it matches
-    // the on-screen design exactly. DOCX is still generated server-side.
-    if (format === 'pdf') {
-      printToPdf()
-      return
-    }
 
     setDownloading(true)
     try {
       const { applicationId, template, documentType, accessToken } = previewData
       const fileName = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}`
 
-      const response = await fetch(
-        `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`,
-        {
-          method: 'GET',
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        }
-      )
+      const endpoint =
+        format === 'pdf'
+          ? `/api/applications/export-pdf-html?id=${applicationId}&template=${template}&type=${documentType}`
+          : `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to download DOCX')
+        throw new Error(errorData.error || `Failed to download ${format.toUpperCase()}`)
       }
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${fileName}.docx`
+      a.download = `${fileName}.${format}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
     } catch (err) {
       console.error('Download error:', err)
-      alert(err instanceof Error ? err.message : 'Error downloading DOCX')
+      alert(err instanceof Error ? err.message : `Error downloading ${format.toUpperCase()}`)
     } finally {
       setDownloading(false)
     }
