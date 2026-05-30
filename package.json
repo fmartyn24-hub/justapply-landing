@@ -10,11 +10,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
-    "@sparticuz/chromium": "^148.0.0",
     "@supabase/supabase-js": "^2.38.0",
     "@types/pdfkit": "^0.17.6",
     "docx": "^9.6.1",
-    "html-pdf-node": "^1.0.8",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "mammoth": "^1.6.0",
@@ -30,7 +28,6 @@
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.14",
     "postcss": "^8.4.24",
-    "puppeteer": "^25.0.4",
     "tailwindcss": "^3.3.2",
     "typescript": "^5.3.0"
   }

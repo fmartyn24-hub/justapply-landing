@@ -1,5 +1,6 @@
 // Modern HTML CV template with professional design
-// Designed to be converted to PDF using puppeteer
+// Used for in-browser preview only (rendered in an iframe / client-side).
+// PDF export uses the pure-JS pdfkit generator in lib/templates/modern.ts.
 import { StructuredCV, CoverLetterData } from '@/lib/exportConverters'
 
 interface CVData {
