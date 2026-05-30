@@ -172,7 +172,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         />
         <span className="text-sm text-gray-600">
           I agree to the{' '}
-          <a href="/terms" className="text-primary font-semibold hover:underline">
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">
             terms of service
           </a>
         </span>

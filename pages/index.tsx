@@ -94,7 +94,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Paste the job</h3>
                 <p className="text-gray-600">
-                  No, perfect. But the point is it will be perfect because it's based on you.
+                  Paste the job description. Our AI matches it with your experience and tailors your application to highlight what matters most to that role.
                 </p>
               </div>
 
@@ -112,37 +112,37 @@ export default function Home() {
         {/* Why justapply */}
         <section className="py-20 bg-light px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl font-bold text-center mb-16">Why justapply changes the game</h2>
+            <h2 className="text-4xl font-bold text-center mb-16">Why justapply works</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div className="flex-shrink-0 w-6 h-6 text-blue-600 mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Your value, articulated</h3>
-                  <p className="text-gray-600">Whether you're starting out or you've got years of experience, justapply helps you talk about what you've done. Not in a templated way. In a way that shows what you actually learned, what you accomplished, and what you bring to the table.</p>
+                  <h3 className="font-semibold text-lg mb-2">You only describe yourself once</h3>
+                  <p className="text-gray-600">Upload your CV or paste your experience. Tell us what you've learned and accomplished. Then let it work for every application. No more starting from scratch.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #90055D', backgroundColor: 'rgba(144, 5, 93, 0.03)'}}>
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div className="flex-shrink-0 w-6 h-6 text-blue-600 mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Apply in minutes, not hours</h3>
-                  <p className="text-gray-600">Stop spending an entire evening perfecting a cover letter. You've already figured out what you bring. justapply finds what's relevant and adapts it to the job. You're ready to apply while the role is still fresh in your mind.</p>
+                  <h3 className="font-semibold text-lg mb-2">Perfect for every role</h3>
+                  <p className="text-gray-600">Paste the job description. We'll find what's relevant to that specific role and tailor your CV and cover letter. You're not generic. Your application shouldn't be either.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #FE6F09', backgroundColor: 'rgba(254, 111, 9, 0.03)'}}>
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div className="flex-shrink-0 w-6 h-6 text-blue-600 mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Stop second-guessing yourself</h3>
-                  <p className="text-gray-600">You skip opportunities because you don't think you fit perfectly. But you've done more than you realize. justapply shows you exactly what you bring to that role. The skills, the work, the growth that matters. Your story speaks for itself.</p>
+                  <h3 className="font-semibold text-lg mb-2">Actually relevant</h3>
+                  <p className="text-gray-600">Your application shows exactly why you're a fit for that job. Not buzzwords. Not fluff. Just your actual experience, skills, and impact—packaged in a way that matters to them.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-lg" style={{borderLeft: '4px solid #90055D', backgroundColor: 'rgba(144, 5, 93, 0.03)'}}>
-                <div className="flex-shrink-0 w-6 h-6 text-primary mt-1">✓</div>
+                <div className="flex-shrink-0 w-6 h-6 text-blue-600 mt-1">✓</div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Feel confident, not scared</h3>
-                  <p className="text-gray-600">You know you've got something to offer. justapply helps you believe it and show it. You're not starting from scratch every time. You're building on what you already know about yourself. That's powerful.</p>
+                  <h3 className="font-semibold text-lg mb-2">Faster. Better. Less stress.</h3>
+                  <p className="text-gray-600">No more hours spent on one cover letter. No more wondering if you're "qualified enough." Apply to more jobs, faster, with confidence that your application is actually good.</p>
                 </div>
               </div>
             </div>

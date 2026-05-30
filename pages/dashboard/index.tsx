@@ -503,6 +503,7 @@ function Dashboard() {
           const voiceMsg = voice?.toneKeywords ? ' + Voice profile updated' : ''
           setSuccessMessage(`✅ Analysis complete! Found ${cvCount} CV${cvCount !== 1 ? 's' : ''} and ${clCount} cover letter${clCount !== 1 ? 's' : ''}${voiceMsg}`)
           setTimeout(() => {
+            setShowImportModal(false)
             setActiveTab('library')
             setTimeout(() => setSuccessMessage(''), 2000)
           }, 1500)
@@ -1275,20 +1276,27 @@ function Dashboard() {
               <div className="text-center py-12 space-y-4">
                 <div className="text-5xl mb-4">📁</div>
                 <h3 className="text-lg font-semibold text-gray-900">Upload your CV or documents</h3>
-                <p className="text-gray-600">
-                  Upload your CV, cover letter, or other documents. We'll extract and analyze your experience.
+                <p className="text-gray-600 mb-6">
+                  Upload PDF or DOCX files. We'll extract and analyze your experience.
                 </p>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50">
-                  <p className="text-sm text-gray-500 mb-4">
-                    Upload functionality coming soon. For now, use the paste option above.
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                  <p className="text-sm text-blue-900 mb-3">
+                    <strong>📌 Supported formats:</strong>
                   </p>
-                  <button
-                    disabled
-                    className="px-6 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed"
-                  >
-                    Choose file
-                  </button>
+                  <ul className="text-sm text-blue-800 space-y-1 mb-4">
+                    <li>✓ PDF (.pdf)</li>
+                    <li>✓ Word Document (.docx)</li>
+                  </ul>
+                  <p className="text-xs text-blue-700">
+                    Files up to 10 MB. Not sure how to export? Try the <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">Paste Information</button> tab instead.
+                  </p>
                 </div>
+                <Link href="/dashboard/upload" className="inline-block px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                  Go to Upload Page
+                </Link>
+                <p className="text-xs text-gray-500">
+                  Prefer to use the dedicated upload page with progress tracking? Click above.
+                </p>
               </div>
             )}
           </div>
