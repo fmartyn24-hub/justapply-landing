@@ -1,22 +1,20 @@
-// Convert HTML to PDF using html-pdf-node with Chrome support
-import { generatePdf } from 'html-pdf-node'
-import { execSync } from 'child_process'
+// Convert HTML to PDF using Puppeteer with Chrome support
+import puppeteer from 'puppeteer'
 import { existsSync } from 'fs'
 
-let browserPath: string | undefined
+let cachedBrowser: any = null
 
-// Detect environment and set appropriate browser path
-async function getBrowserPath(): Promise<string | undefined> {
-  if (browserPath) return browserPath
-
+// Get Chromium executable path for Vercel
+async function getChromiumPath(): Promise<string | undefined> {
   // For Vercel production, use @sparticuz/chromium
-  if (process.env.VERCEL === '1') {
+  if (process.env.VERCEL === '1' || process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview') {
     try {
       const Chromium = (await import('@sparticuz/chromium')).default
-      browserPath = await Chromium.executablePath()
-      return browserPath
+      const path = await Chromium.executablePath()
+      console.log('Using @sparticuz/chromium path:', path)
+      return path
     } catch (error) {
-      console.warn('Could not load Chromium from @sparticuz/chromium:', error)
+      console.error('Error loading @sparticuz/chromium:', error)
     }
   }
 
@@ -31,21 +29,48 @@ async function getBrowserPath(): Promise<string | undefined> {
 
   for (const path of chromePaths) {
     if (existsSync(path)) {
-      browserPath = path
-      return browserPath
+      console.log('Found Chrome at:', path)
+      return path
     }
   }
 
   return undefined
 }
 
+async function getBrowser() {
+  if (cachedBrowser) {
+    return cachedBrowser
+  }
+
+  const executablePath = await getChromiumPath()
+
+  const launchOptions: any = {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  }
+
+  if (executablePath) {
+    launchOptions.executablePath = executablePath
+  }
+
+  cachedBrowser = await puppeteer.launch(launchOptions)
+  return cachedBrowser
+}
+
 export async function htmlToPdf(html: string): Promise<Buffer> {
+  let browser = null
   try {
-    const executablePath = await getBrowserPath()
+    browser = await getBrowser()
+    const page = await browser.newPage()
 
-    const args = ['--no-sandbox', '--disable-setuid-sandbox']
+    // Set viewport and paper format for PDF
+    await page.setViewport({ width: 1200, height: 1600 })
 
-    const options: any = {
+    // Load HTML content
+    await page.setContent(html, { waitUntil: 'networkidle0' })
+
+    // Generate PDF
+    const buffer = await page.pdf({
       format: 'A4',
       margin: {
         top: 0,
@@ -54,31 +79,20 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         left: 0,
       },
       printBackground: true,
-      args: args,
-    }
+      scale: 1,
+    })
 
-    // Add executable path if detected
-    if (executablePath) {
-      options.executablePath = executablePath
-    }
+    await page.close()
 
-    const file = {
-      content: html,
-    }
-
-    const buffer = await generatePdf(file, options)
-    return buffer
+    return Buffer.from(buffer)
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-    console.error('HTML to PDF conversion error:', errorMsg)
-
-    // Provide helpful error message for missing Chrome
-    if (errorMsg.includes('Could not find Chrome') || errorMsg.includes('ENOENT') || errorMsg.includes('Failed to launch')) {
-      throw new Error(
-        'Chrome/Chromium is not installed. ' +
-          'Please install Chrome from https://www.google.com/chrome/ or use: brew install chromium'
-      )
-    }
+    console.error('HTML to PDF conversion error:', {
+      message: errorMsg,
+      vercel: process.env.VERCEL,
+      env: process.env.VERCEL_ENV,
+      stack: error instanceof Error ? error.stack : undefined,
+    })
 
     throw new Error(`Failed to convert HTML to PDF: ${errorMsg}`)
   }
