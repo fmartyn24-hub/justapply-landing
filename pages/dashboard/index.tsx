@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/middleware/withAuth'
 import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/common/Button'
 import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
+import { CVUploadZone } from '@/components/upload/CVUploadZone'
 import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
@@ -117,6 +118,10 @@ function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importTab, setImportTab] = useState<'paste' | 'upload'>('paste')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importUploading, setImportUploading] = useState(false)
+  const [importUploadError, setImportUploadError] = useState('')
+  const [importUploadSuccess, setImportUploadSuccess] = useState(false)
   const [expandedRole, setExpandedRole] = useState<CareerComponent | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [generatingApplication, setGeneratingApplication] = useState(false)
@@ -327,6 +332,63 @@ function Dashboard() {
       alert(err instanceof Error ? err.message : 'Failed to extract components')
     } finally {
       setExtracting(false)
+    }
+  }
+
+  const refetchCvs = async () => {
+    if (!session?.user?.id) return
+    const { data: cvData } = await supabase
+      .from('cvs')
+      .select('id, filename, file_size_bytes, created_at, storage_path')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    if (cvData) {
+      setCvs(cvData)
+    }
+  }
+
+  const handleImportUpload = async () => {
+    if (!importFile) {
+      setImportUploadError('Please select a file')
+      return
+    }
+    if (!session?.access_token) {
+      setImportUploadError('Authentication failed. Please log in again.')
+      return
+    }
+
+    setImportUploading(true)
+    setImportUploadError('')
+    setImportUploadSuccess(false)
+
+    try {
+      const arrayBuffer = await importFile.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+
+      const response = await fetch('/api/upload-cv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-Filename': importFile.name,
+          'X-Mime-Type': importFile.type,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: uint8Array.buffer,
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Upload failed')
+      }
+
+      await refetchCvs()
+      setImportUploadSuccess(true)
+      setImportFile(null)
+    } catch (err) {
+      console.error('Import upload error:', err)
+      setImportUploadError(err instanceof Error ? err.message : 'An error occurred during upload')
+    } finally {
+      setImportUploading(false)
     }
   }
 
@@ -1234,7 +1296,12 @@ function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Import your information</h2>
               <button
-                onClick={() => setShowImportModal(false)}
+                onClick={() => {
+                  setShowImportModal(false)
+                  setImportFile(null)
+                  setImportUploadError('')
+                  setImportUploadSuccess(false)
+                }}
                 className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
               >
                 ×
@@ -1272,30 +1339,77 @@ function Dashboard() {
 
             {/* Upload Tab */}
             {importTab === 'upload' && (
-              <div className="text-center py-12 space-y-4">
-                <div className="text-5xl mb-4">📁</div>
-                <h3 className="text-lg font-semibold text-gray-900">Upload your CV or documents</h3>
-                <p className="text-gray-600 mb-6">
-                  Upload PDF or DOCX files. We'll extract and analyze your experience.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                  <p className="text-sm text-blue-900 mb-3">
-                    <strong>📌 Supported formats:</strong>
-                  </p>
-                  <ul className="text-sm text-blue-800 space-y-1 mb-4">
-                    <li>✓ PDF (.pdf)</li>
-                    <li>✓ Word Document (.docx)</li>
-                  </ul>
-                  <p className="text-xs text-blue-700">
-                    Files up to 10 MB. Not sure how to export? Try the <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">Paste Information</button> tab instead.
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Upload your CV or documents</h3>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Upload PDF or DOCX files. We'll extract and analyze your experience.
                   </p>
                 </div>
-                <Link href="/dashboard/upload" className="inline-block px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition">
-                  Go to Upload Page
-                </Link>
-                <p className="text-xs text-gray-500">
-                  Prefer to use the dedicated upload page with progress tracking? Click above.
-                </p>
+
+                {importUploadSuccess ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center space-y-4">
+                    <div className="text-4xl">✓</div>
+                    <div>
+                      <p className="font-semibold text-green-900">CV uploaded successfully</p>
+                      <p className="text-sm text-green-800 mt-1">
+                        Turn it into career components, or upload another file.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Button
+                        onClick={handleExtractComponents}
+                        loading={extracting}
+                      >
+                        🤖 Extract components now
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setImportUploadSuccess(false)
+                          setImportUploadError('')
+                        }}
+                      >
+                        Upload another file
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <CVUploadZone
+                      onFileSelect={(file) => {
+                        setImportFile(file)
+                        setImportUploadError('')
+                      }}
+                      isLoading={importUploading}
+                    />
+
+                    {importUploadError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                        {importUploadError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleImportUpload}
+                        loading={importUploading}
+                        disabled={!importFile}
+                        className="flex-1"
+                      >
+                        Upload CV
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-gray-500 text-center">
+                      PDF or DOCX up to 10 MB. Not sure how to export your CV? Try the{' '}
+                      <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">
+                        Paste Information
+                      </button>{' '}
+                      tab instead.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
