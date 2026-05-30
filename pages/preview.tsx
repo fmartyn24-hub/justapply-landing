@@ -171,123 +171,36 @@ export default function PreviewPage() {
       const { applicationId, template, documentType, accessToken } = previewData
       const fileName = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}`
 
-      if (format === 'pdf') {
-        console.log('Starting client-side PDF generation...')
-        const html2canvas = (await import('html2canvas')).default
-        const jsPDF = (await import('jspdf')).jsPDF
+      // Both PDF and DOCX are generated server-side. The PDF generators
+      // (pdfkit) lay out real text and add pages with proper margins, so
+      // content flows cleanly across pages instead of being sliced from a
+      // rasterised screenshot.
+      const endpoint = format === 'pdf' ? 'export-pdf' : 'export-docx'
+      console.log(`Downloading ${format.toUpperCase()} from ${endpoint}...`)
 
-        // Capture the rendered document from inside the iframe
-        const iframe = iframeRef.current
-        if (!iframe || !iframe.contentDocument) {
-          throw new Error('Preview not ready')
+      const response = await fetch(
+        `/api/applications/${endpoint}?id=${applicationId}&template=${template}&type=${documentType}`,
+        {
+          method: 'GET',
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         }
-        const doc = iframe.contentDocument
-        const target =
-          (doc.querySelector('.container') as HTMLElement) || doc.body
+      )
 
-        // Make sure fonts inside the iframe are ready so text isn't blank
-        try {
-          if ((doc as any).fonts?.ready) {
-            await (doc as any).fonts.ready
-          }
-        } catch {
-          /* non-fatal */
-        }
-
-        console.log('Rendering iframe content to canvas...')
-        const canvas = await html2canvas(target, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          windowWidth: target.scrollWidth,
-          windowHeight: target.scrollHeight,
-        })
-
-        // Build an A4 PDF, fitting the canvas width to the page width and
-        // slicing the canvas vertically into page-height chunks.
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-        })
-
-        const pageWidthMm = pdf.internal.pageSize.getWidth() // 210mm
-        const pageHeightMm = pdf.internal.pageSize.getHeight() // 297mm
-
-        // Conversion: how many canvas pixels equal 1mm when width is fit to page
-        const pxPerMm = canvas.width / pageWidthMm
-        // Canvas pixels that correspond to a single full PDF page height
-        const pageHeightPx = pageHeightMm * pxPerMm
-
-        const totalPages = Math.max(1, Math.ceil(canvas.height / pageHeightPx))
-        console.log(
-          `Canvas: ${canvas.width}x${canvas.height}px, page=${Math.round(
-            pageHeightPx
-          )}px, totalPages=${totalPages}`
-        )
-
-        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-          const startY = pageNum * pageHeightPx
-          const sliceHeight = Math.min(pageHeightPx, canvas.height - startY)
-          if (sliceHeight <= 0) break
-
-          // Copy this slice into a temporary canvas
-          const pageCanvas = document.createElement('canvas')
-          pageCanvas.width = canvas.width
-          pageCanvas.height = sliceHeight
-          const ctx = pageCanvas.getContext('2d')
-          if (ctx) {
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
-            ctx.drawImage(
-              canvas,
-              0, startY,
-              canvas.width, sliceHeight,
-              0, 0,
-              canvas.width, sliceHeight
-            )
-          }
-
-          const imgData = pageCanvas.toDataURL('image/png')
-          if (pageNum > 0) pdf.addPage()
-
-          // Height of this slice in mm (partial last page stays proportional)
-          const sliceHeightMm = sliceHeight / pxPerMm
-          pdf.addImage(imgData, 'PNG', 0, 0, pageWidthMm, sliceHeightMm)
-          console.log(`Page ${pageNum + 1}: ${Math.round(sliceHeight)}px -> ${sliceHeightMm.toFixed(1)}mm`)
-        }
-
-        pdf.save(`${fileName}.pdf`)
-        console.log(`✓ PDF downloaded (${totalPages} page(s))`)
-      } else {
-        // Server-side DOCX generation
-        console.log('Downloading DOCX...')
-        const response = await fetch(
-          `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`,
-          {
-            method: 'GET',
-            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-          }
-        )
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Failed to download DOCX')
-        }
-
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${fileName}.docx`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-        console.log('✓ DOCX downloaded successfully')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to download ${format.toUpperCase()}`)
       }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      console.log(`✓ ${format.toUpperCase()} downloaded successfully`)
     } catch (err) {
       console.error('Download error:', err)
       alert(err instanceof Error ? err.message : `Error downloading ${format.toUpperCase()}`)
