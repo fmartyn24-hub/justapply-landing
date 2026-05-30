@@ -274,6 +274,17 @@ export default function PreviewPage() {
     )
   }
 
+  // Helper functions to extract parts from the generated HTML
+  function extractStylesFromHtml(html: string): string {
+    const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i)
+    return styleMatch ? styleMatch[1] : ''
+  }
+
+  function extractBodyFromHtml(html: string): string {
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+    return bodyMatch ? bodyMatch[1] : html
+  }
+
   return (
     <>
       <style>{`
@@ -380,7 +391,14 @@ export default function PreviewPage() {
           </button>
         </div>
       </div>
-      <div className="preview-content" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+      {htmlContent && (
+        <div className="preview-content">
+          {/* Extract and apply styles from the HTML */}
+          <style>{extractStylesFromHtml(htmlContent)}</style>
+          {/* Extract and render body content */}
+          <div dangerouslySetInnerHTML={{ __html: extractBodyFromHtml(htmlContent) }} />
+        </div>
+      )}
     </>
   )
 }
