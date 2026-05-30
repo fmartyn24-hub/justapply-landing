@@ -152,10 +152,19 @@ export default async function handler(
       .single()
 
     if (dbError) {
-      console.error('Database insert error:', dbError)
+      console.error('Database insert error:', {
+        message: dbError.message,
+        details: dbError.details,
+        hint: dbError.hint,
+        code: dbError.code,
+      })
       // Attempt to clean up storage
       await serverSupabase.storage.from('cvs').remove([storagePath])
-      return res.status(500).json({ success: false, error: 'Failed to save CV metadata' })
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save CV metadata',
+        details: dbError.message,
+      })
     }
 
     // Update user_profiles to mark cv_uploaded = true
