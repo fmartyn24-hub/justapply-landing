@@ -279,7 +279,13 @@ export default function PreviewPage() {
     // Capture all style content, including multiple style tags
     const styleMatches = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)
     if (!styleMatches) return ''
-    return styleMatches.map(match => match.replace(/<\/?style[^>]*>/gi, '')).join('\n')
+    let styles = styleMatches.map(match => match.replace(/<\/?style[^>]*>/gi, '')).join('\n')
+
+    // Replace body selector with .preview-content so body styles apply to our container
+    // This handles both "body {" and "body{" (with/without spaces)
+    styles = styles.replace(/\bbody\s*\{/gi, '.preview-content {')
+
+    return styles
   }
 
   function extractBodyFromHtml(html: string): string {
