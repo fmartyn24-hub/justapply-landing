@@ -112,29 +112,87 @@ export default function PreviewPage() {
     setDownloading(true)
     try {
       const { applicationId, template, documentType, accessToken } = previewData
-      const response = await fetch(
-        `/api/applications/export-${format}?id=${applicationId}&template=${template}&type=${documentType}`,
-        {
-          method: 'GET',
-          headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+      const fileName = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}`
+
+      if (format === 'pdf') {
+        // Client-side PDF generation using html2canvas + jsPDF
+        console.log('Starting client-side PDF generation...')
+        const html2canvas = (await import('html2canvas')).default
+        const jsPDF = (await import('jspdf')).jsPDF
+
+        const element = document.querySelector('.preview-content')
+        if (!element) throw new Error('Preview content not found')
+
+        // Render to canvas
+        console.log('Rendering to canvas...')
+        const canvas = await html2canvas(element as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        })
+
+        // Create PDF
+        console.log('Creating PDF...')
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        })
+
+        const pageWidth = pdf.internal.pageSize.getWidth()
+        const pageHeight = pdf.internal.pageSize.getHeight()
+        const imgWidth = pageWidth - 4 // Small margin
+        const imgHeight = (canvas.height * imgWidth) / canvas.width
+        const margin = 2
+
+        let heightLeft = imgHeight
+        let position = 0
+
+        // Add first image
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+
+        // Add remaining pages
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight
+          pdf.addPage()
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position + margin, imgWidth, imgHeight)
+          heightLeft -= pageHeight
         }
-      )
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to download ${format.toUpperCase()}`)
+        pdf.save(`${fileName}.pdf`)
+        console.log('✓ PDF downloaded successfully')
+      } else {
+        // Server-side DOCX generation
+        console.log('Downloading DOCX...')
+        const response = await fetch(
+          `/api/applications/export-docx?id=${applicationId}&template=${template}&type=${documentType}`,
+          {
+            method: 'GET',
+            headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+          }
+        )
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Failed to download DOCX')
+        }
+
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${fileName}.docx`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        console.log('✓ DOCX downloaded successfully')
       }
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${documentType === 'coverLetter' ? 'CoverLetter' : 'CV'}_${template}.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
     } catch (err) {
+      console.error('Download error:', err)
       alert(err instanceof Error ? err.message : `Error downloading ${format.toUpperCase()}`)
     } finally {
       setDownloading(false)
