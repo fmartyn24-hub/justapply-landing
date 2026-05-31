@@ -37,11 +37,18 @@ export default async function handler(
     return res.status(401).json({ success: false, error: 'Unauthorized' })
   }
 
-  const { jobDescription, jobTitle, company } = req.body
+  const { jobDescription, jobTitle, company, selectedComponentIds } = req.body
 
   if (!jobDescription) {
     return res.status(400).json({ success: false, error: 'Job description is required' })
   }
+
+  // Optional: the IDs the user chose to highlight in the advice step. When
+  // present, we keep all components for a coherent CV but tell the model to
+  // foreground these specific ones.
+  const highlightIds: string[] = Array.isArray(selectedComponentIds)
+    ? selectedComponentIds.filter((id: any) => typeof id === 'string')
+    : []
 
   try {
     // Fetch user's career components
@@ -74,6 +81,19 @@ export default async function handler(
     const achievements = (components || []).filter((c: any) => c.type === 'campaign' || c.type === 'achievement')
     const projects = (components || []).filter((c: any) => c.type === 'project')
     const voice = (components || []).filter((c: any) => c.type === 'voice')
+
+    // Components the user explicitly chose to highlight in the advice step.
+    const highlighted = highlightIds.length > 0
+      ? (components || []).filter((c: any) => highlightIds.includes(c.id))
+      : []
+    const highlightedSection = highlighted.length > 0
+      ? `
+
+## PRIORITISED COMPONENTS — the candidate has explicitly chosen to emphasise these for THIS application
+Give these the most prominent placement and the most detail in the CV, and build the cover letter's argument around them. You may still draw on the other components above where needed for a coherent, complete, and truthful CV (e.g. employment chronology), but these are the headline material:
+${highlighted.map((c: any) => `- (${c.type}) ${c.title}${c.organization_name ? ` @ ${c.organization_name}` : ''}: ${c.description || ''}${c.impact_metrics ? ` (${c.impact_metrics})` : ''}`).join('\n')}
+`
+      : ''
 
     // Build context for Claude
     const careerContext = `
@@ -112,7 +132,7 @@ ${profileAnswers?.answers ? `
 ### Profile Enrichment Answers
 ${JSON.stringify(profileAnswers.answers, null, 2)}
 ` : ''}
-`
+${highlightedSection}`
 
     // Initialize Anthropic client
     const anthropic = new Anthropic({

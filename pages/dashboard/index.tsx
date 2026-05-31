@@ -885,7 +885,44 @@ function Dashboard() {
     }
   }
 
-  const handleGenerateApplication = async (jobDescription: string, jobTitle?: string, company?: string) => {
+  // Advice step: analyse a pasted job ad against the user's career library and
+  // return employer keywords + recommended components to highlight. Errors
+  // bubble up so the wizard can stay on the input step and show a message.
+  const handleAnalyzeJob = async (
+    jobDescription: string,
+    jobTitle?: string,
+    company?: string
+  ) => {
+    if (!session?.access_token) throw new Error('Not authenticated')
+
+    const response = await fetch('/api/analyze-job', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ jobDescription, jobTitle, company }),
+    })
+
+    if (!response.ok) {
+      const d = await response.json().catch(() => ({}))
+      throw new Error(d.error || 'Failed to analyse job')
+    }
+
+    return response.json() as Promise<{
+      success: boolean
+      keywords: string[]
+      thesis: string
+      recommendations: Array<{ id: string; title: string; type: string; reason: string }>
+    }>
+  }
+
+  const handleGenerateApplication = async (
+    jobDescription: string,
+    jobTitle?: string,
+    company?: string,
+    selectedComponentIds?: string[]
+  ) => {
     if (!session?.access_token || !session?.user?.id) return
 
     setGeneratingApplication(true)
@@ -896,7 +933,7 @@ function Dashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ jobDescription, jobTitle, company }),
+        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds }),
       })
 
       if (!response.ok) {
@@ -1268,7 +1305,9 @@ function Dashboard() {
               {/* Just Apply Tab */}
               {activeTab === 'justApply' && (
                 <JustApplyTab
+                  onAnalyze={handleAnalyzeJob}
                   onSubmit={handleGenerateApplication}
+                  components={components}
                   loading={generatingApplication}
                 />
               )}
