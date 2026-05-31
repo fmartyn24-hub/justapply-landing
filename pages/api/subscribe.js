@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://zvodxljkfvwarcljerau.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b2R4bGprZnZ3YXJjbGplcmF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjQzMDcsImV4cCI6MjA5NDU0MDMwN30.Hne1sGhgR_oE-xa7VkBS9a5OfN-0LSNTH89ksjY49Cg'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    return res.status(500).json({ error: 'Server not configured' })
   }
 
   const { email } = req.body
@@ -17,10 +22,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data, error } = await supabase
+    // No .select() here: RLS now blocks anon reads on `emails`, and we don't
+    // need the inserted row back. This keeps the public signup working with
+    // the insert-only policy.
+    const { error } = await supabase
       .from('emails')
       .insert([{ email }])
-      .select()
 
     if (error) {
       console.error('Supabase error:', error)
