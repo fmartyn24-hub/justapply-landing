@@ -78,8 +78,26 @@ export const OVERRIDE_STYLES = `
         box-shadow: none !important;
         margin: 0 !important;
       }
-      /* Keep individual entries/items from being sliced across a page break */
-      .entry, .job, .education-item, .skill-group, .sidebar-section, .header {
+      /* Keep section headings glued to the content that follows them, so a
+         heading is never stranded alone at the bottom of a page. */
+      .section-title, .section-header {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      /* Keep an entry's title/subtitle/meta rows attached to their body so a
+         job title is never orphaned at the bottom of a page. */
+      .entry-title, .entry-subtitle, .entry-meta,
+      .job-title, .job-header, .job-meta {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      /* Keep genuinely small, atomic blocks from being sliced across a page
+         break. NOTE: .entry/.job are deliberately NOT listed here — a tall,
+         multi-bullet experience entry must be allowed to flow across a page
+         boundary. Forcing the whole entry to stay together pushes a long first
+         job onto the next page and leaves a large empty gap above it, which
+         inflates the document by an extra page. */
+      .skill-item, .skill-group, .education-item, .sidebar-section, .header {
         break-inside: avoid;
         page-break-inside: avoid;
       }
