@@ -49,6 +49,13 @@ export function generateModernHtml(
 ): string {
   // For cover letters or if cvData is empty, return simple HTML
   if (documentType === 'coverLetter' && clData) {
+    const c = clData.contact || {}
+    const clContact = [c.email, c.phone, c.location, c.portfolio_url, c.linkedin_url]
+      .filter(Boolean)
+      .join('  •  ')
+    const reLine = clData.recipient?.jobTitle
+      ? `Re: Application for ${clData.recipient.jobTitle}${clData.recipient.company ? ` at ${clData.recipient.company}` : ''}`
+      : ''
     return `
       <!DOCTYPE html>
       <html>
@@ -58,16 +65,33 @@ export function generateModernHtml(
         <title>Cover Letter</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Segoe UI', sans-serif; line-height: 1.7; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-          .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 1in; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-          p { margin-bottom: 1.2rem; font-size: 11px; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.7; color: ${COLORS.text}; background: white; }
+          .container { max-width: 8.5in; min-height: 11in; background: white; margin: 0 auto; padding: 0.9in 1in; }
+          .letterhead { border-bottom: 3px solid ${COLORS.accent}; padding-bottom: 14px; margin-bottom: 26px; }
+          .ch-name { font-size: 30px; font-weight: 700; color: ${COLORS.primary}; letter-spacing: -0.5px; }
+          .ch-contact { font-size: 10.5px; color: ${COLORS.text}; margin-top: 7px; letter-spacing: 0.2px; }
+          .ch-date { font-size: 11px; color: ${COLORS.text}; margin-bottom: 20px; }
+          .ch-re { font-size: 11px; font-weight: 700; color: ${COLORS.dark}; margin-bottom: 18px; }
+          p { margin-bottom: 14px; font-size: 11px; }
+          .ch-sign { margin-top: 26px; font-size: 11px; }
+          .ch-sign-name { font-weight: 700; color: ${COLORS.dark}; margin-top: 4px; }
         </style>
       </head>
       <body>
         <div class="container">
-          ${clData?.opening ? '<p>' + clData.opening + '</p>' : ''}
-          ${clData?.body_paragraphs?.map((p) => '<p>' + p + '</p>').join('') || ''}
-          ${clData?.closing ? '<p>' + clData.closing + '</p>' : ''}
+          <div class="letterhead">
+            <div class="ch-name">${c.name || 'Your Name'}</div>
+            ${clContact ? `<div class="ch-contact">${clContact}</div>` : ''}
+          </div>
+          ${clData.date ? `<div class="ch-date">${clData.date}</div>` : ''}
+          ${reLine ? `<div class="ch-re">${reLine}</div>` : ''}
+          ${clData.opening ? `<p>${clData.opening}</p>` : ''}
+          ${clData.body_paragraphs?.map((p) => `<p>${p}</p>`).join('') || ''}
+          ${clData.closing ? `<p>${clData.closing}</p>` : ''}
+          <div class="ch-sign">
+            Sincerely,
+            <div class="ch-sign-name">${c.name || ''}</div>
+          </div>
         </div>
       </body>
       </html>
@@ -259,6 +283,13 @@ export function generateModernHtml(
       margin-bottom: 6px;
     }
 
+    .job-desc {
+      font-size: 11px;
+      color: ${COLORS.text};
+      margin-bottom: 6px;
+      line-height: 1.55;
+    }
+
     .achievements {
       font-size: 11px;
       margin-left: 12px;
@@ -384,6 +415,7 @@ export function generateModernHtml(
               </div>
               ${job.location ? `<div class="job-meta">${job.location}</div>` : ''}
               ${job.start_date || job.end_date ? `<div class="job-meta">${job.start_date || ''} – ${job.end_date || 'Present'}</div>` : ''}
+              ${job.description ? `<div class="job-desc">${job.description}</div>` : ''}
               ${job.achievements && job.achievements.length > 0 ? `
                 <div class="achievements">
                   ${job.achievements.map((a) => `<div class="achievement">${a}</div>`).join('')}

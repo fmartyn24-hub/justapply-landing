@@ -7,6 +7,13 @@ export function generateAcademicHtml(
   clData?: CoverLetterData
 ): string {
   if (documentType === 'coverLetter') {
+    const c = clData?.contact || {}
+    const clContact = [c.email, c.phone, c.location, c.portfolio_url, c.linkedin_url]
+      .filter(Boolean)
+      .join('  |  ')
+    const reLine = clData?.recipient?.jobTitle
+      ? `Re: Application for ${clData.recipient.jobTitle}${clData.recipient.company ? ` at ${clData.recipient.company}` : ''}`
+      : ''
     return `
       <!DOCTYPE html>
       <html>
@@ -16,16 +23,33 @@ export function generateAcademicHtml(
         <title>Cover Letter</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Times New Roman', Times, serif; line-height: 1.8; color: #1a1a1a; background: #f5f5f0; }
-          .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 1in; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          body { font-family: 'Times New Roman', Times, serif; line-height: 1.8; color: #1a1a1a; background: white; }
+          .container { max-width: 8.5in; min-height: 11in; background: white; margin: 0 auto; padding: 1in; }
+          .letterhead { text-align: center; border-bottom: 1px solid #333; padding-bottom: 0.15in; margin-bottom: 0.3in; }
+          .ch-name { font-size: 18px; font-weight: bold; color: #1a1a1a; }
+          .ch-contact { font-size: 10px; color: #333; margin-top: 7px; }
+          .ch-date { font-size: 11px; color: #333; margin-bottom: 20px; }
+          .ch-re { font-size: 11px; font-weight: bold; color: #1a1a1a; margin-bottom: 18px; }
           p { margin-bottom: 1.2rem; text-align: justify; font-size: 11px; }
+          .ch-sign { margin-top: 26px; font-size: 11px; }
+          .ch-sign-name { font-weight: bold; color: #1a1a1a; margin-top: 4px; }
         </style>
       </head>
       <body>
         <div class="container">
+          <div class="letterhead">
+            <div class="ch-name">${c.name || 'Your Name'}</div>
+            ${clContact ? `<div class="ch-contact">${clContact}</div>` : ''}
+          </div>
+          ${clData?.date ? `<div class="ch-date">${clData.date}</div>` : ''}
+          ${reLine ? `<div class="ch-re">${reLine}</div>` : ''}
           ${clData?.opening ? `<p>${clData.opening}</p>` : ''}
           ${clData?.body_paragraphs?.map((p) => `<p>${p}</p>`).join('') || ''}
           ${clData?.closing ? `<p>${clData.closing}</p>` : ''}
+          <div class="ch-sign">
+            Sincerely,
+            <div class="ch-sign-name">${c.name || ''}</div>
+          </div>
         </div>
       </body>
       </html>

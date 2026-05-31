@@ -121,7 +121,18 @@ export interface ProfileLike {
 
 // Build the cover-letter data block, preferring the structured JSON stored at
 // generation time and falling back to splitting stored plain text into paragraphs.
-export function buildCoverLetterData(application: any) {
+// `contact` (the paired CV header) and `date`/`recipient` are injected so each
+// template can render a proper, branded letterhead and signature.
+export function buildCoverLetterData(application: any, contact?: any) {
+  const recipient = {
+    jobTitle: application?.job_title || '',
+    company: application?.company_name || '',
+  }
+  const date = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
   const clStructured = application.generated_cover_letter_json
   if (clStructured && typeof clStructured === 'object') {
     return {
@@ -130,6 +141,9 @@ export function buildCoverLetterData(application: any) {
         ? clStructured.body_paragraphs
         : [],
       closing: clStructured.closing || '',
+      contact: contact || undefined,
+      date,
+      recipient,
     }
   }
   const paras = (application.generated_cover_letter || '')
@@ -140,6 +154,9 @@ export function buildCoverLetterData(application: any) {
     opening: paras[0] || '',
     body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
     closing: paras.length > 1 ? paras[paras.length - 1] : '',
+    contact: contact || undefined,
+    date,
+    recipient,
   }
 }
 
@@ -167,7 +184,13 @@ export function buildPreviewHtml(
   const templateGenerator = templateGenerators[template] || generateModernHtml
   let html = ''
   if (documentType === 'coverLetter') {
-    html = templateGenerator(null, 'coverLetter', buildCoverLetterData(application))
+    // Pass the CV header through so the letterhead matches the paired CV exactly.
+    const structuredCv = buildStructuredCv(application, profileData)
+    html = templateGenerator(
+      null,
+      'coverLetter',
+      buildCoverLetterData(application, structuredCv?.header)
+    )
   } else {
     html = templateGenerator(buildStructuredCv(application, profileData), 'cv')
   }

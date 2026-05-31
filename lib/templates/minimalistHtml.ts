@@ -7,6 +7,13 @@ export function generateMinimalistHtml(
   clData?: CoverLetterData
 ): string {
   if (documentType === 'coverLetter') {
+    const c = clData?.contact || {}
+    const clContact = [c.email, c.phone, c.location, c.portfolio_url, c.linkedin_url]
+      .filter(Boolean)
+      .join('  ·  ')
+    const reLine = clData?.recipient?.jobTitle
+      ? `Re: Application for ${clData.recipient.jobTitle}${clData.recipient.company ? ` at ${clData.recipient.company}` : ''}`
+      : ''
     return `
       <!DOCTYPE html>
       <html>
@@ -16,16 +23,35 @@ export function generateMinimalistHtml(
         <title>Cover Letter</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.7; color: #333; background: #fafafa; }
-          .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 1in; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.7; color: #2a2a2a; background: white; }
+          .container { max-width: 8.5in; min-height: 11in; background: white; margin: 0 auto; padding: 1in; }
+          .letterhead { margin-bottom: 0.35in; }
+          .ch-name { font-size: 24px; font-weight: 300; letter-spacing: -0.5px; color: #1a1a1a; }
+          .ch-contact { font-size: 10px; color: #666; letter-spacing: 0.5px; margin-top: 8px; }
+          .ch-divider { height: 1px; background: #e0e0e0; margin: 0.18in 0 0.26in; }
+          .ch-date { font-size: 11px; color: #888; margin-bottom: 20px; }
+          .ch-re { font-size: 11px; font-weight: 600; color: #1a1a1a; margin-bottom: 18px; }
           p { margin-bottom: 1.2rem; text-align: justify; font-size: 11px; }
+          .ch-sign { margin-top: 26px; font-size: 11px; }
+          .ch-sign-name { font-weight: 600; color: #1a1a1a; margin-top: 4px; }
         </style>
       </head>
       <body>
         <div class="container">
+          <div class="letterhead">
+            <div class="ch-name">${c.name || 'Your Name'}</div>
+            ${clContact ? `<div class="ch-contact">${clContact}</div>` : ''}
+            <div class="ch-divider"></div>
+          </div>
+          ${clData?.date ? `<div class="ch-date">${clData.date}</div>` : ''}
+          ${reLine ? `<div class="ch-re">${reLine}</div>` : ''}
           ${clData?.opening ? `<p>${clData.opening}</p>` : ''}
           ${clData?.body_paragraphs?.map((p) => `<p>${p}</p>`).join('') || ''}
           ${clData?.closing ? `<p>${clData.closing}</p>` : ''}
+          <div class="ch-sign">
+            Sincerely,
+            <div class="ch-sign-name">${c.name || ''}</div>
+          </div>
         </div>
       </body>
       </html>

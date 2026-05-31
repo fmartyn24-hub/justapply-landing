@@ -7,6 +7,20 @@ export function generateAtsHtml(
   clData?: CoverLetterData
 ): string {
   if (documentType === 'coverLetter') {
+    const c = clData?.contact || {}
+    let clText = ''
+    if (c.name) clText += c.name.toUpperCase() + '\n'
+    const clContact = [c.email, c.phone, c.location, c.portfolio_url, c.linkedin_url].filter(Boolean)
+    if (clContact.length) clText += clContact.join(' | ') + '\n'
+    clText += '\n'
+    if (clData?.date) clText += clData.date + '\n\n'
+    if (clData?.recipient?.jobTitle) {
+      clText += `Re: Application for ${clData.recipient.jobTitle}${clData.recipient.company ? ` at ${clData.recipient.company}` : ''}\n\n`
+    }
+    if (clData?.opening) clText += clData.opening + '\n\n'
+    if (clData?.body_paragraphs?.length) clText += clData.body_paragraphs.join('\n\n') + '\n\n'
+    if (clData?.closing) clText += clData.closing + '\n\n'
+    clText += 'Sincerely,\n' + (c.name || '')
     return `
       <!DOCTYPE html>
       <html>
@@ -16,15 +30,12 @@ export function generateAtsHtml(
         <title>Cover Letter</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Courier New', monospace; line-height: 1.6; color: #333; background: #f5f5f5; }
-          .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 1in; box-shadow: 0 1px 3px rgba(0,0,0,0.1); white-space: pre-wrap; word-wrap: break-word; }
-          p { margin-bottom: 1rem; font-size: 11px; }
+          body { font-family: 'Courier New', monospace; line-height: 1.6; color: #333; background: white; }
+          .container { max-width: 8.5in; min-height: 11in; background: white; margin: 0 auto; padding: 1in; white-space: pre-wrap; word-wrap: break-word; font-size: 11px; }
         </style>
       </head>
       <body>
-        <div class="container">
-${clData?.opening ? clData.opening + '\n\n' : ''}${clData?.body_paragraphs?.map((p) => p).join('\n\n') || ''}${clData?.closing ? '\n\n' + clData.closing : ''}
-        </div>
+        <div class="container">${clText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
       </body>
       </html>
     `

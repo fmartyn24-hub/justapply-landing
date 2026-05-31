@@ -4,6 +4,21 @@ export interface CoverLetterData {
   opening?: string
   body_paragraphs?: string[]
   closing?: string
+  // Optional letterhead data so cover letters can render a proper header,
+  // date and signature that match their paired CV template.
+  contact?: {
+    name?: string
+    email?: string
+    phone?: string
+    location?: string
+    portfolio_url?: string
+    linkedin_url?: string
+  }
+  date?: string
+  recipient?: {
+    jobTitle?: string
+    company?: string
+  }
 }
 
 export interface StructuredCV {
