@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/common/Button'
 import { ExportTemplateSelector } from './ExportTemplateSelector'
-import type { ExportTemplate } from '@/lib/exportTemplates'
 
 interface ApplicationPreviewProps {
   id?: string
@@ -42,12 +41,8 @@ export function ApplicationPreview({
   const [editedPersonsOfInterest, setEditedPersonsOfInterest] = useState(personsOfInterest || '')
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
-  const [exportingDocx, setExportingDocx] = useState(false)
-  const [exportingPdf, setExportingPdf] = useState(false)
-  const [exportError, setExportError] = useState<string | null>(null)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [selectedDocumentType, setSelectedDocumentType] = useState<'cv' | 'coverLetter'>('cv')
-  const [selectedExportFormat, setSelectedExportFormat] = useState<'docx' | 'pdf'>('docx')
 
   // Auto-save functionality
   useEffect(() => {
@@ -91,77 +86,6 @@ export function ApplicationPreview({
       if (timeout) clearTimeout(timeout)
     }
   }, [editedCv, editedCoverLetter, editedJobUrl, editedDeadline, editedPersonsOfInterest])
-
-  const handleExportCvDocx = () => {
-    setSelectedDocumentType('cv')
-    setSelectedExportFormat('docx')
-    setShowTemplateSelector(true)
-  }
-
-  const handleExportCvPdf = () => {
-    setSelectedDocumentType('cv')
-    setSelectedExportFormat('pdf')
-    setShowTemplateSelector(true)
-  }
-
-  const handleExportCoverLetterDocx = () => {
-    setSelectedDocumentType('coverLetter')
-    setSelectedExportFormat('docx')
-    setShowTemplateSelector(true)
-  }
-
-  const handleExportCoverLetterPdf = () => {
-    setSelectedDocumentType('coverLetter')
-    setSelectedExportFormat('pdf')
-    setShowTemplateSelector(true)
-  }
-
-  const handleTemplateSelected = async (template: ExportTemplate) => {
-    if (!id || !authToken) {
-      setExportError('Missing application ID or auth token')
-      return
-    }
-
-    try {
-      const formatEndpoint = selectedExportFormat === 'docx' ? 'export-docx' : 'export-pdf'
-      const response = await fetch(
-        `/api/applications/${formatEndpoint}?id=${id}&template=${template.id}&type=${selectedDocumentType}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || `Failed to export`)
-      }
-
-      // Create blob and download
-      const blob = await response.blob()
-      const typeLabel = selectedDocumentType === 'cv' ? 'CV' : 'CoverLetter'
-      const templateLabel = template.id === 'professional' ? '' : `_${template.id}`
-      const filename = `${company}_${jobTitle}_${typeLabel}${templateLabel}.${selectedExportFormat}`
-        .replace(/[^a-zA-Z0-9-_ .]/g, '')
-        .replace(/\s+/g, '_')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      setExportError(null)
-      setShowTemplateSelector(false)
-    } catch (error) {
-      console.error('Export error:', error)
-      setExportError(error instanceof Error ? error.message : 'Failed to export')
-    }
-  }
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 m-0">
@@ -294,23 +218,20 @@ export function ApplicationPreview({
 
         {/* Actions */}
         <div className="flex flex-col gap-3 p-6 border-t border-gray-200 bg-white">
-          {exportError && (
-            <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{exportError}</p>
-          )}
           <div className="flex gap-3">
             {onStatusChange && (
               <>
                 <Button
                   onClick={() => onStatusChange('draft')}
                   variant="outline"
-                  disabled={saving || exportingDocx || exportingPdf}
+                  disabled={saving}
                   className="flex-1"
                 >
                   Save as Draft
                 </Button>
                 <Button
                   onClick={() => onStatusChange('applied')}
-                  disabled={saving || exportingDocx || exportingPdf}
+                  disabled={saving}
                   loading={saving}
                   className="flex-1"
                 >
@@ -340,7 +261,7 @@ export function ApplicationPreview({
             >
               📝 Export Cover Letter
             </Button>
-            <Button onClick={onClose} variant="outline" disabled={saving || exportingDocx || exportingPdf} className="flex-1">
+            <Button onClick={onClose} variant="outline" disabled={saving} className="flex-1">
               Close
             </Button>
           </div>
@@ -352,9 +273,7 @@ export function ApplicationPreview({
         <ExportTemplateSelector
           isOpen={showTemplateSelector}
           documentType={selectedDocumentType}
-          exportFormat={selectedExportFormat}
           applicationId={id || ''}
-          onSelectTemplate={handleTemplateSelected}
           onChangeDocumentType={setSelectedDocumentType}
           onClose={() => setShowTemplateSelector(false)}
         />

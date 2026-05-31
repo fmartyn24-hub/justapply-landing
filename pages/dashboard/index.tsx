@@ -142,7 +142,6 @@ function Dashboard() {
     address: '',
     website: '',
     linkedinUrl: '',
-    photoPath: '',
   })
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -280,7 +279,7 @@ function Dashboard() {
       // Fetch user profile
       const { data: rawProfileData } = await supabase
         .from('user_profiles')
-        .select('first_name, last_name, phone, address, website, linkedin_url, photo_path')
+        .select('first_name, last_name, phone, address, website, linkedin_url')
         .eq('id', session.user.id)
         .single()
 
@@ -293,7 +292,6 @@ function Dashboard() {
           address: profileData.address || '',
           website: profileData.website || '',
           linkedinUrl: profileData.linkedin_url || '',
-          photoPath: profileData.photo_path || '',
         })
       }
 

@@ -5,9 +5,7 @@ import { EXPORT_TEMPLATES, type ExportTemplate } from '@/lib/exportTemplates'
 interface ExportTemplateSelectorProps {
   isOpen: boolean
   documentType: 'cv' | 'coverLetter'
-  exportFormat: 'docx' | 'pdf'
   applicationId: string
-  onSelectTemplate: (template: ExportTemplate) => Promise<void>
   onChangeDocumentType: (type: 'cv' | 'coverLetter') => void
   onClose: () => void
 }
@@ -15,9 +13,7 @@ interface ExportTemplateSelectorProps {
 export function ExportTemplateSelector({
   isOpen,
   documentType,
-  exportFormat,
   applicationId,
-  onSelectTemplate,
   onChangeDocumentType,
   onClose,
 }: ExportTemplateSelectorProps) {
@@ -179,8 +175,8 @@ export function ExportTemplateSelector({
                   </p>
                 </div>
 
-                {/* Format info */}
-                <p className="text-xs text-gray-500">Export as: {exportFormat.toUpperCase()}</p>
+                {/* Format info — both formats are offered on the preview page */}
+                <p className="text-xs text-gray-500">Preview, then download as PDF or DOCX</p>
 
                 {/* Selection indicator */}
                 {selectedTemplateId === template.id && (
