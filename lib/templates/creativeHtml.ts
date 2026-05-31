@@ -44,8 +44,12 @@ export function generateCreativeHtml(
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); line-height: 1.6; }
-        .container { max-width: 8.5in; height: 11in; background: white; margin: 20px auto; padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.3); display: flex; }
-        .sidebar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.5in; width: 2.5in; }
+        /* The left column colour is painted on the container (not the sidebar)
+           so it spans the FULL document height and stays solid across page
+           breaks. A flex sidebar background only reaches as far as its own
+           content, which leaves an ugly white gutter on page 2+. */
+        .container { max-width: 8.5in; height: 11in; background: linear-gradient(to right, #6e5fc6 0, #6e5fc6 2.5in, #ffffff 2.5in, #ffffff 100%); margin: 20px auto; padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.3); display: flex; }
+        .sidebar { color: white; padding: 0.5in; width: 2.5in; }
         .content { flex: 1; padding: 0.6in; }
         .header-name { font-size: 22px; font-weight: bold; margin-bottom: 0.1in; }
         .contact { font-size: 9px; margin-top: 0.2in; }
