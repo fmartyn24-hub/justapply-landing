@@ -6,6 +6,10 @@ interface ProfileRequest {
   lastName: string
   phone?: string
   address?: string
+  basedIn?: string
+  openToRelocation?: boolean
+  relocationLocations?: string
+  remotePreference?: string
   website?: string
   linkedinUrl?: string
 }
@@ -41,7 +45,18 @@ export default async function handler(
       return res.status(401).json({ success: false, error: 'Unauthorized' })
     }
 
-    const { firstName, lastName, phone, address, website, linkedinUrl } = req.body as ProfileRequest
+    const {
+      firstName,
+      lastName,
+      phone,
+      address,
+      basedIn,
+      openToRelocation,
+      relocationLocations,
+      remotePreference,
+      website,
+      linkedinUrl,
+    } = req.body as ProfileRequest
 
     if (!firstName || !lastName) {
       return res.status(400).json({
@@ -60,6 +75,10 @@ export default async function handler(
         last_name: lastName,
         phone: phone || null,
         address: address || null,
+        based_in: basedIn || null,
+        open_to_relocation: openToRelocation ?? false,
+        relocation_locations: relocationLocations || null,
+        remote_preference: remotePreference || null,
         website: website || null,
         linkedin_url: linkedinUrl || null,
         updated_at: new Date().toISOString(),

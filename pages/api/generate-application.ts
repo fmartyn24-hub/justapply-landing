@@ -57,7 +57,7 @@ export default async function handler(
     // hard 500 — we fall back to their auth email and empty contact fields.
     const { data: profileData } = await serverSupabase
       .from('user_profiles')
-      .select('first_name, last_name, email, phone, address, website, linkedin_url')
+      .select('first_name, last_name, email, phone, address, based_in, open_to_relocation, relocation_locations, remote_preference, website, linkedin_url')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -81,9 +81,15 @@ export default async function handler(
 Name: ${profileData?.first_name || ''} ${profileData?.last_name || ''}
 Email: ${profileData?.email || user.email}
 Phone: ${profileData?.phone || ''}
-Address: ${profileData?.address || ''}
+Based in: ${profileData?.based_in || profileData?.address || ''}
+${profileData?.open_to_relocation ? `Open to relocation: Yes${profileData?.relocation_locations ? ` — willing to relocate to ${profileData.relocation_locations}` : ''}${profileData?.remote_preference ? ` (work-location preference: ${profileData.remote_preference})` : ''}` : 'Open to relocation: No'}
 ${profileData?.website ? `Portfolio/Website: ${profileData.website}` : ''}
 ${profileData?.linkedin_url ? `LinkedIn: ${profileData.linkedin_url}` : ''}
+
+IMPORTANT — Location rules:
+- Use ONLY the "Based in" value above for the candidate's location. Do NOT infer or invent a location from job descriptions, employers, or career history.
+- If "Based in" is empty, leave the CV header location blank rather than guessing.
+- If the candidate is open to relocation and the target role is in a different location, you may naturally signal that openness in the cover letter.
 
 ## Career Components
 
@@ -342,7 +348,10 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
         name: fullName || cvStructured.header?.name || '',
         email: profileData?.email || user.email || cvStructured.header?.email || '',
         phone: profileData?.phone || cvStructured.header?.phone || null,
-        location: profileData?.address || cvStructured.header?.location || null,
+        // Location comes ONLY from the user's profile ("Based in"). Never fall
+        // back to a location the model invented from job/career content, which
+        // is how CVs ended up showing the wrong city (e.g. "London").
+        location: profileData?.based_in || profileData?.address || null,
         portfolio_url: profileData?.website || cvStructured.header?.portfolio_url || null,
         linkedin_url: profileData?.linkedin_url || cvStructured.header?.linkedin_url || null,
       }

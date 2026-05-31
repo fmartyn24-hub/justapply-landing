@@ -140,6 +140,10 @@ function Dashboard() {
     lastName: '',
     phone: '',
     address: '',
+    basedIn: '',
+    openToRelocation: false,
+    relocationLocations: '',
+    remotePreference: '',
     website: '',
     linkedinUrl: '',
   })
@@ -279,7 +283,7 @@ function Dashboard() {
       // Fetch user profile
       const { data: rawProfileData } = await supabase
         .from('user_profiles')
-        .select('first_name, last_name, phone, address, website, linkedin_url')
+        .select('first_name, last_name, phone, address, based_in, open_to_relocation, relocation_locations, remote_preference, website, linkedin_url')
         .eq('id', session.user.id)
         .single()
 
@@ -290,6 +294,12 @@ function Dashboard() {
           lastName: profileData.last_name || '',
           phone: profileData.phone || '',
           address: profileData.address || '',
+          // Fall back to the legacy free-text address so existing users keep
+          // their location until they re-save with the structured field.
+          basedIn: profileData.based_in || profileData.address || '',
+          openToRelocation: !!profileData.open_to_relocation,
+          relocationLocations: profileData.relocation_locations || '',
+          remotePreference: profileData.remote_preference || '',
           website: profileData.website || '',
           linkedinUrl: profileData.linkedin_url || '',
         })
@@ -1424,17 +1434,87 @@ function Dashboard() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
-                      Address
-                    </label>
-                    <textarea
-                      value={profileData.address}
-                      onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                      rows={2}
-                      placeholder="e.g., San Francisco, CA"
-                    />
+                  {/* About Me — Location. Two cards: where the user is based
+                      (authoritative source for the CV header location) and
+                      whether they're open to relocating. */}
+                  <div className="pt-2">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
+                    <div className="space-y-3">
+                      {/* Card 1: Where are you based? */}
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-base">📍</span>
+                          <label className="block text-sm font-medium text-gray-900">
+                            Where are you based?
+                          </label>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">
+                          This is shown on your CV. Use the format “City, Country”.
+                        </p>
+                        <input
+                          type="text"
+                          value={profileData.basedIn}
+                          onChange={(e) => setProfileData({ ...profileData, basedIn: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                          placeholder="e.g., Brussels, Belgium"
+                        />
+                      </div>
+
+                      {/* Card 2: Open to relocation? */}
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">✈️</span>
+                            <label htmlFor="openToRelocation" className="block text-sm font-medium text-gray-900">
+                              Open to relocation?
+                            </label>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              id="openToRelocation"
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={profileData.openToRelocation}
+                              onChange={(e) => setProfileData({ ...profileData, openToRelocation: e.target.checked })}
+                            />
+                            <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                          </label>
+                        </div>
+
+                        {profileData.openToRelocation && (
+                          <div className="mt-3 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Where would you relocate to?
+                              </label>
+                              <input
+                                type="text"
+                                value={profileData.relocationLocations}
+                                onChange={(e) => setProfileData({ ...profileData, relocationLocations: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                                placeholder="e.g., London, Amsterdam, anywhere in the EU"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Work-location preference
+                              </label>
+                              <select
+                                value={profileData.remotePreference}
+                                onChange={(e) => setProfileData({ ...profileData, remotePreference: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                              >
+                                <option value="">No preference</option>
+                                <option value="onsite">On-site</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="remote">Remote</option>
+                                <option value="flexible">Flexible</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div>
