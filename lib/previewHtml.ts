@@ -101,6 +101,12 @@ export const OVERRIDE_STYLES = `
         break-inside: avoid;
         page-break-inside: avoid;
       }
+      /* Keep the cover-letter signature ("Sincerely," + name) together so the
+         valediction and name are never split across a page break. */
+      .ch-sign {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
   </style>
 `
@@ -119,14 +125,25 @@ export interface ProfileLike {
   email?: string | null
 }
 
+// A trailing valediction line (e.g. "Best regards, Jane Doe") that legacy
+// plain-text cover letters embed as their final paragraph. The templates now
+// render their own "Sincerely, <name>" signature block, so leaving the original
+// sign-off in place produces a duplicate signature. We strip it from the
+// plain-text fallback. NOTE: "Thank you …" is deliberately excluded — it's
+// almost always a genuine closing sentence, not a valediction.
+const VALEDICTION_RE =
+  /^(sincerely|best regards|kind(est)? regards|warm(est)? regards|best wishes|yours (sincerely|faithfully|truly)|respectfully|regards|best|cheers)\b[\s,]/i
+
 // Build the cover-letter data block, preferring the structured JSON stored at
 // generation time and falling back to splitting stored plain text into paragraphs.
 // `contact` (the paired CV header) and `date`/`recipient` are injected so each
 // template can render a proper, branded letterhead and signature.
 export function buildCoverLetterData(application: any, contact?: any) {
   const recipient = {
-    jobTitle: application?.job_title || '',
-    company: application?.company_name || '',
+    // Trim whitespace and a trailing sentence-ending period so the "Re:" line
+    // reads cleanly (stored titles are sometimes "Head of Marketing. ").
+    jobTitle: (application?.job_title || '').trim().replace(/\s*\.\s*$/, ''),
+    company: (application?.company_name || '').trim(),
   }
   const date = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -150,6 +167,11 @@ export function buildCoverLetterData(application: any, contact?: any) {
     .split('\n\n')
     .map((p: string) => p.trim())
     .filter(Boolean)
+  // Drop a trailing valediction paragraph so it isn't duplicated by the
+  // template's own signature block (only an issue for the plain-text fallback).
+  while (paras.length > 1 && VALEDICTION_RE.test(paras[paras.length - 1])) {
+    paras.pop()
+  }
   return {
     opening: paras[0] || '',
     body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
