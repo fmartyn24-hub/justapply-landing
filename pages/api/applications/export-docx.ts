@@ -5,7 +5,9 @@ import { EXPORT_TEMPLATES } from '@/lib/exportTemplates'
 import { generateModernDocx } from '@/lib/templates/modernDocx'
 import { generateProfessionalDocx } from '@/lib/templates/professional'
 import { generateAtsDocx } from '@/lib/templates/ats'
+import { generateCoverLetterDocx } from '@/lib/templates/coverLetterDocx'
 import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
+import { buildCoverLetterData } from '@/lib/previewHtml'
 
 interface ErrorResponse {
   error: string
@@ -138,41 +140,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         )
       }
     } else {
-      // Cover letter export — prefer the structured JSON; fall back to splitting
-      // the stored plain text into paragraphs for legacy records.
-      const clStructured = application.generated_cover_letter_json
-      const paras = clContent.split('\n\n').map((p: string) => p.trim()).filter(Boolean)
-      const clData =
-        clStructured && typeof clStructured === 'object'
-          ? {
-              opening: clStructured.opening || '',
-              body_paragraphs: Array.isArray(clStructured.body_paragraphs)
-                ? clStructured.body_paragraphs
-                : [],
-              closing: clStructured.closing || '',
-            }
-          : {
-              opening: paras[0] || '',
-              body_paragraphs: paras.slice(1, paras.length > 1 ? -1 : undefined),
-              closing: paras.length > 1 ? paras[paras.length - 1] : '',
-            }
+      // Cover letter export — render through the single shared builder so all
+      // templates get a branded letterhead, date, "Re:" line and signature that
+      // match the paired CV. buildCoverLetterData applies the same data handling
+      // as the HTML/PDF path: prefers structured JSON, falls back to splitting
+      // plain text, strips a duplicate trailing valediction, and trims the title.
+      const structuredCv =
+        application.generated_cv_json && typeof application.generated_cv_json === 'object'
+          ? application.generated_cv_json
+          : convertPlainTextCvToStructured(
+              application.generated_cv || '',
+              profileData?.email,
+              `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
+            )
 
-      if (exportTemplate.id === 'modern') {
-        buffer = await generateModernDocx({}, 'coverLetter', clData)
-      } else if (exportTemplate.id === 'professional') {
-        buffer = await generateProfessionalDocx({}, 'coverLetter', clData)
-      } else if (exportTemplate.id === 'ats') {
-        buffer = await generateAtsDocx({}, 'coverLetter', clData)
-      } else {
-        // Fallback
-        buffer = await generateDocxBuffer(
-          clContent,
-          application.job_title || 'Application',
-          application.company_name || 'Company',
-          exportTemplate,
-          documentType
-        )
-      }
+      const clData = buildCoverLetterData(application, structuredCv?.header)
+      buffer = await generateCoverLetterDocx(clData, exportTemplate)
     }
 
     // Generate safe filename
