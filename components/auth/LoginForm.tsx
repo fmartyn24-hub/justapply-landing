@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { useAuth } from '@/lib/context/AuthContext'
 import { Input } from '@/components/common/Input'
 import { Button } from '@/components/common/Button'
@@ -65,14 +66,21 @@ export function LoginForm() {
         disabled={loading}
       />
 
-      <Input
-        type="password"
-        label="Password"
-        placeholder="Enter your password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        disabled={loading}
-      />
+      <div>
+        <Input
+          type="password"
+          label="Password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
+        />
+        <div className="mt-2 text-right">
+          <Link href="/auth/forgot-password" className="text-sm text-primary font-semibold hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+      </div>
 
       <Button
         type="submit"
