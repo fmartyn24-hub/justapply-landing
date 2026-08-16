@@ -1302,9 +1302,12 @@ function Dashboard() {
                       <Button onClick={() => setShowImportModal(true)}>
                         Import your experience
                       </Button>
-                      <Button onClick={() => setShowAddForm(true)} variant="outline">
+                      <button
+                        onClick={() => setShowAddForm(true)}
+                        className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                      >
                         Add component
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 )}

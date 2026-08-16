@@ -115,9 +115,12 @@ export function ComponentLibraryUI({
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={onImport} variant="outline" className="text-sm">
+            <button
+              onClick={onImport}
+              className="text-sm px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+            >
               Import context
-            </Button>
+            </button>
             <Button onClick={onAdd} className="text-sm">
               Add component
             </Button>
@@ -159,9 +162,12 @@ export function ComponentLibraryUI({
               : 'Try adjusting your search or filters.'}
           </p>
           {components.length === 0 && (
-            <Button onClick={onAdd} variant="outline" className="mt-3 text-sm">
+            <button
+              onClick={onAdd}
+              className="mt-3 text-sm px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+            >
               Add component
-            </Button>
+            </button>
           )}
         </div>
       ) : (
