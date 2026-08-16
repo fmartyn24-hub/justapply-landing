@@ -1161,6 +1161,11 @@ function Dashboard() {
               />
             )}
 
+            {/* Everything below still uses its original light styling and hasn't
+                been reskinned for the dark shell yet — wrap it in a light panel
+                so it stays legible until each screen gets its own dark pass. */}
+            {activeTab !== 'home' && (
+            <div className="bg-white rounded-xl p-6 space-y-4">
             {/* Success Banner — hidden while any modal is open so status never
                 appears on the dimmed page behind a pop-up; the modals surface
                 their own in-context status instead. */}
@@ -1266,6 +1271,9 @@ function Dashboard() {
                   </Button>
                 </div>
               </div>
+            )}
+        </div>
+        </div>
             )}
         </div>
 
