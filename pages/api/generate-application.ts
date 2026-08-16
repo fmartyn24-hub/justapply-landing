@@ -318,20 +318,22 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
     let cvStructured: any = null
     let coverLetterStructured: any = null
 
-    try {
-      // Strip markdown code block wrapper if present
-      let jsonText = content.text.trim()
+    // Strip a markdown code-block wrapper if present, then parse. Claude is
+    // asked for raw JSON, but occasionally wraps it in ```json fences anyway.
+    function extractJson(text: string): any {
+      let jsonText = text.trim()
       if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.slice(7) // Remove ```json
+        jsonText = jsonText.slice(7)
       } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.slice(3) // Remove ```
+        jsonText = jsonText.slice(3)
       }
       if (jsonText.endsWith('```')) {
-        jsonText = jsonText.slice(0, -3) // Remove trailing ```
+        jsonText = jsonText.slice(0, -3)
       }
+      return JSON.parse(jsonText.trim())
+    }
 
-      const parsed = JSON.parse(jsonText.trim())
-
+    function applyParsed(parsed: any) {
       // Handle both structured and plain text responses for backward compatibility
       if (typeof parsed.cv === 'object' && parsed.cv !== null) {
         // Structured CV format — keep the structured data (source of truth for
@@ -354,8 +356,39 @@ All text fields must be plain text with newlines escaped as \\n where needed. In
       } else {
         throw new Error('Cover letter is missing or invalid')
       }
-    } catch {
-      throw new Error('Failed to parse JSON response from Claude. Response was: ' + content.text.substring(0, 200))
+    }
+
+    try {
+      applyParsed(extractJson(content.text))
+    } catch (firstError) {
+      // The response was truncated or malformed. Rather than failing the whole
+      // generation, ask Claude to repair its own output into valid JSON once
+      // before giving up — this recovers most truncation/escaping failures
+      // without re-running the (expensive) full generation prompt.
+      try {
+        const repairResponse = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 8000,
+          messages: [
+            {
+              role: 'user',
+              content: `The following was supposed to be valid JSON matching a CV/cover-letter schema but failed to parse (error: ${
+                firstError instanceof Error ? firstError.message : String(firstError)
+              }). Fix it and return ONLY the corrected, valid JSON — no preamble, no commentary, no markdown code fences, no trailing text. Preserve all the original content; only fix structural/syntax issues (unescaped characters, truncation, trailing commas, etc.):\n\n${content.text}`,
+            },
+          ],
+        })
+        const repairContent = repairResponse.content[0]
+        if (repairContent.type !== 'text') {
+          throw new Error('Unexpected response type from Claude during repair')
+        }
+        applyParsed(extractJson(repairContent.text))
+      } catch (repairError) {
+        throw new Error(
+          'Failed to parse JSON response from Claude, and repair attempt also failed. Response was: ' +
+            content.text.substring(0, 200)
+        )
+      }
     }
 
     // Authoritatively set the CV header from the user's real profile so the

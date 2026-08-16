@@ -1,10 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { generateDocxBuffer } from '@/lib/exportHelpers'
 import { EXPORT_TEMPLATES } from '@/lib/exportTemplates'
-import { generateModernDocx } from '@/lib/templates/modernDocx'
-import { generateProfessionalDocx } from '@/lib/templates/professional'
-import { generateAtsDocx } from '@/lib/templates/ats'
+import { generateCvDocx } from '@/lib/templates/cvDocx'
 import { generateCoverLetterDocx } from '@/lib/templates/coverLetterDocx'
 import { convertPlainTextCvToStructured } from '@/lib/exportConverters'
 import { buildCoverLetterData } from '@/lib/previewHtml'
@@ -110,7 +107,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let buffer: Buffer
 
-    // Use new template generators for Modern and Professional templates
     if (documentType === 'cv') {
       // Prefer the structured CV stored at generation time; only fall back to
       // the lossy plain-text reparser for legacy records without JSON.
@@ -123,22 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim()
             )
 
-      if (exportTemplate.id === 'modern') {
-        buffer = await generateModernDocx(structuredCv, 'cv')
-      } else if (exportTemplate.id === 'professional') {
-        buffer = await generateProfessionalDocx(structuredCv, 'cv')
-      } else if (exportTemplate.id === 'ats') {
-        buffer = await generateAtsDocx(structuredCv, 'cv')
-      } else {
-        // Fallback to generic formatter for unknown templates
-        buffer = await generateDocxBuffer(
-          cvContent,
-          application.job_title || 'Application',
-          application.company_name || 'Company',
-          exportTemplate,
-          documentType
-        )
-      }
+      buffer = await generateCvDocx(structuredCv, exportTemplate)
     } else {
       // Cover letter export — render through the single shared builder so all
       // templates get a branded letterhead, date, "Re:" line and signature that
