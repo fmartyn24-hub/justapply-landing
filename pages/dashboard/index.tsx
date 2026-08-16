@@ -115,6 +115,8 @@ function Dashboard() {
   const [cvs, setCvs] = useState<CV[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddApplicationForm, setShowAddApplicationForm] = useState(false)
+  const [savingManualApplication, setSavingManualApplication] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [reviewComponents, setReviewComponents] = useState<ExtractedComponentPreview[]>([])
   const [reviewSelected, setReviewSelected] = useState<boolean[]>([])
@@ -128,7 +130,6 @@ function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletingComponent, setDeletingComponent] = useState<string | null>(null)
   const [deleteConfirmComponent, setDeleteConfirmComponent] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   // Status shown INSIDE the Import modal while/after analyzing pasted text,
@@ -214,7 +215,6 @@ function Dashboard() {
         throw new Error(data.error || 'Failed to save profile')
       }
 
-      setShowSettings(false)
       setSuccessMessage('Profile updated!')
       setTimeout(() => setSuccessMessage(''), 4000)
     } catch (err) {
@@ -986,6 +986,41 @@ function Dashboard() {
     }
   }
 
+  const handleCreateManualApplication = async (data: {
+    job_title: string
+    company_name: string
+    job_url?: string
+    deadline?: string
+  }) => {
+    if (!session?.user?.id) return
+
+    setSavingManualApplication(true)
+    try {
+      const { data: inserted, error } = await supabase
+        .from('applications')
+        .insert({
+          user_id: session.user.id,
+          job_title: data.job_title,
+          company_name: data.company_name,
+          job_url: data.job_url || null,
+          deadline: data.deadline || null,
+          status: 'draft',
+        } as any)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setApplications((prev) => [inserted, ...prev])
+      setShowAddApplicationForm(false)
+    } catch (err) {
+      console.error('Manual application create error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to create application')
+    } finally {
+      setSavingManualApplication(false)
+    }
+  }
+
   const handleDeleteApplication = async (id: string) => {
     if (!session?.user?.id) return
 
@@ -1145,7 +1180,6 @@ function Dashboard() {
     <DashboardShell
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      onOpenSettings={() => setShowSettings(true)}
       onSignOut={handleLogout}
       hasComponents={components.length > 0}
       applicationsCount={applications.length}
@@ -1161,134 +1195,127 @@ function Dashboard() {
               />
             )}
 
-            {/* Everything below still uses its original light styling and hasn't
-                been reskinned for the dark shell yet — wrap it in a light panel
-                so it stays legible until each screen gets its own dark pass. */}
             {activeTab !== 'home' && (
-            <div className="bg-white rounded-xl p-6 space-y-4">
-            {/* Success Banner — hidden while any modal is open so status never
-                appears on the dimmed page behind a pop-up; the modals surface
-                their own in-context status instead. */}
-            {successMessage &&
-              !showImportModal &&
-              !showSettings &&
-              !showReviewModal &&
-              !showAddForm &&
-              !editingComponent &&
-              !expandedRole && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                  <p className="text-blue-700">{successMessage}</p>
-                </div>
-              )}
+              <>
+                {/* Success Banner — hidden while any modal is open so status never
+                    appears on the dimmed page behind a pop-up; the modals surface
+                    their own in-context status instead. */}
+                {successMessage &&
+                  !showImportModal &&
+                  activeTab !== 'settings' &&
+                  !showReviewModal &&
+                  !showAddForm &&
+                  !editingComponent &&
+                  !expandedRole && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                      <p className="text-blue-700">{successMessage}</p>
+                    </div>
+                  )}
 
-            {/* Tell Us More About You - if first name not set */}
-            {!profileData.firstName && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900 mb-1 text-sm">Complete your profile</h3>
-                <p className="text-blue-800 text-xs mb-3">
-                  Add your name and contact info to personalize your applications.
-                </p>
-                <Button onClick={() => setShowSettings(true)} variant="outline" className="text-sm">
-                  Complete Profile
-                </Button>
-              </div>
-            )}
+                {/* Tell Us More About You - if first name not set */}
+                {!profileData.firstName && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-medium text-blue-900 mb-1 text-sm">Complete your profile</h3>
+                    <p className="text-blue-800 text-xs mb-3">
+                      Add your name and contact info to personalize your applications.
+                    </p>
+                    <Button onClick={() => setActiveTab('settings')} variant="outline" className="text-sm">
+                      Complete Profile
+                    </Button>
+                  </div>
+                )}
 
-            <div className="space-y-4">
-              {/* Component Library */}
-              {activeTab === 'library' && components.length > 0 && (
-                <ComponentLibraryUI
-                  components={components}
-                  onEdit={handleEditComponent}
-                  onDelete={handleDeleteComponent}
-                  onAdd={() => setShowAddForm(true)}
-                  onImport={() => setShowImportModal(true)}
-                  isDeleting={(id) => deletingComponent === id}
-                />
-              )}
+                {/* Component Library */}
+                {activeTab === 'library' && components.length > 0 && (
+                  <ComponentLibraryUI
+                    components={components}
+                    onEdit={handleEditComponent}
+                    onDelete={handleDeleteComponent}
+                    onAdd={() => setShowAddForm(true)}
+                    onImport={() => setShowImportModal(true)}
+                    isDeleting={(id) => deletingComponent === id}
+                  />
+                )}
 
-              {/* Career Timeline */}
-              {activeTab === 'timeline' && components.length > 0 && (
-                <CareerTimeline
-                  components={components}
-                  expandedRole={expandedRole}
-                  onRoleClick={setExpandedRole}
-                />
-              )}
+                {/* Career Timeline */}
+                {activeTab === 'timeline' && components.length > 0 && (
+                  <CareerTimeline
+                    components={components}
+                    expandedRole={expandedRole}
+                    onRoleClick={setExpandedRole}
+                  />
+                )}
 
-              {/* Just Apply Tab */}
-              {activeTab === 'justApply' && (
-                <JustApplyTab
-                  onAnalyze={handleAnalyzeJob}
-                  onSubmit={handleGenerateApplication}
-                  components={components}
-                  loading={generatingApplication}
-                />
-              )}
+                {/* Candidate Board Tab */}
+                {activeTab === 'candidateBoard' && (
+                  <CandidateBoard
+                    applications={applications}
+                    onStatusChange={handleUpdateApplicationStatus}
+                    onDelete={handleDeleteApplication}
+                    onRegenerate={handleRegenerateApplication}
+                    onUpdateApplication={handleUpdateApplication}
+                    onCreateManual={() => setShowAddApplicationForm(true)}
+                    loading={generatingApplication}
+                    authToken={session?.access_token}
+                  />
+                )}
 
-              {/* My Applications Tab */}
-              {activeTab === 'myApplications' && (
-                <MyApplicationsTab
-                  applications={applications}
-                  onDelete={handleDeleteApplication}
-                  onRegenerate={handleRegenerateApplication}
-                  onSaveStatus={handleUpdateApplicationStatus}
-                  onUpdateApplication={handleUpdateApplication}
-                  loading={generatingApplication}
-                  authToken={session?.access_token}
-                />
-              )}
+                {/* Screens not yet reskinned for the dark shell — wrapped in a
+                    light panel so they stay legible until their own dark pass. */}
+                {(activeTab === 'justApply' || activeTab === 'myApplications') && (
+                  <div className="bg-white rounded-xl p-6 space-y-4">
+                    {activeTab === 'justApply' && (
+                      <JustApplyTab
+                        onAnalyze={handleAnalyzeJob}
+                        onSubmit={handleGenerateApplication}
+                        components={components}
+                        loading={generatingApplication}
+                      />
+                    )}
 
-              {/* Candidate Board Tab */}
-              {activeTab === 'candidateBoard' && (
-                <CandidateBoard
-                  applications={applications}
-                  onStatusChange={handleUpdateApplicationStatus}
-                  onDelete={handleDeleteApplication}
-                  onRegenerate={handleRegenerateApplication}
-                  onUpdateApplication={handleUpdateApplication}
-                  loading={generatingApplication}
-                  authToken={session?.access_token}
-                />
-              )}
-            </div>
+                    {activeTab === 'myApplications' && (
+                      <MyApplicationsTab
+                        applications={applications}
+                        onDelete={handleDeleteApplication}
+                        onRegenerate={handleRegenerateApplication}
+                        onSaveStatus={handleUpdateApplicationStatus}
+                        onUpdateApplication={handleUpdateApplication}
+                        loading={generatingApplication}
+                        authToken={session?.access_token}
+                      />
+                    )}
+                  </div>
+                )}
 
-            {/* Empty State for Components */}
-            {!loading && components.length === 0 && (
-              <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                <div>
-                  <p className="text-gray-700 font-medium">Ready to build your profile?</p>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Add your experience information to get started. We'll intelligently extract your roles, achievements, skills, and experience.
-                  </p>
-                </div>
-                <div className="flex gap-2 justify-center flex-wrap">
-                  <Button onClick={() => setShowImportModal(true)}>
-                    Import your experience
-                  </Button>
-                  <Button onClick={() => setShowAddForm(true)} variant="outline">
-                    Add component
-                  </Button>
-                </div>
-              </div>
-            )}
-        </div>
+                {/* Empty State for Components */}
+                {!loading && components.length === 0 && (
+                  <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700 space-y-4">
+                    <div>
+                      <p className="text-white font-medium">Ready to build your profile?</p>
+                      <p className="text-navy-300 text-sm mt-1">
+                        Add your experience information to get started. We'll intelligently extract your roles, achievements, skills, and experience.
+                      </p>
+                    </div>
+                    <div className="flex gap-2 justify-center flex-wrap">
+                      <Button onClick={() => setShowImportModal(true)}>
+                        Import your experience
+                      </Button>
+                      <Button onClick={() => setShowAddForm(true)} variant="outline">
+                        Add component
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
         </div>
 
       {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
+      {activeTab === 'settings' && (
+        <div className="bg-white rounded-xl max-w-md w-full overflow-y-auto">
+          <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
               </div>
 
               {/* Tabs */}
@@ -1504,7 +1531,7 @@ function Dashboard() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setShowSettings(false)}
+                      onClick={() => setActiveTab('home')}
                       className="flex-1"
                     >
                       Close
@@ -1563,7 +1590,7 @@ function Dashboard() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setShowSettings(false)}
+                      onClick={() => setActiveTab('home')}
                       className="flex-1"
                     >
                       Close
@@ -1572,7 +1599,6 @@ function Dashboard() {
                 </form>
               )}
             </div>
-          </div>
         </div>
       )}
 
@@ -1880,14 +1906,14 @@ function Dashboard() {
       {/* Expanded Role Modal */}
       {expandedRole && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">💼</span>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{expandedRole.title}</h2>
+                  <h2 className="text-2xl font-bold text-white">{expandedRole.title}</h2>
                   {expandedRole.start_date && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-navy-300">
                       {new Date(expandedRole.start_date).getFullYear()}
                       {expandedRole.end_date
                         ? ` - ${new Date(expandedRole.end_date).getFullYear()}`
@@ -1898,7 +1924,7 @@ function Dashboard() {
               </div>
               <button
                 onClick={() => setExpandedRole(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                className="text-navy-300 hover:text-white text-2xl font-bold"
               >
                 ×
               </button>
@@ -1908,28 +1934,28 @@ function Dashboard() {
               {/* Description */}
               {expandedRole.description && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{expandedRole.description}</p>
+                  <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
+                  <p className="text-navy-200 whitespace-pre-wrap">{expandedRole.description}</p>
                 </div>
               )}
 
               {/* Impact Metrics */}
               {expandedRole.impact_metrics && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">📈 Impact & Metrics</h3>
-                  <p className="text-gray-700">{expandedRole.impact_metrics}</p>
+                <div className="bg-navy-700 border border-navy-600 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-white mb-2">📈 Impact & Metrics</h3>
+                  <p className="text-navy-200">{expandedRole.impact_metrics}</p>
                 </div>
               )}
 
               {/* Tags */}
               {expandedRole.tags.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Skills & Technologies</h3>
+                  <h3 className="text-lg font-semibold text-white mb-3">Skills & Technologies</h3>
                   <div className="flex flex-wrap gap-2">
                     {expandedRole.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                        className="px-3 py-1 bg-primary/20 text-blue-200 rounded-full text-sm font-medium"
                       >
                         {tag}
                       </span>
@@ -1938,8 +1964,28 @@ function Dashboard() {
                 </div>
               )}
 
-              {/* Close Button */}
-              <div className="flex gap-3 pt-6 border-t border-gray-200">
+              {/* Actions */}
+              <div className="flex gap-3 pt-6 border-t border-navy-600">
+                <button
+                  onClick={() => {
+                    const role = expandedRole
+                    setExpandedRole(null)
+                    handleEditComponent(role)
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    const roleId = expandedRole.id
+                    setExpandedRole(null)
+                    handleDeleteComponent(roleId)
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-red-400/40 text-red-400 hover:bg-red-400/10 transition"
+                >
+                  Delete
+                </button>
                 <Button
                   onClick={() => setExpandedRole(null)}
                   className="flex-1"
@@ -2302,6 +2348,80 @@ function Dashboard() {
                 >
                   Cancel
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Application Manually */}
+      {showAddApplicationForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Add application</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const form = e.target as HTMLFormElement
+                const jobTitle = (form.elements.namedItem('job_title') as HTMLInputElement).value.trim()
+                const companyName = (form.elements.namedItem('company_name') as HTMLInputElement).value.trim()
+                const jobUrl = (form.elements.namedItem('job_url') as HTMLInputElement).value.trim()
+                const deadline = (form.elements.namedItem('deadline') as HTMLInputElement).value
+                if (!jobTitle || !companyName) return
+                handleCreateManualApplication({
+                  job_title: jobTitle,
+                  company_name: companyName,
+                  job_url: jobUrl || undefined,
+                  deadline: deadline || undefined,
+                })
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job title *</label>
+                <input
+                  name="job_title"
+                  type="text"
+                  required
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Company *</label>
+                <input
+                  name="company_name"
+                  type="text"
+                  required
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job URL</label>
+                <input
+                  name="job_url"
+                  type="url"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Deadline</label>
+                <input
+                  name="deadline"
+                  type="date"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" loading={savingManualApplication} className="flex-1">
+                  Add application
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddApplicationForm(false)}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>

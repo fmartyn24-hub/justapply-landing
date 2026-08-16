@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 
-export type DashboardTab = 'home' | 'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard'
+export type DashboardTab = 'home' | 'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard' | 'settings'
 
 interface NavItem {
   tab: DashboardTab
@@ -12,7 +12,6 @@ interface NavItem {
 interface DashboardShellProps {
   activeTab: DashboardTab
   onTabChange: (tab: DashboardTab) => void
-  onOpenSettings: () => void
   onSignOut: () => void
   hasComponents: boolean
   applicationsCount: number
@@ -30,7 +29,6 @@ function NavIcon({ path }: { path: string }) {
 export function DashboardShell({
   activeTab,
   onTabChange,
-  onOpenSettings,
   onSignOut,
   hasComponents,
   applicationsCount,
@@ -55,7 +53,7 @@ export function DashboardShell({
   ]
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex">
+    <div className="min-h-screen bg-navy-900 flex">
       {/* Sidebar */}
       <aside className="w-60 flex-shrink-0 border-r border-navy-700 flex flex-col fixed inset-y-0 left-0 z-40">
         <div className="px-5 py-6">
@@ -93,8 +91,10 @@ export function DashboardShell({
 
         <div className="px-3 py-4 border-t border-navy-700 space-y-1">
           <button
-            onClick={onOpenSettings}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white transition"
+            onClick={() => onTabChange('settings')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+              activeTab === 'settings' ? 'bg-primary text-white' : 'text-navy-200 hover:bg-navy-800 hover:text-white'
+            }`}
           >
             <NavIcon path="M10.325 4.317a1.724 1.724 0 0 1 3.35 0 1.724 1.724 0 0 0 2.573 1.066 1.724 1.724 0 0 1 2.37 2.37 1.724 1.724 0 0 0 1.065 2.572 1.724 1.724 0 0 1 0 3.35 1.724 1.724 0 0 0-1.066 2.573 1.724 1.724 0 0 1-2.37 2.37 1.724 1.724 0 0 0-2.572 1.065 1.724 1.724 0 0 1-3.35 0 1.724 1.724 0 0 0-2.573-1.066 1.724 1.724 0 0 1-2.37-2.37 1.724 1.724 0 0 0-1.065-2.572 1.724 1.724 0 0 1 0-3.35 1.724 1.724 0 0 0 1.066-2.573 1.724 1.724 0 0 1 2.37-2.37c1 .608 2.296.07 2.572-1.065ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             Settings

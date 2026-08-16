@@ -9,6 +9,7 @@ interface CandidateBoardProps {
   onDelete: (id: string) => Promise<void>
   onRegenerate: (id: string) => Promise<void>
   onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
+  onCreateManual?: () => void
   loading?: boolean
   authToken?: string
 }
@@ -16,8 +17,8 @@ interface CandidateBoardProps {
 type Status = 'draft' | 'applied'
 
 const statusConfig: Record<Status, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  draft: { label: 'Want to Apply', color: 'text-navy-300', bgColor: 'bg-navy-800', borderColor: 'border-navy-600' },
-  applied: { label: 'Applied', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  draft: { label: 'Want to Apply', color: 'text-navy-200', bgColor: 'bg-navy-700', borderColor: 'border-navy-600' },
+  applied: { label: 'Applied', color: 'text-blue-300', bgColor: 'bg-primary/20', borderColor: 'border-primary/40' },
 }
 
 export function CandidateBoard({
@@ -26,6 +27,7 @@ export function CandidateBoard({
   onDelete,
   onRegenerate,
   onUpdateApplication,
+  onCreateManual,
   loading,
   authToken,
 }: CandidateBoardProps) {
@@ -85,8 +87,8 @@ export function CandidateBoard({
       <div key={status} className="flex flex-col flex-1 min-w-80">
         {/* Column Header */}
         <div className={`${config.bgColor} border-b-2 ${config.borderColor} rounded-t-lg p-3`}>
-          <h3 className={`font-semibold text-gray-900 ${config.color}`}>{config.label}</h3>
-          <p className="text-xs text-gray-600 mt-0.5">{apps.length} application{apps.length !== 1 ? 's' : ''}</p>
+          <h3 className={`font-semibold ${config.color}`}>{config.label}</h3>
+          <p className="text-xs text-navy-300 mt-0.5">{apps.length} application{apps.length !== 1 ? 's' : ''}</p>
         </div>
 
         {/* Droppable Area */}
@@ -94,28 +96,28 @@ export function CandidateBoard({
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, status)}
           className={`flex-1 p-3 space-y-2 min-h-80 rounded-b-lg border-2 border-dashed ${
-            draggedId ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'
+            draggedId ? 'border-blue-400 bg-primary/10' : 'border-navy-700 bg-navy-800'
           } transition`}
         >
           {apps.length === 0 ? (
-            <p className="text-center text-gray-400 text-xs py-6">Drop applications here</p>
+            <p className="text-center text-navy-400 text-xs py-6">Drop applications here</p>
           ) : (
             apps.map((app) => (
               <div
                 key={app.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, app.id)}
-                className={`bg-white p-3 rounded-lg border border-gray-200 cursor-move transition ${
-                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-blue-300 hover:shadow-sm'
+                className={`bg-navy-900 p-3 rounded-lg border border-navy-700 cursor-move transition ${
+                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-blue-400 hover:shadow-sm'
                 }`}
               >
                 <div className="mb-2">
-                  <h4 className="font-medium text-gray-900 text-sm">{app.job_title}</h4>
-                  <p className="text-xs text-gray-600">{app.company_name}</p>
+                  <h4 className="font-medium text-white text-sm">{app.job_title}</h4>
+                  <p className="text-xs text-navy-300">{app.company_name}</p>
                 </div>
 
                 {app.deadline && (
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-xs text-navy-400 mb-2">
                     {new Date(app.deadline).toLocaleDateString()}
                   </p>
                 )}
@@ -123,21 +125,18 @@ export function CandidateBoard({
                 <div className="flex gap-1.5">
                   <Button
                     onClick={() => setSelectedApp(app)}
-                    variant="outline"
                     size="sm"
                     className="flex-1 text-xs"
                   >
                     View
                   </Button>
-                  <Button
+                  <button
                     onClick={() => handleDelete(app.id)}
                     disabled={deleting === app.id}
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-400/40 text-red-400 hover:bg-red-400/10 disabled:opacity-50 transition"
                   >
                     Delete
-                  </Button>
+                  </button>
                 </div>
               </div>
             ))
@@ -149,9 +148,16 @@ export function CandidateBoard({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-gray-700 font-medium">No applications yet</p>
-        <p className="text-gray-500 text-sm mt-1">Click the "Just Apply" button to generate your first application, then manage them here.</p>
+      <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700 space-y-3">
+        <div>
+          <p className="text-white font-medium">No applications yet</p>
+          <p className="text-navy-300 text-sm mt-1">Click "Just Apply" to generate your first application, or add one manually to start tracking.</p>
+        </div>
+        {onCreateManual && (
+          <button onClick={onCreateManual} className="text-sm px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition">
+            + Add application
+          </button>
+        )}
       </div>
     )
   }
@@ -159,9 +165,16 @@ export function CandidateBoard({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Application Pipeline</h2>
-        <p className="text-sm text-gray-500 mt-1">Drag applications between columns to update status</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-white">Application Pipeline</h2>
+          <p className="text-sm text-navy-300 mt-1">Drag applications between columns to update status</p>
+        </div>
+        {onCreateManual && (
+          <button onClick={onCreateManual} className="text-sm whitespace-nowrap px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition">
+            + Add application
+          </button>
+        )}
       </div>
 
       {/* Kanban Board */}
