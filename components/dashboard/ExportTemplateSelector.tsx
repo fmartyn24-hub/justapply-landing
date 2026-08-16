@@ -4,19 +4,18 @@ import { EXPORT_TEMPLATES, type ExportTemplate } from '@/lib/exportTemplates'
 
 interface ExportTemplateSelectorProps {
   isOpen: boolean
-  documentType: 'cv' | 'coverLetter'
   applicationId: string
-  onChangeDocumentType: (type: 'cv' | 'coverLetter') => void
   onClose: () => void
 }
 
+// Cover-letter export only — this app no longer generates a full CV document
+// per application (see ApplicationPreview's CV Advice tab instead).
 export function ExportTemplateSelector({
   isOpen,
-  documentType,
   applicationId,
-  onChangeDocumentType,
   onClose,
 }: ExportTemplateSelectorProps) {
+  const documentType = 'coverLetter' as const
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('professional')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,47 +53,19 @@ export function ExportTemplateSelector({
     }
   }
 
-  const docLabel = documentType === 'cv' ? 'CV' : 'Cover Letter'
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Choose a design for your {docLabel}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Choose a design for your Cover Letter</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
               disabled={exporting}
             >
               ×
-            </button>
-          </div>
-
-          {/* Document type toggle */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => onChangeDocumentType('cv')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                documentType === 'cv'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              disabled={exporting}
-            >
-              📄 CV
-            </button>
-            <button
-              onClick={() => onChangeDocumentType('coverLetter')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                documentType === 'coverLetter'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              disabled={exporting}
-            >
-              📝 Cover Letter
             </button>
           </div>
         </div>

@@ -28,7 +28,7 @@ interface AnalysisResult {
 interface JustApplyTabProps {
   // Advice step: analyse the job ad and return keywords + recommended components.
   onAnalyze: (jobDescription: string, jobTitle?: string, company?: string) => Promise<AnalysisResult>
-  // Generation step: build the CV/cover letter, foregrounding the chosen components.
+  // Generation step: build the cover letter + CV advice, foregrounding the chosen components.
   onSubmit: (
     jobDescription: string,
     jobTitle?: string,
@@ -141,7 +141,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
           <h2 className="text-3xl font-bold text-white">Just Apply</h2>
           <p className="text-navy-300 mt-1">
             Paste a job posting. We&apos;ll show you which parts of your library to highlight before
-            generating a tailored CV and cover letter.
+            generating a tailored cover letter and advice on your uploaded CV.
           </p>
         </div>
 

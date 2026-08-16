@@ -948,6 +948,8 @@ function Dashboard() {
       // Insert the application into the database. We persist Claude's STRUCTURED
       // JSON (the source of truth for exports) alongside the flattened text, so
       // templates render real fields instead of regex-guessing them back.
+      // No AI-generated CV document anymore — generated_cv stays empty and the
+      // model's guidance on the candidate's own uploaded CV lives in cv_advice.
       const { data: inserted, error } = await supabase
         .from('applications')
         .insert({
@@ -955,10 +957,10 @@ function Dashboard() {
           job_title: jobTitle || 'Untitled Position',
           company_name: company || 'Unknown Company',
           job_description: jobDescription,
-          generated_cv: data.cv,
+          generated_cv: '',
           generated_cover_letter: data.coverLetter,
-          generated_cv_json: data.cvStructured ?? null,
           generated_cover_letter_json: data.coverLetterStructured ?? null,
+          cv_advice: data.cvAdvice,
           status: 'draft',
         } as any)
         .select()
@@ -1075,10 +1077,9 @@ function Dashboard() {
 
       const { data: updated, error } = await (supabase.from('applications') as any)
         .update({
-          generated_cv: data.cv,
           generated_cover_letter: data.coverLetter,
-          generated_cv_json: data.cvStructured ?? null,
           generated_cover_letter_json: data.coverLetterStructured ?? null,
+          cv_advice: data.cvAdvice,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -1131,7 +1132,7 @@ function Dashboard() {
 
   const handleUpdateApplication = async (
     id: string,
-    data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }
+    data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }
   ) => {
     if (!session?.access_token) return
 
@@ -1158,6 +1159,13 @@ function Dashboard() {
       console.error('Update application error:', err)
       throw err
     }
+  }
+
+  // The on-demand "Generate Cover Letter"/"Generate CV Advice" endpoint saves
+  // directly to the DB itself — this just syncs the local list so the card
+  // reflects the new content without a full refetch.
+  const handleApplicationGenerated = (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => {
+    setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ...data } : app)))
   }
 
   const getComponentIcon = (type: string) => {
@@ -1265,6 +1273,7 @@ function Dashboard() {
                     onDelete={handleDeleteApplication}
                     onRegenerate={handleRegenerateApplication}
                     onUpdateApplication={handleUpdateApplication}
+                    onGenerated={handleApplicationGenerated}
                     onCreateManual={() => setShowAddApplicationForm(true)}
                     loading={generatingApplication}
                     authToken={session?.access_token}
@@ -1289,6 +1298,7 @@ function Dashboard() {
                     onRegenerate={handleRegenerateApplication}
                     onSaveStatus={handleUpdateApplicationStatus}
                     onUpdateApplication={handleUpdateApplication}
+                    onGenerated={handleApplicationGenerated}
                     onCreateManual={() => setShowAddApplicationForm(true)}
                     loading={generatingApplication}
                     authToken={session?.access_token}

@@ -9,8 +9,9 @@ export interface Application {
   company_name: string
   job_description?: string
   job_url?: string
-  generated_cv: string
+  generated_cv?: string
   generated_cover_letter: string
+  cv_advice?: string
   deadline?: string
   persons_of_interest?: string
   status: ApplicationStatus
@@ -23,7 +24,8 @@ interface MyApplicationsTabProps {
   onDelete: (id: string) => Promise<void>
   onRegenerate: (id: string) => Promise<void>
   onSaveStatus?: (id: string, status: ApplicationStatus) => Promise<void>
-  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
+  onUpdateApplication?: (id: string, data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
+  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => void
   onCreateManual?: () => void
   loading?: boolean
   authToken?: string
@@ -35,6 +37,7 @@ export function MyApplicationsTab({
   onRegenerate,
   onSaveStatus,
   onUpdateApplication,
+  onGenerated,
   onCreateManual,
   loading,
   authToken,
@@ -163,8 +166,8 @@ export function MyApplicationsTab({
       {selectedApp && (
         <ApplicationPreview
           id={selectedApp.id}
-          cv={selectedApp.generated_cv}
           coverLetter={selectedApp.generated_cover_letter}
+          cvAdvice={selectedApp.cv_advice}
           jobTitle={selectedApp.job_title}
           company={selectedApp.company_name}
           jobDescription={selectedApp.job_description}
@@ -179,12 +182,16 @@ export function MyApplicationsTab({
               if (onSaveStatus) {
                 await onSaveStatus(selectedApp.id, status)
               }
-              setSelectedApp(null)
+              setSelectedApp({ ...selectedApp, status })
             } catch (err) {
               console.error('Save status error:', err)
             } finally {
               setSavingStatus(false)
             }
+          }}
+          onGenerated={(id, data) => {
+            setSelectedApp((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev))
+            onGenerated?.(id, data)
           }}
           onClose={() => setSelectedApp(null)}
           saving={savingStatus}
