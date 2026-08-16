@@ -22,7 +22,7 @@ interface CareerTimelineProps {
 
 const roleConfig = {
   icon: '💼',
-  color: 'from-purple-100 to-purple-50',
+  color: 'from-blue-100 to-blue-50',
   label: 'Role',
 }
 
@@ -118,11 +118,11 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
           return (
             <div key={org} className="relative">
               {/* Organization Header */}
-              <div className="mb-6 pb-3 border-b-2 border-orange-300">
+              <div className="mb-6 pb-3 border-b-2 border-blue-300">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="text-lg font-semibold text-gray-900">{org}</h3>
                   {hasProgression && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
                       ↗ {orgRolesSorted.length} positions
                     </span>
                   )}
@@ -137,7 +137,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
               <div className="relative ml-3 pl-6 space-y-3">
                 {/* Vertical connector line spanning the roles */}
                 {hasProgression && (
-                  <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-purple-300 to-orange-200" />
+                  <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-blue-300 to-blue-200" />
                 )}
                 {orgRolesSorted.map((role, roleIndex) => {
                   const range = roleDateRange(role)
@@ -148,19 +148,19 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       {/* Timeline dot */}
                       <div
                         className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white ${
-                          isCurrent ? 'bg-purple-500' : 'bg-orange-300'
+                          isCurrent ? 'bg-blue-500' : 'bg-blue-300'
                         }`}
                         style={{ boxShadow: '0 0 0 2px #e5e7eb' }}
                       />
                       <div
                         onClick={() => onRoleClick?.(role)}
-                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
+                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100 transition cursor-pointer"
                       >
                         {/* Header: title + progression hint */}
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <p className="font-medium text-gray-900">{role.title}</p>
                           {hasProgression && roleIndex === 0 && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 flex-shrink-0">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 flex-shrink-0">
                               Most recent
                             </span>
                           )}
@@ -223,11 +223,11 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
           return (
             <div key={org}>
               {/* Organization Header */}
-              <div className="mb-3 pb-2 border-b-2 border-orange-300">
+              <div className="mb-3 pb-2 border-b-2 border-blue-300">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="text-base font-semibold text-gray-900">{org}</h3>
                   {hasProgression && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
                       ↗ {orgRolesSorted.length} positions
                     </span>
                   )}
@@ -249,14 +249,14 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       <div className="absolute left-0 top-0 w-0.5 h-full bg-gray-200" />
                       <div
                         className={`absolute left-0 top-1.5 -translate-x-1.5 w-3 h-3 bg-white border-2 rounded-full ${
-                          isCurrent ? 'border-purple-500' : 'border-gray-300'
+                          isCurrent ? 'border-blue-500' : 'border-gray-300'
                         }`}
                       />
 
                       {/* Card */}
                       <div
                         onClick={() => onRoleClick?.(role)}
-                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-magenta-300 hover:shadow-md hover:shadow-magenta-100 transition cursor-pointer"
+                        className="bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100 transition cursor-pointer"
                       >
                         {/* Header */}
                         <p className="font-medium text-gray-900 text-sm mb-2">

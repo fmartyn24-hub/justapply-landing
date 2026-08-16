@@ -6,20 +6,20 @@
 
 export const designSystem = {
   colors: {
-    // Grayscale - primary
-    gray: {
-      50: '#F9FAFB',
-      100: '#F3F4F6',
-      200: '#E5E7EB',
-      300: '#D1D5DB',
-      400: '#9CA3AF',
-      500: '#6B7280',
-      600: '#4B5563',
-      700: '#374151',
-      800: '#1F2937',
-      900: '#111827',
+    // Cool navy scale — dark surfaces, borders, secondary text.
+    navy: {
+      50: '#EEF1FB',
+      100: '#D7DCF0',
+      200: '#AEB6DE',
+      300: '#7C88BD',
+      400: '#525E92',
+      500: '#333E6E',
+      600: '#212B54',
+      700: '#151C3D',
+      800: '#0B1029',
+      900: '#010722',
     },
-    // Brand primary
+    // Brand primary — the sole accent color
     blue: {
       50: '#EFF6FF',
       100: '#DBEAFE',
@@ -27,33 +27,22 @@ export const designSystem = {
       600: '#0845D4',
       700: '#0633AA',
     },
-    // Brand secondary
-    orange: {
-      50: '#FFF5EE',
-      500: '#FE6F09',
-      600: '#E55C00',
-    },
-    magenta: {
-      50: '#FDF0F7',
-      500: '#90055D',
-      600: '#7A0450',
-    },
     darkBlue: {
       50: '#F0F2FE',
       500: '#052790',
       600: '#041E76',
     },
-    // Semantic
+    // Semantic — dark theme
     white: '#FFFFFF',
-    text: '#1F2937', // gray-800
-    textSecondary: '#6B7280', // gray-500
-    textTertiary: '#9CA3AF', // gray-400
-    border: '#E5E7EB', // gray-200
-    bg: '#F9FAFB', // gray-50
-    bgHover: '#F3F4F6', // gray-100
-    accentBg: '#EFF6FF', // blue-50
+    text: '#F5F7FA', // near-white
+    textSecondary: '#AEB6DE', // navy-200
+    textTertiary: '#7C88BD', // navy-300
+    border: '#212B54', // navy-600
+    bg: '#010722', // navy-900 (page background)
+    bgHover: '#0B1029', // navy-800 (surface / card background)
+    accentBg: 'rgba(9, 89, 254, 0.14)', // translucent blue tint
     success: '#10B981',
-    successBg: '#ECFDF5',
+    successBg: 'rgba(16, 185, 129, 0.14)',
   },
 
   spacing: {
@@ -97,35 +86,35 @@ export const designSystem = {
     xl: '12px',
   },
 
-  // Component-specific token configs (remove gradients, use subtle styling)
+  // Component-specific token configs — dark theme, blue as the sole accent
   components: {
     card: {
-      bg: 'white',
-      border: '1px solid #E5E7EB',
+      bg: '#0B1029', // navy-800
+      border: '1px solid #212B54', // navy-600
       borderRadius: '8px',
       padding: '12px',
       shadow: 'md',
     },
     button: {
       primary: {
-        bg: '#2563EB',
+        bg: '#0959FE',
         text: 'white',
-        hover: '#1D4ED8',
+        hover: '#0845D4',
       },
       secondary: {
-        bg: '#F3F4F6',
-        text: '#1F2937',
-        border: '1px solid #E5E7EB',
-        hover: '#E5E7EB',
+        bg: '#151C3D', // navy-700
+        text: '#F5F7FA',
+        border: '1px solid #212B54', // navy-600
+        hover: '#212B54',
       },
     },
     input: {
-      bg: 'white',
-      border: '1px solid #E5E7EB',
+      bg: '#0B1029', // navy-800
+      border: '1px solid #212B54', // navy-600
       borderRadius: '6px',
       padding: '8px 12px',
-      focusBorder: '#3B82F6',
-      focusRing: '2px solid rgba(59, 130, 246, 0.1)',
+      focusBorder: '#0959FE',
+      focusRing: '2px solid rgba(9, 89, 254, 0.2)',
     },
   },
 } as const

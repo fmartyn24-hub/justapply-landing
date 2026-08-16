@@ -16,7 +16,7 @@ interface CandidateBoardProps {
 type Status = 'draft' | 'applied'
 
 const statusConfig: Record<Status, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  draft: { label: 'Want to Apply', color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+  draft: { label: 'Want to Apply', color: 'text-navy-300', bgColor: 'bg-navy-800', borderColor: 'border-navy-600' },
   applied: { label: 'Applied', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
 }
 
@@ -106,7 +106,7 @@ export function CandidateBoard({
                 draggable
                 onDragStart={(e) => handleDragStart(e, app.id)}
                 className={`bg-white p-3 rounded-lg border border-gray-200 cursor-move transition ${
-                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-magenta-300 hover:shadow-sm'
+                  draggedId === app.id ? 'opacity-50 border-blue-400' : 'hover:border-blue-300 hover:shadow-sm'
                 }`}
               >
                 <div className="mb-2">

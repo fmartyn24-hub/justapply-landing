@@ -51,7 +51,7 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
           value={text}
           onChange={handleTextChange}
           placeholder="Paste your CV, cover letter, job descriptions, or any experience-related information here..."
-          className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300 resize-none transition font-mono text-sm placeholder-gray-400"
+          className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300 resize-none transition font-mono text-sm placeholder-gray-400"
         />
         <div className="flex justify-between items-center text-xs text-gray-500">
           <p>

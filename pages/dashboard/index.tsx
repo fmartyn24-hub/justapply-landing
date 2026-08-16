@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { withAuth } from '@/lib/middleware/withAuth'
 import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/common/Button'
@@ -10,6 +9,8 @@ import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
 import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
 import { CandidateBoard } from '@/components/dashboard/CandidateBoard'
+import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
+import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -168,7 +169,7 @@ function Dashboard() {
     primary_location: '',
   })
   const [analyzing, setAnalyzing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard'>('library')
+  const [activeTab, setActiveTab] = useState<DashboardTab>('home')
   const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
   const [savingEdit, setSavingEdit] = useState(false)
@@ -1141,55 +1142,25 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-start gap-8">
-            <Link href="/" className="flex-shrink-0">
-              <img src="/logo-light.svg" alt="justapply" className="h-12" />
-            </Link>
-
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome{profileData.firstName ? ` back, ${profileData.firstName}` : ' to JustApply'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Build your professional story, then apply smarter.
-              </p>
-            </div>
-
-            <div className="flex gap-3 items-center flex-shrink-0">
-              <Button
-                onClick={() => setActiveTab('justApply')}
-                className="whitespace-nowrap flex items-center gap-2 py-2 px-4"
-              >
-                <svg width="18" height="18" viewBox="100 50 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                  <path d="M288 228.005H266.667V126.079C266.667 122.286 264.691 118.573 263.704 117.19L244.741 99.4124C242.784 97.5782 237.235 96.2519 234.667 95.8568H157.63V74.5235C179.358 74.1285 225.778 73.5754 237.63 74.5235C249.481 75.4717 257.185 80.4494 259.556 82.8198L276.741 99.4124C282.549 105.02 288 111.857 288 117.19V133.19V228.005Z" fill="white" stroke="white"/>
-                  <path d="M234.074 109.556C236.445 109.556 244.741 117.852 244.741 117.852C244.782 117.893 252.444 125.562 252.444 127.926V256.519H140.444L208.593 188.963V218H224V163.482C224 161.111 221.629 158.74 219.852 158.74H165.333V175.333H194.37L128 240.519V109.556H234.074Z" fill="white"/>
-                </svg>
-                Just Apply
-              </Button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="text-gray-600 hover:text-gray-900 font-medium transition text-sm px-3 py-2"
-              >
-                Settings
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 font-medium transition text-sm rounded"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <DashboardShell
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      onOpenSettings={() => setShowSettings(true)}
+      onSignOut={handleLogout}
+      hasComponents={components.length > 0}
+      applicationsCount={applications.length}
+    >
         <div className="w-full space-y-4">
+            {activeTab === 'home' && (
+              <DashboardHome
+                firstName={profileData.firstName}
+                componentsCount={components.length}
+                applicationsCount={applications.length}
+                appliedCount={applications.filter((a) => a.status === 'applied').length}
+                onJustApply={() => setActiveTab('justApply')}
+              />
+            )}
+
             {/* Success Banner — hidden while any modal is open so status never
                 appears on the dimmed page behind a pop-up; the modals surface
                 their own in-context status instead. */}
@@ -1200,8 +1171,8 @@ function Dashboard() {
               !showAddForm &&
               !editingComponent &&
               !expandedRole && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
-                  <p className="text-orange-700">{successMessage}</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="text-blue-700">{successMessage}</p>
                 </div>
               )}
 
@@ -1218,69 +1189,7 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Tabs for Library, Timeline, Just Apply, and My Applications */}
             <div className="space-y-4">
-              <div className="flex gap-4 border-b border-gray-200 overflow-x-auto">
-                {components.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => setActiveTab('library')}
-                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                        activeTab === 'library'
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-orange-600'
-                      }`}
-                    >
-                      Components
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('timeline')}
-                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                        activeTab === 'timeline'
-                          ? 'border-magenta-500 text-magenta-600'
-                          : 'border-transparent text-gray-600 hover:text-magenta-600'
-                      }`}
-                    >
-                      Timeline
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => setActiveTab('justApply')}
-                  className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                    activeTab === 'justApply'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-700'
-                  }`}
-                >
-                  Just Apply
-                </button>
-                {applications.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => setActiveTab('myApplications')}
-                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                        activeTab === 'myApplications'
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-blue-600'
-                      }`}
-                    >
-                      Applications ({applications.length})
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('candidateBoard')}
-                      className={`px-3 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${
-                        activeTab === 'candidateBoard'
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-700'
-                      }`}
-                    >
-                      Candidate Board
-                    </button>
-                  </>
-                )}
-              </div>
-
               {/* Component Library */}
               {activeTab === 'library' && components.length > 0 && (
                 <ComponentLibraryUI
@@ -1359,7 +1268,6 @@ function Dashboard() {
               </div>
             )}
         </div>
-      </main>
 
       {/* Settings Modal */}
       {showSettings && (
@@ -1690,7 +1598,7 @@ function Dashboard() {
                     ? 'bg-green-50 border-green-200 text-green-800'
                     : analyzeStatus.variant === 'error'
                     ? 'bg-red-50 border-red-200 text-red-800'
-                    : 'bg-orange-50 border-orange-200 text-orange-700'
+                    : 'bg-blue-50 border-blue-200 text-blue-700'
                 }`}
               >
                 {analyzeStatus.text}
@@ -2392,7 +2300,7 @@ function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </DashboardShell>
   )
 }
 
