@@ -1004,6 +1004,8 @@ function Dashboard() {
           company_name: data.company_name,
           job_url: data.job_url || null,
           deadline: data.deadline || null,
+          generated_cv: '',
+          generated_cover_letter: '',
           status: 'draft',
         } as any)
         .select()
