@@ -13,6 +13,7 @@ import { DashboardShell, type DashboardTab } from '@/components/dashboard/Dashbo
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
+import type { ApplicationStatus } from '@/lib/applicationStatus'
 
 interface CareerComponent {
   id: string
@@ -39,7 +40,7 @@ interface CV {
 }
 
 interface NewComponent {
-  type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice' | 'context'
+  type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice' | 'context' | 'education' | 'certification' | 'program' | 'volunteer'
   title: string
   description: string
   organization_name?: string
@@ -1097,7 +1098,7 @@ function Dashboard() {
     }
   }
 
-  const handleUpdateApplicationStatus = async (id: string, status: 'draft' | 'applied') => {
+  const handleUpdateApplicationStatus = async (id: string, status: ApplicationStatus) => {
     if (!session?.access_token) return
 
     setSavingApplicationStatus(id)
@@ -1130,7 +1131,7 @@ function Dashboard() {
 
   const handleUpdateApplication = async (
     id: string,
-    data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: 'draft' | 'applied' }
+    data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }
   ) => {
     if (!session?.access_token) return
 
@@ -1173,6 +1174,14 @@ function Dashboard() {
         return '💼'
       case 'voice':
         return '🎤'
+      case 'education':
+        return '🎓'
+      case 'certification':
+        return '📜'
+      case 'program':
+        return '🚀'
+      case 'volunteer':
+        return '🤝'
       default:
         return '📝'
     }
@@ -1262,31 +1271,28 @@ function Dashboard() {
                   />
                 )}
 
-                {/* Screens not yet reskinned for the dark shell — wrapped in a
-                    light panel so they stay legible until their own dark pass. */}
-                {(activeTab === 'justApply' || activeTab === 'myApplications') && (
-                  <div className="bg-white rounded-xl p-6 space-y-4">
-                    {activeTab === 'justApply' && (
-                      <JustApplyTab
-                        onAnalyze={handleAnalyzeJob}
-                        onSubmit={handleGenerateApplication}
-                        components={components}
-                        loading={generatingApplication}
-                      />
-                    )}
+                {/* Just Apply Tab */}
+                {activeTab === 'justApply' && (
+                  <JustApplyTab
+                    onAnalyze={handleAnalyzeJob}
+                    onSubmit={handleGenerateApplication}
+                    components={components}
+                    loading={generatingApplication}
+                  />
+                )}
 
-                    {activeTab === 'myApplications' && (
-                      <MyApplicationsTab
-                        applications={applications}
-                        onDelete={handleDeleteApplication}
-                        onRegenerate={handleRegenerateApplication}
-                        onSaveStatus={handleUpdateApplicationStatus}
-                        onUpdateApplication={handleUpdateApplication}
-                        loading={generatingApplication}
-                        authToken={session?.access_token}
-                      />
-                    )}
-                  </div>
+                {/* My Applications Tab */}
+                {activeTab === 'myApplications' && (
+                  <MyApplicationsTab
+                    applications={applications}
+                    onDelete={handleDeleteApplication}
+                    onRegenerate={handleRegenerateApplication}
+                    onSaveStatus={handleUpdateApplicationStatus}
+                    onUpdateApplication={handleUpdateApplication}
+                    onCreateManual={() => setShowAddApplicationForm(true)}
+                    loading={generatingApplication}
+                    authToken={session?.access_token}
+                  />
                 )}
 
                 {/* Empty State for Components */}
@@ -2025,6 +2031,10 @@ function Dashboard() {
                     <option value="kpi">KPI</option>
                     <option value="voice">Voice</option>
                     <option value="context">Context</option>
+                    <option value="education">Education</option>
+                    <option value="certification">Certification</option>
+                    <option value="program">Program</option>
+                    <option value="volunteer">Volunteer</option>
                   </select>
                 </div>
 
@@ -2197,6 +2207,10 @@ function Dashboard() {
                     <option value="kpi">KPI</option>
                     <option value="voice">Voice</option>
                     <option value="context">Context</option>
+                    <option value="education">Education</option>
+                    <option value="certification">Certification</option>
+                    <option value="program">Program</option>
+                    <option value="volunteer">Volunteer</option>
                   </select>
                 </div>
 

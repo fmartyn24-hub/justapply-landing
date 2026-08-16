@@ -138,8 +138,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Just Apply</h2>
-          <p className="text-gray-600 mt-1">
+          <h2 className="text-3xl font-bold text-white">Just Apply</h2>
+          <p className="text-navy-300 mt-1">
             Paste a job posting. We&apos;ll show you which parts of your library to highlight before
             generating a tailored CV and cover letter.
           </p>
@@ -151,14 +151,14 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
             <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">1</span>
             Paste job
           </span>
-          <span className="text-gray-300">→</span>
-          <span className="flex items-center gap-2 text-gray-400">
-            <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs">2</span>
+          <span className="text-navy-500">→</span>
+          <span className="flex items-center gap-2 text-navy-400">
+            <span className="w-6 h-6 rounded-full bg-navy-700 text-navy-300 flex items-center justify-center text-xs">2</span>
             Review highlights
           </span>
         </div>
 
-        <form onSubmit={handleAnalyze} className="space-y-6 bg-blue-50 rounded-lg p-6 border border-blue-100">
+        <form onSubmit={handleAnalyze} className="space-y-6 bg-navy-800 rounded-lg p-6 border border-navy-600">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
               {error}
@@ -166,40 +166,40 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
           )}
 
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Job Details (Optional)</h3>
+            <h3 className="font-semibold text-white">Job Details (Optional)</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job Title</label>
                 <input
                   type="text"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   placeholder="e.g., Senior React Developer"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Company</label>
                 <input
                   type="text"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
                   placeholder="e.g., Acme Inc"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">Job Description *</label>
+            <label className="block text-sm font-medium text-navy-200 mb-2">Job Description *</label>
             <textarea
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
               placeholder="Paste the full job posting here..."
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none h-64"
+              className="w-full px-4 py-3 bg-navy-900 border-2 border-navy-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-900/40 resize-none h-64"
             />
-            <p className="text-xs text-gray-500 mt-2">Minimum 50 characters required</p>
+            <p className="text-xs text-navy-400 mt-2">Minimum 50 characters required</p>
           </div>
 
           <Button
@@ -211,7 +211,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
             {analyzing ? 'Analysing the role...' : 'Analyze & suggest highlights →'}
           </Button>
 
-          <p className="text-xs text-gray-600 bg-white rounded p-3 border border-gray-200">
+          <p className="text-xs text-navy-300 bg-navy-900 rounded p-3 border border-navy-600">
             Tip: Include the full job description for better results. Next, you&apos;ll confirm which
             achievements, skills, and roles to spotlight.
           </p>
@@ -226,8 +226,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-gray-900">Review highlights</h2>
-        <p className="text-gray-600 mt-1">
+        <h2 className="text-3xl font-bold text-white">Review highlights</h2>
+        <p className="text-navy-300 mt-1">
           Here&apos;s what we&apos;d highlight for{' '}
           <span className="font-medium">{jobTitle || 'this role'}</span>
           {company ? <> at <span className="font-medium">{company}</span></> : null}. Adjust the
@@ -237,11 +237,11 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
 
       {/* Step indicator */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="flex items-center gap-2 text-gray-400">
-          <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs">1</span>
+        <span className="flex items-center gap-2 text-navy-400">
+          <span className="w-6 h-6 rounded-full bg-navy-700 text-navy-300 flex items-center justify-center text-xs">1</span>
           Paste job
         </span>
-        <span className="text-gray-300">→</span>
+        <span className="text-navy-500">→</span>
         <span className="flex items-center gap-2 font-medium text-blue-600">
           <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">2</span>
           Review highlights
@@ -256,21 +256,21 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
 
       {/* Match thesis */}
       {analysis?.thesis && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-          <p className="text-sm font-semibold text-blue-900 mb-1">Why you&apos;re a fit</p>
-          <p className="text-sm text-blue-800">{analysis.thesis}</p>
+        <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+          <p className="text-sm font-semibold text-blue-200 mb-1">Why you&apos;re a fit</p>
+          <p className="text-sm text-blue-200">{analysis.thesis}</p>
         </div>
       )}
 
       {/* Employer keywords */}
       {analysis && analysis.keywords.length > 0 && (
         <div>
-          <p className="text-sm font-semibold text-gray-900 mb-2">Keywords this employer cares about</p>
+          <p className="text-sm font-semibold text-white mb-2">Keywords this employer cares about</p>
           <div className="flex flex-wrap gap-2">
             {analysis.keywords.map((kw, i) => (
               <span
                 key={i}
-                className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium border border-gray-200"
+                className="px-3 py-1 rounded-full bg-navy-700 text-navy-200 text-xs font-medium border border-navy-600"
               >
                 {kw}
               </span>
@@ -282,7 +282,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
       {/* Component selection */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-gray-900">
+          <p className="text-sm font-semibold text-white">
             Components to highlight ({selectedCount} selected)
           </p>
           {components.length > 0 && (
@@ -295,7 +295,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
                     : new Set(components.map((c) => c.id))
                 )
               }
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              className="text-xs text-blue-400 hover:text-blue-300 font-medium"
             >
               {selectedCount === components.length ? 'Clear all' : 'Select all'}
             </button>
@@ -317,19 +317,19 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
                 <label
                   key={c.id}
                   className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                    checked ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    checked ? 'border-blue-400 bg-primary/10' : 'border-navy-600 bg-navy-800 hover:border-navy-500'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggle(c.id)}
-                    className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    className="mt-1 h-4 w-4 text-blue-600 rounded border-navy-500 focus:ring-blue-500"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">{c.title}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-600">
+                      <span className="text-sm font-medium text-white">{c.title}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-navy-700 text-navy-300">
                         {TYPE_LABELS[c.type] || c.type}
                       </span>
                       {recommended && (
@@ -339,10 +339,10 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
                       )}
                     </div>
                     {c.organization_name && (
-                      <p className="text-xs text-gray-500 mt-0.5">{c.organization_name}</p>
+                      <p className="text-xs text-navy-400 mt-0.5">{c.organization_name}</p>
                     )}
                     {reason && (
-                      <p className="text-xs text-blue-700 mt-1">
+                      <p className="text-xs text-blue-300 mt-1">
                         <span className="font-medium">Why:</span> {reason}
                       </p>
                     )}
@@ -355,7 +355,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
       </div>
 
       {/* Reversible navigation — always a way back and a way forward */}
-      <div className="flex gap-3 pt-2 border-t border-gray-200">
+      <div className="flex gap-3 pt-2 border-t border-navy-600">
         <Button
           type="button"
           variant="outline"

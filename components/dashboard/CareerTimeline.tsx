@@ -20,10 +20,14 @@ interface CareerTimelineProps {
   onRoleClick?: (role: TimelineComponent | null) => void
 }
 
-const roleConfig = {
-  icon: '💼',
-  color: 'from-blue-100 to-blue-50',
-  label: 'Role',
+// Types shown on the timeline — not just jobs. Icon shown on non-role
+// entries so the timeline reads as a full career + education story.
+const TIMELINE_TYPES: Record<string, { icon: string; label: string }> = {
+  role: { icon: '💼', label: 'Role' },
+  education: { icon: '🎓', label: 'Education' },
+  certification: { icon: '📜', label: 'Certification' },
+  program: { icon: '🚀', label: 'Program' },
+  volunteer: { icon: '🤝', label: 'Volunteer' },
 }
 
 function sortRolesByDate(roles: TimelineComponent[]): TimelineComponent[] {
@@ -64,9 +68,10 @@ function companyDateRange(roles: TimelineComponent[]): string {
 }
 
 export function CareerTimeline({ components, expandedRole, onRoleClick }: CareerTimelineProps) {
-  // Filter to only roles
+  // Include roles alongside education, certifications, programs, and
+  // volunteer work — the full career + education story, not just jobs.
   const roles = useMemo(() => {
-    return sortRolesByDate(components.filter((comp) => comp.type === 'role'))
+    return sortRolesByDate(components.filter((comp) => comp.type in TIMELINE_TYPES))
   }, [components])
 
   // Group roles by organization
@@ -92,9 +97,9 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
   if (roles.length === 0) {
     return (
       <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700">
-        <p className="text-white font-medium">No roles added yet</p>
+        <p className="text-white font-medium">No timeline entries yet</p>
         <p className="text-navy-300 text-sm mt-1">
-          Add roles to build your career timeline.
+          Add roles, education, or programs to build your career timeline.
         </p>
       </div>
     )
@@ -105,7 +110,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
       <div>
         <h2 className="text-2xl font-semibold text-white">Career timeline</h2>
         <p className="text-sm text-navy-300 mt-1">
-          {rolesByOrganization.length} {rolesByOrganization.length === 1 ? 'organization' : 'organizations'} · {roles.length} {roles.length === 1 ? 'role' : 'roles'}
+          {rolesByOrganization.length} {rolesByOrganization.length === 1 ? 'organization' : 'organizations'} · {roles.length} {roles.length === 1 ? 'entry' : 'entries'}
         </p>
       </div>
 
@@ -128,7 +133,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                   )}
                 </div>
                 <p className="text-xs text-navy-400">
-                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'role' : 'roles'}`}
+                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'entry' : 'entries'}`}
                 </p>
               </div>
 
@@ -158,7 +163,10 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       >
                         {/* Header: title + progression hint */}
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="font-medium text-white">{role.title}</p>
+                          <p className="font-medium text-white">
+                            {role.type !== 'role' && <span className="mr-1">{TIMELINE_TYPES[role.type]?.icon}</span>}
+                            {role.title}
+                          </p>
                           {hasProgression && roleIndex === 0 && (
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 flex-shrink-0">
                               Most recent
@@ -233,7 +241,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                   )}
                 </div>
                 <p className="text-xs text-navy-400">
-                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'role' : 'roles'}`}
+                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'entry' : 'entries'}`}
                 </p>
               </div>
 
@@ -260,6 +268,7 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
                       >
                         {/* Header */}
                         <p className="font-medium text-white text-sm mb-2">
+                          {role.type !== 'role' && <span className="mr-1">{TIMELINE_TYPES[role.type]?.icon}</span>}
                           {role.title}
                         </p>
 

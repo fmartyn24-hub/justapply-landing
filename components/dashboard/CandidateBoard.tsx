@@ -2,23 +2,17 @@ import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
 import type { Application } from './MyApplicationsTab'
+import { APPLICATION_STATUSES, type ApplicationStatus } from '@/lib/applicationStatus'
 
 interface CandidateBoardProps {
   applications: Application[]
-  onStatusChange: (id: string, status: 'draft' | 'applied') => Promise<void>
+  onStatusChange: (id: string, status: ApplicationStatus) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onRegenerate: (id: string) => Promise<void>
-  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: 'draft' | 'applied' }) => Promise<void>
+  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
   onCreateManual?: () => void
   loading?: boolean
   authToken?: string
-}
-
-type Status = 'draft' | 'applied'
-
-const statusConfig: Record<Status, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  draft: { label: 'Want to Apply', color: 'text-navy-200', bgColor: 'bg-navy-700', borderColor: 'border-navy-600' },
-  applied: { label: 'Applied', color: 'text-blue-300', bgColor: 'bg-primary/20', borderColor: 'border-primary/40' },
 }
 
 export function CandidateBoard({
@@ -46,7 +40,7 @@ export function CandidateBoard({
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleDrop = async (e: React.DragEvent, newStatus: Status) => {
+  const handleDrop = async (e: React.DragEvent, newStatus: ApplicationStatus) => {
     e.preventDefault()
     if (!draggedId) return
 
@@ -75,16 +69,16 @@ export function CandidateBoard({
     }
   }
 
-  const getApplicationsByStatus = (status: Status) => {
-    return applications.filter((app) => app.status === status)
+  const getApplicationsByStatus = (status: ApplicationStatus) => {
+    return applications.filter((app) => (app.status || 'draft') === status)
   }
 
-  const renderColumn = (status: Status) => {
+  const renderColumn = (status: ApplicationStatus) => {
     const apps = getApplicationsByStatus(status)
-    const config = statusConfig[status]
+    const config = APPLICATION_STATUSES.find((s) => s.value === status)!
 
     return (
-      <div key={status} className="flex flex-col flex-1 min-w-80">
+      <div key={status} className="flex flex-col flex-shrink-0 w-72">
         {/* Column Header */}
         <div className={`${config.bgColor} border-b-2 ${config.borderColor} rounded-t-lg p-3`}>
           <h3 className={`font-semibold ${config.color}`}>{config.label}</h3>
@@ -179,7 +173,7 @@ export function CandidateBoard({
 
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {(Object.keys(statusConfig) as Status[]).map((status) => renderColumn(status))}
+        {APPLICATION_STATUSES.map((s) => renderColumn(s.value))}
       </div>
 
       {/* Application Preview Modal */}
@@ -196,7 +190,7 @@ export function CandidateBoard({
           personsOfInterest={selectedApp.persons_of_interest}
           status={selectedApp.status}
           onSave={onUpdateApplication}
-          onStatusChange={async (status: 'draft' | 'applied') => {
+          onStatusChange={async (status: ApplicationStatus) => {
             setSavingStatus(true)
             try {
               await onStatusChange(selectedApp.id, status)

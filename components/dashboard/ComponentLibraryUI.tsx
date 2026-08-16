@@ -32,9 +32,21 @@ const typeConfig: Record<string, { label: string }> = {
   kpi: { label: 'KPI' },
   voice: { label: 'Voice' },
   context: { label: 'Context' },
+  education: { label: 'Education' },
+  certification: { label: 'Certification' },
+  program: { label: 'Program' },
+  volunteer: { label: 'Volunteer' },
 }
 
 const UNGROUPED = 'Other'
+
+type GroupBy = 'organization' | 'type' | 'date'
+
+const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: 'organization', label: 'Organization' },
+  { value: 'type', label: 'Type' },
+  { value: 'date', label: 'Date' },
+]
 
 export function ComponentLibraryUI({
   components,
@@ -47,6 +59,7 @@ export function ComponentLibraryUI({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [groupBy, setGroupBy] = useState<GroupBy>('organization')
 
   const types = Object.keys(typeConfig)
 
@@ -63,28 +76,38 @@ export function ComponentLibraryUI({
     })
   }, [components, searchQuery, selectedTypes])
 
-  // Group by organization so the library reads as sections instead of one
-  // endless scroll — each group sorted by most recent activity.
+  // Group so the library reads as sections instead of one endless scroll —
+  // by organization, by type, or by year, each sorted by most recent activity.
+  const groupKeyFor = (comp: CareerComponent): string => {
+    if (groupBy === 'type') return typeConfig[comp.type]?.label || UNGROUPED
+    if (groupBy === 'date') {
+      const d = comp.start_date || comp.created_at
+      return d ? new Date(d).getFullYear().toString() : UNGROUPED
+    }
+    return comp.organization_name?.trim() || UNGROUPED
+  }
+
   const groups = useMemo(() => {
-    const byOrg = new Map<string, CareerComponent[]>()
+    const byKey = new Map<string, CareerComponent[]>()
     filteredComponents.forEach((comp) => {
-      const key = comp.organization_name?.trim() || UNGROUPED
-      if (!byOrg.has(key)) byOrg.set(key, [])
-      byOrg.get(key)!.push(comp)
+      const key = groupKeyFor(comp)
+      if (!byKey.has(key)) byKey.set(key, [])
+      byKey.get(key)!.push(comp)
     })
-    const entries = Array.from(byOrg.entries())
+    const entries = Array.from(byKey.entries())
     entries.forEach(([, comps]) =>
       comps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     )
-    entries.sort(([orgA, compsA], [orgB, compsB]) => {
-      if (orgA === UNGROUPED) return 1
-      if (orgB === UNGROUPED) return -1
+    entries.sort(([keyA, compsA], [keyB, compsB]) => {
+      if (keyA === UNGROUPED) return 1
+      if (keyB === UNGROUPED) return -1
+      if (groupBy === 'date') return keyB.localeCompare(keyA) // newest year first
       const latestA = Math.max(...compsA.map((c) => new Date(c.created_at).getTime()))
       const latestB = Math.max(...compsB.map((c) => new Date(c.created_at).getTime()))
       return latestB - latestA
     })
     return entries
-  }, [filteredComponents])
+  }, [filteredComponents, groupBy])
 
   const toggleType = (type: string) => {
     const newTypes = new Set(selectedTypes)
@@ -152,6 +175,23 @@ export function ComponentLibraryUI({
               {typeConfig[type].label}
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-navy-400 uppercase tracking-wide">Group by</span>
+          <div className="inline-flex rounded-md border border-navy-600 overflow-hidden">
+            {GROUP_BY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setGroupBy(opt.value)}
+                className={`px-3 py-1 text-xs font-medium transition ${
+                  groupBy === opt.value ? 'bg-primary text-white' : 'bg-navy-800 text-navy-300 hover:bg-navy-700 hover:text-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

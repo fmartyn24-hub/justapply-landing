@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
+import { APPLICATION_STATUSES, STATUS_BY_VALUE, type ApplicationStatus } from '@/lib/applicationStatus'
 
 export interface Application {
   id: string
@@ -12,7 +13,7 @@ export interface Application {
   generated_cover_letter: string
   deadline?: string
   persons_of_interest?: string
-  status: 'draft' | 'applied'
+  status: ApplicationStatus
   created_at: string
   updated_at: string
 }
@@ -21,8 +22,9 @@ interface MyApplicationsTabProps {
   applications: Application[]
   onDelete: (id: string) => Promise<void>
   onRegenerate: (id: string) => Promise<void>
-  onSaveStatus?: (id: string, status: 'draft' | 'applied') => Promise<void>
-  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: 'draft' | 'applied' }) => Promise<void>
+  onSaveStatus?: (id: string, status: ApplicationStatus) => Promise<void>
+  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
+  onCreateManual?: () => void
   loading?: boolean
   authToken?: string
 }
@@ -33,6 +35,7 @@ export function MyApplicationsTab({
   onRegenerate,
   onSaveStatus,
   onUpdateApplication,
+  onCreateManual,
   loading,
   authToken,
 }: MyApplicationsTabProps) {
@@ -50,9 +53,10 @@ export function MyApplicationsTab({
     }
   }
 
-  // Group applications by status
-  const wantToApply = applications.filter((app) => !app.status || app.status === 'draft')
-  const applied = applications.filter((app) => app.status === 'applied')
+  const grouped = APPLICATION_STATUSES.map((meta) => ({
+    meta,
+    apps: applications.filter((app) => (app.status || 'draft') === meta.value),
+  })).filter((g) => g.apps.length > 0)
 
   const ApplicationCard = ({ app }: { app: Application }) => {
     const daysUntilDeadline = app.deadline
@@ -62,50 +66,46 @@ export function MyApplicationsTab({
     const deadlineColor =
       daysUntilDeadline !== null
         ? daysUntilDeadline < 0
-          ? 'text-red-600'
+          ? 'text-red-400'
           : daysUntilDeadline < 7
-          ? 'text-orange-600'
-          : 'text-gray-600'
-        : 'text-gray-600'
+          ? 'text-amber-400'
+          : 'text-navy-300'
+        : 'text-navy-300'
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-5 hover:border-blue-400 transition">
+      <div className="bg-navy-800 border border-navy-700 rounded-lg p-5 hover:border-blue-400 transition">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{app.job_title}</h3>
-            <p className="text-gray-600">{app.company_name}</p>
+            <h3 className="text-lg font-semibold text-white">{app.job_title}</h3>
+            <p className="text-navy-300">{app.company_name}</p>
             {app.deadline && (
               <p className={`text-sm mt-2 font-medium ${deadlineColor}`}>
                 {daysUntilDeadline === null ? 'Deadline passed' : `Apply by ${new Date(app.deadline).toLocaleDateString()}`}
               </p>
             )}
-            <p className="text-xs text-gray-500 mt-2">Created {new Date(app.created_at).toLocaleDateString()}</p>
+            <p className="text-xs text-navy-400 mt-2">Created {new Date(app.created_at).toLocaleDateString()}</p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-3 border-t border-gray-100">
-          <Button onClick={() => setSelectedApp(app)} variant="outline" size="sm" className="flex-1">
+        <div className="flex gap-2 pt-3 border-t border-navy-700">
+          <Button onClick={() => setSelectedApp(app)} size="sm" className="flex-1">
             Edit
           </Button>
-          <Button
+          <button
             onClick={() => onRegenerate(app.id)}
             disabled={loading}
-            variant="outline"
-            size="sm"
-            className="flex-1"
+            className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
           >
             Regenerate
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={() => handleDelete(app.id)}
             disabled={deleting === app.id}
-            variant="outline"
-            size="sm"
-            className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+            className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-lg border border-red-400/40 text-red-400 hover:bg-red-400/10 disabled:opacity-50 transition"
           >
             Delete
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -113,53 +113,51 @@ export function MyApplicationsTab({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-gray-700 font-medium">No applications yet</p>
-        <p className="text-gray-500 text-sm mt-1">
-          Click the "Just Apply" button to generate your first application.
-        </p>
+      <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700 space-y-3">
+        <div>
+          <p className="text-white font-medium">No applications yet</p>
+          <p className="text-navy-300 text-sm mt-1">
+            Click "Just Apply" to generate your first application, or add one manually.
+          </p>
+        </div>
+        {onCreateManual && (
+          <Button onClick={onCreateManual} className="text-sm">
+            + Add application
+          </Button>
+        )}
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">My Applications</h2>
-        <p className="text-gray-600 mt-1">
-          {wantToApply.length + applied.length} application{applications.length !== 1 ? 's' : ''}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-white">My Applications</h2>
+          <p className="text-navy-300 mt-1">
+            {applications.length} application{applications.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {onCreateManual && (
+          <Button onClick={onCreateManual} className="text-sm whitespace-nowrap">
+            + Add application
+          </Button>
+        )}
       </div>
 
-      {/* Want to Apply Section */}
-      {wantToApply.length > 0 && (
-        <div>
+      {grouped.map(({ meta, apps }) => (
+        <div key={meta.value}>
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-            <h3 className="text-xl font-semibold text-gray-900">Want to Apply ({wantToApply.length})</h3>
+            <div className={`w-2 h-2 rounded-full ${meta.dot}`}></div>
+            <h3 className="text-xl font-semibold text-white">{meta.label} ({apps.length})</h3>
           </div>
           <div className="space-y-3">
-            {wantToApply.map((app) => (
+            {apps.map((app) => (
               <ApplicationCard key={app.id} app={app} />
             ))}
           </div>
         </div>
-      )}
-
-      {/* Applied Section */}
-      {applied.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <h3 className="text-xl font-semibold text-gray-900">Applied ({applied.length})</h3>
-          </div>
-          <div className="space-y-3">
-            {applied.map((app) => (
-              <ApplicationCard key={app.id} app={app} />
-            ))}
-          </div>
-        </div>
-      )}
+      ))}
 
       {/* Edit Modal */}
       {selectedApp && (
@@ -175,7 +173,7 @@ export function MyApplicationsTab({
           personsOfInterest={selectedApp.persons_of_interest}
           status={selectedApp.status}
           onSave={onUpdateApplication}
-          onStatusChange={async (status: 'draft' | 'applied') => {
+          onStatusChange={async (status: ApplicationStatus) => {
             setSavingStatus(true)
             try {
               if (onSaveStatus) {

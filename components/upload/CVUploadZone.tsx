@@ -100,8 +100,8 @@ export function CVUploadZone({ onFileSelect, isLoading = false }: CVUploadZonePr
         onClick={handleClick}
         className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition ${
           isDragging
-            ? 'border-primary bg-blue-50'
-            : 'border-gray-300 hover:border-primary hover:bg-gray-50'
+            ? 'border-primary bg-primary/10'
+            : 'border-navy-600 hover:border-primary hover:bg-navy-800'
         } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input
@@ -117,7 +117,7 @@ export function CVUploadZone({ onFileSelect, isLoading = false }: CVUploadZonePr
         {!selectedFile ? (
           <div className="flex flex-col items-center justify-center py-4">
             <svg
-              className="w-16 h-16 text-gray-400 mb-4"
+              className="w-16 h-16 text-navy-400 mb-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -130,13 +130,13 @@ export function CVUploadZone({ onFileSelect, isLoading = false }: CVUploadZonePr
               />
             </svg>
 
-            <p className="text-lg font-semibold text-gray-900 mb-1">
+            <p className="text-lg font-semibold text-white mb-1">
               Drag your CV here
             </p>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-navy-300 mb-4">
               or click to browse
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-navy-400">
               PDF or DOCX • Up to 10 MB
             </p>
           </div>
@@ -156,10 +156,10 @@ export function CVUploadZone({ onFileSelect, isLoading = false }: CVUploadZonePr
               />
             </svg>
 
-            <p className="text-lg font-semibold text-gray-900 mb-2">
+            <p className="text-lg font-semibold text-white mb-2">
               {selectedFile.name}
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-navy-300">
               {formatFileSize(selectedFile.size)}
             </p>
             <button

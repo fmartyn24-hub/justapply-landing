@@ -3,7 +3,7 @@
  */
 
 export const supabaseToAppType: Record<string, string> = {
-  education: 'skill',
+  // Legacy extraction-era type names, collapsed into the current vocabulary.
   experience: 'role',
   tool: 'skill',
   campaign: 'project',
@@ -14,6 +14,11 @@ export const supabaseToAppType: Record<string, string> = {
   voice: 'voice',
   skill: 'skill',
   achievement: 'achievement',
+  context: 'context',
+  education: 'education',
+  certification: 'certification',
+  program: 'program',
+  volunteer: 'volunteer',
 }
 
 export const appToSupabaseType: Record<string, string> = {
@@ -23,6 +28,11 @@ export const appToSupabaseType: Record<string, string> = {
   kpi: 'kpi',
   voice: 'voice',
   achievement: 'achievement',
+  context: 'context',
+  education: 'education',
+  certification: 'certification',
+  program: 'program',
+  volunteer: 'volunteer',
 }
 
 /**
