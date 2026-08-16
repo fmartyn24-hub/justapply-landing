@@ -117,8 +117,11 @@ export function ComponentLibraryUI({
           <div className="flex gap-2">
             <button
               onClick={onImport}
-              className="text-sm px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+              className="text-sm px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition inline-flex items-center gap-1.5"
             >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 text-blue-400">
+                <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+              </svg>
               Import context
             </button>
             <Button onClick={onAdd} className="text-sm">

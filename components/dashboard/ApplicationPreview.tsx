@@ -8,10 +8,12 @@ interface ApplicationPreviewProps {
   coverLetter: string
   jobTitle?: string
   company?: string
+  jobDescription?: string
   jobUrl?: string
   deadline?: string
   personsOfInterest?: string
-  onSave?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_url?: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
+  status?: 'draft' | 'applied'
+  onSave?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: 'draft' | 'applied' }) => Promise<void>
   onStatusChange?: (status: 'draft' | 'applied') => Promise<void>
   onClose: () => void
   saving?: boolean
@@ -24,9 +26,11 @@ export function ApplicationPreview({
   coverLetter,
   jobTitle,
   company,
+  jobDescription,
   jobUrl,
   deadline,
   personsOfInterest,
+  status,
   onSave,
   onStatusChange,
   onClose,
@@ -36,9 +40,13 @@ export function ApplicationPreview({
   const [activeTab, setActiveTab] = useState<'cv' | 'coverLetter' | 'details'>('cv')
   const [editedCv, setEditedCv] = useState(cv)
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
+  const [editedJobTitle, setEditedJobTitle] = useState(jobTitle || '')
+  const [editedCompany, setEditedCompany] = useState(company || '')
+  const [editedJobDescription, setEditedJobDescription] = useState(jobDescription || '')
   const [editedJobUrl, setEditedJobUrl] = useState(jobUrl || '')
   const [editedDeadline, setEditedDeadline] = useState(deadline || '')
   const [editedPersonsOfInterest, setEditedPersonsOfInterest] = useState(personsOfInterest || '')
+  const [editedStatus, setEditedStatus] = useState<'draft' | 'applied'>(status || 'draft')
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
@@ -52,9 +60,13 @@ export function ApplicationPreview({
     if (
       editedCv === cv &&
       editedCoverLetter === coverLetter &&
+      editedJobTitle === (jobTitle || '') &&
+      editedCompany === (company || '') &&
+      editedJobDescription === (jobDescription || '') &&
       editedJobUrl === jobUrl &&
       editedDeadline === deadline &&
-      editedPersonsOfInterest === personsOfInterest
+      editedPersonsOfInterest === personsOfInterest &&
+      editedStatus === (status || 'draft')
     ) {
       return
     }
@@ -67,9 +79,13 @@ export function ApplicationPreview({
           await onSave(id, {
             generated_cv: editedCv,
             generated_cover_letter: editedCoverLetter,
+            job_title: editedJobTitle || undefined,
+            company_name: editedCompany || undefined,
+            job_description: editedJobDescription || undefined,
             job_url: editedJobUrl || undefined,
             deadline: editedDeadline || undefined,
             persons_of_interest: editedPersonsOfInterest || undefined,
+            status: editedStatus,
           })
           setAutoSaveStatus('saved')
           setTimeout(() => setAutoSaveStatus('idle'), 2000)
@@ -85,7 +101,7 @@ export function ApplicationPreview({
     return () => {
       if (timeout) clearTimeout(timeout)
     }
-  }, [editedCv, editedCoverLetter, editedJobUrl, editedDeadline, editedPersonsOfInterest])
+  }, [editedCv, editedCoverLetter, editedJobTitle, editedCompany, editedJobDescription, editedJobUrl, editedDeadline, editedPersonsOfInterest, editedStatus])
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 m-0">
@@ -172,6 +188,58 @@ export function ApplicationPreview({
 
           {activeTab === 'details' && (
             <div className="bg-white p-6 rounded-lg space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={editedStatus}
+                  onChange={(e) => setEditedStatus(e.target.value as 'draft' | 'applied')}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="draft">Want to Apply</option>
+                  <option value="applied">Applied</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editedJobTitle}
+                    onChange={(e) => setEditedJobTitle(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    value={editedCompany}
+                    onChange={(e) => setEditedCompany(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job Description (Optional)
+                </label>
+                <textarea
+                  value={editedJobDescription}
+                  onChange={(e) => setEditedJobDescription(e.target.value)}
+                  placeholder="Paste the job description here for your own reference"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                  rows={4}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Job URL (Optional)

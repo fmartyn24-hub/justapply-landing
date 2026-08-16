@@ -22,7 +22,7 @@ interface MyApplicationsTabProps {
   onDelete: (id: string) => Promise<void>
   onRegenerate: (id: string) => Promise<void>
   onSaveStatus?: (id: string, status: 'draft' | 'applied') => Promise<void>
-  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; deadline?: string; persons_of_interest?: string }) => Promise<void>
+  onUpdateApplication?: (id: string, data: { generated_cv: string; generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: 'draft' | 'applied' }) => Promise<void>
   loading?: boolean
   authToken?: string
 }
@@ -169,9 +169,11 @@ export function MyApplicationsTab({
           coverLetter={selectedApp.generated_cover_letter}
           jobTitle={selectedApp.job_title}
           company={selectedApp.company_name}
+          jobDescription={selectedApp.job_description}
           jobUrl={selectedApp.job_url}
           deadline={selectedApp.deadline}
           personsOfInterest={selectedApp.persons_of_interest}
+          status={selectedApp.status}
           onSave={onUpdateApplication}
           onStatusChange={async (status: 'draft' | 'applied') => {
             setSavingStatus(true)

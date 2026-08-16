@@ -26,6 +26,29 @@ function NavIcon({ path }: { path: string }) {
   )
 }
 
+function NavButton({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+        isActive ? 'bg-primary text-white' : 'text-navy-200 hover:bg-navy-800 hover:text-white'
+      }`}
+    >
+      {item.icon}
+      <span className="flex-1 text-left">{item.label}</span>
+      {item.badge ? (
+        <span
+          className={`text-xs rounded-full px-1.5 py-0.5 ${
+            isActive ? 'bg-white/20 text-white' : 'bg-navy-700 text-navy-200'
+          }`}
+        >
+          {item.badge}
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
 export function DashboardShell({
   activeTab,
   onTabChange,
@@ -34,11 +57,11 @@ export function DashboardShell({
   applicationsCount,
   children,
 }: DashboardShellProps) {
-  const navItems: NavItem[] = [
+  // Core CRUD features: free, always available.
+  const coreNavItems: NavItem[] = [
     { tab: 'home', label: 'Home', icon: <NavIcon path="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" /> },
     { tab: 'library', label: 'Components', icon: <NavIcon path="M4 6h16M4 12h16M4 18h7" /> },
     { tab: 'timeline', label: 'Timeline', icon: <NavIcon path="M5 4v16M5 8h5a3 3 0 0 1 0 6H5m0 6h5a3 3 0 0 0 0-6" /> },
-    { tab: 'justApply', label: 'Just Apply', icon: <NavIcon path="M13 4 21 12 13 20M3 12h18" /> },
     {
       tab: 'myApplications',
       label: 'Applications',
@@ -52,6 +75,12 @@ export function DashboardShell({
     },
   ]
 
+  // AI-powered feature: uses generation credits. Kept visually distinct so
+  // it's ready to be gated behind a paid plan later without a UI reshuffle.
+  const aiNavItems: NavItem[] = [
+    { tab: 'justApply', label: 'Just Apply', icon: <NavIcon path="M13 4 21 12 13 20M3 12h18" /> },
+  ]
+
   return (
     <div className="min-h-screen bg-navy-900 flex">
       {/* Sidebar */}
@@ -61,32 +90,23 @@ export function DashboardShell({
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {coreNavItems.map((item) => {
             if ((item.tab === 'library' || item.tab === 'timeline') && !hasComponents) return null
             if ((item.tab === 'myApplications' || item.tab === 'candidateBoard') && !applicationsCount) return null
-            const isActive = activeTab === item.tab
-            return (
-              <button
-                key={item.tab}
-                onClick={() => onTabChange(item.tab)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                  isActive ? 'bg-primary text-white' : 'text-navy-200 hover:bg-navy-800 hover:text-white'
-                }`}
-              >
-                {item.icon}
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.badge ? (
-                  <span
-                    className={`text-xs rounded-full px-1.5 py-0.5 ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-navy-700 text-navy-200'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                ) : null}
-              </button>
-            )
+            return <NavButton key={item.tab} item={item} isActive={activeTab === item.tab} onClick={() => onTabChange(item.tab)} />
           })}
+
+          <div className="pt-4 mt-3 border-t border-navy-700">
+            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400 flex items-center gap-1.5">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+              </svg>
+              AI-Powered
+            </p>
+            {aiNavItems.map((item) => (
+              <NavButton key={item.tab} item={item} isActive={activeTab === item.tab} onClick={() => onTabChange(item.tab)} />
+            ))}
+          </div>
         </nav>
 
         <div className="px-3 py-4 border-t border-navy-700 space-y-1">
