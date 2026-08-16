@@ -1610,9 +1610,9 @@ function Dashboard() {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Import your information</h2>
+              <h2 className="text-2xl font-bold text-white">Import your information</h2>
               <button
                 onClick={() => {
                   setShowImportModal(false)
@@ -1621,7 +1621,7 @@ function Dashboard() {
                   setImportUploadSuccess(false)
                   setAnalyzeStatus(null)
                 }}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                className="text-navy-300 hover:text-white text-2xl font-bold"
               >
                 ×
               </button>
@@ -1644,13 +1644,13 @@ function Dashboard() {
             )}
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b border-gray-200 mb-6">
+            <div className="flex gap-4 border-b border-navy-600 mb-6">
               <button
                 onClick={() => setImportTab('paste')}
                 className={`px-4 py-3 font-medium transition border-b-2 ${
                   importTab === 'paste'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    : 'border-transparent text-navy-300 hover:text-white'
                 }`}
               >
                 Paste Information
@@ -1660,7 +1660,7 @@ function Dashboard() {
                 className={`px-4 py-3 font-medium transition border-b-2 ${
                   importTab === 'upload'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    : 'border-transparent text-navy-300 hover:text-white'
                 }`}
               >
                 Upload File
@@ -1676,8 +1676,8 @@ function Dashboard() {
             {importTab === 'upload' && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Upload your CV or documents</h3>
-                  <p className="text-gray-600 text-sm mt-1">
+                  <h3 className="text-lg font-semibold text-white">Upload your CV or documents</h3>
+                  <p className="text-navy-300 text-sm mt-1">
                     Upload PDF or DOCX files. We'll extract and analyze your experience.
                   </p>
                 </div>
@@ -1698,15 +1698,15 @@ function Dashboard() {
                       >
                         🤖 Extract components now
                       </Button>
-                      <Button
-                        variant="outline"
+                      <button
                         onClick={() => {
                           setImportUploadSuccess(false)
                           setImportUploadError('')
                         }}
+                        className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
                       >
                         Upload another file
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1736,7 +1736,7 @@ function Dashboard() {
                       </Button>
                     </div>
 
-                    <p className="text-xs text-gray-500 text-center">
+                    <p className="text-xs text-navy-400 text-center">
                       PDF or DOCX up to 10 MB. Not sure how to export your CV? Try the{' '}
                       <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">
                         Paste Information
@@ -1754,11 +1754,11 @@ function Dashboard() {
       {/* Review Extracted Components Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-8 max-h-[90vh] flex flex-col">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between mb-2">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Review extracted components</h2>
-                <p className="text-gray-600 text-sm mt-1">
+                <h2 className="text-2xl font-bold text-white">Review extracted components</h2>
+                <p className="text-navy-300 text-sm mt-1">
                   {(() => {
                     const newCount = reviewComponents.filter((c) => !c.isExisting).length
                     const existingCount = reviewComponents.length - newCount
@@ -1779,7 +1779,7 @@ function Dashboard() {
               </div>
               <button
                 onClick={handleDenyComponents}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold ml-4"
+                className="text-navy-300 hover:text-white text-2xl font-bold ml-4"
                 aria-label="Close"
               >
                 ×
@@ -1788,7 +1788,7 @@ function Dashboard() {
 
             {/* Select all / none */}
             <div className="flex items-center gap-4 text-sm mb-4">
-              <span className="text-gray-700 font-medium">
+              <span className="text-navy-200 font-medium">
                 {reviewSelected.filter(Boolean).length} of {reviewComponents.length} selected
               </span>
               <button
@@ -1823,7 +1823,7 @@ function Dashboard() {
                     className={`flex gap-3 p-4 rounded-lg border cursor-pointer transition ${
                       selected
                         ? 'border-blue-300 bg-blue-50'
-                        : 'border-gray-200 bg-gray-50 opacity-60'
+                        : 'border-navy-700 bg-navy-900 opacity-60'
                     }`}
                   >
                     <input
@@ -1838,7 +1838,7 @@ function Dashboard() {
                           {comp.type}
                         </span>
                         {comp.isExisting ? (
-                          <span className="inline-block text-xs font-semibold text-gray-600 bg-gray-200 rounded px-2 py-0.5">
+                          <span className="inline-block text-xs font-semibold text-navy-300 bg-navy-700 rounded px-2 py-0.5">
                             Already in library
                           </span>
                         ) : (
@@ -1846,10 +1846,10 @@ function Dashboard() {
                             New
                           </span>
                         )}
-                        <span className="font-semibold text-gray-900">{comp.title}</span>
+                        <span className="font-semibold text-white">{comp.title}</span>
                       </div>
                       {(comp.organization_name || comp.start_date || comp.end_date || comp.primary_location) && (
-                        <p className="text-sm text-gray-600 mt-0.5">
+                        <p className="text-sm text-navy-300 mt-0.5">
                           {[
                             comp.organization_name,
                             formatComponentDateRange(comp.start_date, comp.end_date),
@@ -1860,10 +1860,10 @@ function Dashboard() {
                         </p>
                       )}
                       {comp.description && (
-                        <p className="text-sm text-gray-700 mt-1">{comp.description}</p>
+                        <p className="text-sm text-navy-300 mt-1">{comp.description}</p>
                       )}
                       {comp.impact_metrics && (
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-navy-300 mt-1">
                           <span className="font-medium">Impact:</span> {comp.impact_metrics}
                         </p>
                       )}
@@ -1872,7 +1872,7 @@ function Dashboard() {
                           {comp.tags.map((tag, t) => (
                             <span
                               key={t}
-                              className="text-xs text-gray-600 bg-gray-200 rounded-full px-2 py-0.5"
+                              className="text-xs text-navy-300 bg-navy-700 rounded-full px-2 py-0.5"
                             >
                               {tag}
                             </span>
@@ -1886,7 +1886,7 @@ function Dashboard() {
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-navy-600">
               <Button
                 onClick={handleApproveComponents}
                 loading={approvingComponents}
@@ -1895,14 +1895,13 @@ function Dashboard() {
               >
                 Add {reviewSelected.filter(Boolean).length || ''} to library
               </Button>
-              <Button
-                variant="outline"
+              <button
                 onClick={handleDenyComponents}
                 disabled={approvingComponents}
-                className="flex-1"
+                className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition disabled:opacity-50"
               >
                 Discard all
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -2134,7 +2133,7 @@ function Dashboard() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
                     placeholder="e.g., direct, warm, analytical, storytelling-focused"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Comma-separated keywords describing your communication style</p>
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated keywords describing your communication style</p>
                 </div>
               )}
 
@@ -2150,7 +2149,7 @@ function Dashboard() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
                     placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Comma-separated related concepts this term explains</p>
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated related concepts this term explains</p>
                 </div>
               )}
 
@@ -2178,18 +2177,18 @@ function Dashboard() {
       {/* Add Component Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Component</h2>
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
+            <h2 className="text-2xl font-bold text-white mb-4">Add Component</h2>
             <form onSubmit={handleAddComponent} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Type *
                   </label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   >
                     <option value="achievement">Achievement</option>
                     <option value="skill">Skill</option>
@@ -2202,66 +2201,66 @@ function Dashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Title *
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   rows={3}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={formData.start_date || ''}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={formData.end_date || ''}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Impact Metrics
                 </label>
                 <input
                   type="text"
                   value={formData.impact_metrics || ''}
                   onChange={(e) => setFormData({ ...formData, impact_metrics: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   placeholder="e.g., Increased sales by 40%"
                 />
               </div>
@@ -2269,27 +2268,27 @@ function Dashboard() {
               {formData.type === 'role' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
                       Company/Organization *
                     </label>
                     <input
                       type="text"
                       value={formData.organization_name || ''}
                       onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       placeholder="e.g., Acme Corp, Google, Startup Inc"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
                       Location
                     </label>
                     <input
                       type="text"
                       value={formData.primary_location || ''}
                       onChange={(e) => setFormData({ ...formData, primary_location: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       placeholder="e.g., San Francisco, CA or Remote"
                     />
                   </div>
@@ -2297,47 +2296,47 @@ function Dashboard() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Tags
                 </label>
                 <input
                   type="text"
                   value={formData.tags.join(', ')}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   placeholder="e.g., React, TypeScript, Performance"
                 />
               </div>
 
               {formData.type === 'voice' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Tone Keywords
                   </label>
                   <input
                     type="text"
                     value={formData.tone_keywords || ''}
                     onChange={(e) => setFormData({ ...formData, tone_keywords: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     placeholder="e.g., direct, warm, analytical, storytelling-focused"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Comma-separated keywords describing your communication style</p>
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated keywords describing your communication style</p>
                 </div>
               )}
 
               {formData.type === 'context' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Related Terms
                   </label>
                   <input
                     type="text"
                     value={formData.related_terms || ''}
                     onChange={(e) => setFormData({ ...formData, related_terms: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Comma-separated related concepts this term explains</p>
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated related concepts this term explains</p>
                 </div>
               )}
 
@@ -2345,14 +2344,13 @@ function Dashboard() {
                 <Button type="submit" loading={saving} className="flex-1">
                   Add Component
                 </Button>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setShowAddForm(false)}
-                  className="flex-1"
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </form>
           </div>
