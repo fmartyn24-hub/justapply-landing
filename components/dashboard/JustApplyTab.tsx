@@ -356,18 +356,17 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
 
       {/* Reversible navigation — always a way back and a way forward */}
       <div className="flex gap-3 pt-2 border-t border-navy-600">
-        <Button
+        <button
           type="button"
-          variant="outline"
           onClick={() => {
             setError('')
             setStep('input')
           }}
           disabled={loading}
-          className="flex-1"
+          className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
         >
           ← Back to edit
-        </Button>
+        </button>
         <Button
           type="button"
           onClick={handleGenerate}

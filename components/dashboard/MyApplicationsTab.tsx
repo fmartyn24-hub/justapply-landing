@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
 import { APPLICATION_STATUSES, STATUS_BY_VALUE, type ApplicationStatus } from '@/lib/applicationStatus'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 export interface Application {
   id: string
@@ -45,14 +46,15 @@ export function MyApplicationsTab({
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this application?')) return
     setDeleting(id)
     try {
       await onDelete(id)
     } finally {
       setDeleting(null)
+      setConfirmDeleteId(null)
     }
   }
 
@@ -103,7 +105,7 @@ export function MyApplicationsTab({
             Regenerate
           </button>
           <button
-            onClick={() => handleDelete(app.id)}
+            onClick={() => setConfirmDeleteId(app.id)}
             disabled={deleting === app.id}
             className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-lg border border-red-400/40 text-red-400 hover:bg-red-400/10 disabled:opacity-50 transition"
           >
@@ -198,6 +200,16 @@ export function MyApplicationsTab({
           authToken={authToken}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteId}
+        title="Delete application?"
+        message="Are you sure you want to delete this application? This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   )
 }

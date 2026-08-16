@@ -3,6 +3,7 @@ import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
 import type { Application } from './MyApplicationsTab'
 import { APPLICATION_STATUSES, type ApplicationStatus } from '@/lib/applicationStatus'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 interface CandidateBoardProps {
   applications: Application[]
@@ -31,6 +32,7 @@ export function CandidateBoard({
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleDragStart = (e: React.DragEvent, appId: string) => {
     setDraggedId(appId)
@@ -62,12 +64,12 @@ export function CandidateBoard({
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this application?')) return
     setDeleting(id)
     try {
       await onDelete(id)
     } finally {
       setDeleting(null)
+      setConfirmDeleteId(null)
     }
   }
 
@@ -127,7 +129,7 @@ export function CandidateBoard({
                     View
                   </Button>
                   <button
-                    onClick={() => handleDelete(app.id)}
+                    onClick={() => setConfirmDeleteId(app.id)}
                     disabled={deleting === app.id}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-400/40 text-red-400 hover:bg-red-400/10 disabled:opacity-50 transition"
                   >
@@ -210,6 +212,16 @@ export function CandidateBoard({
           authToken={authToken}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteId}
+        title="Delete application?"
+        message="Are you sure you want to delete this application? This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   )
 }

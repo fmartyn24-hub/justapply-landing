@@ -11,6 +11,7 @@ import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
 import { CandidateBoard } from '@/components/dashboard/CandidateBoard'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
+import { NoticeModal } from '@/components/common/NoticeModal'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 import type { ApplicationStatus } from '@/lib/applicationStatus'
@@ -117,6 +118,8 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [showAddApplicationForm, setShowAddApplicationForm] = useState(false)
+  const [notice, setNotice] = useState<{ message: string; variant: 'success' | 'error' | 'info' } | null>(null)
+  const showNotice = (message: string, variant: 'success' | 'error' | 'info' = 'error') => setNotice({ message, variant })
   const [savingManualApplication, setSavingManualApplication] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [reviewComponents, setReviewComponents] = useState<ExtractedComponentPreview[]>([])
@@ -220,7 +223,7 @@ function Dashboard() {
       setTimeout(() => setSuccessMessage(''), 4000)
     } catch (err) {
       console.error('Save error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to save profile')
+      showNotice(err instanceof Error ? err.message : 'Failed to save profile')
     } finally {
       setSavingProfile(false)
     }
@@ -404,7 +407,7 @@ function Dashboard() {
       const extracted = prepareReviewComponents(data.components || [])
 
       if (extracted.length === 0) {
-        alert('No components could be extracted from your documents. Try uploading a more detailed CV.')
+        showNotice('No components could be extracted from your documents. Try uploading a more detailed CV.')
         return
       }
 
@@ -417,7 +420,7 @@ function Dashboard() {
       openReviewModal(extracted)
     } catch (err) {
       console.error('Extraction error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to extract components')
+      showNotice(err instanceof Error ? err.message : 'Failed to extract components')
     } finally {
       setExtracting(false)
     }
@@ -444,7 +447,7 @@ function Dashboard() {
 
     const approved = reviewComponents.filter((_, i) => reviewSelected[i])
     if (approved.length === 0) {
-      alert('Select at least one component to add, or discard them all.')
+      showNotice('Select at least one component to add, or discard them all.')
       return
     }
 
@@ -516,7 +519,7 @@ function Dashboard() {
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
       console.error('Approve components error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to add components')
+      showNotice(err instanceof Error ? err.message : 'Failed to add components')
     } finally {
       setApprovingComponents(false)
     }
@@ -638,7 +641,7 @@ function Dashboard() {
       setDeleteConfirm(null)
     } catch (err) {
       console.error('Delete error:', err)
-      alert('Failed to delete CV')
+      showNotice('Failed to delete CV')
     } finally {
       setDeleting(null)
     }
@@ -654,7 +657,7 @@ function Dashboard() {
       setDeleteConfirmComponent(null)
     } catch (err) {
       console.error('Delete error:', err)
-      alert('Failed to delete component')
+      showNotice('Failed to delete component')
     } finally {
       setDeletingComponent(null)
     }
@@ -881,7 +884,7 @@ function Dashboard() {
       }
     } catch (err) {
       console.error('Error updating component:', err)
-      alert('Failed to update component')
+      showNotice('Failed to update component')
     } finally {
       setSavingEdit(false)
     }
@@ -979,7 +982,7 @@ function Dashboard() {
         setApplications(appData)
       }
 
-      alert('✅ Application generated successfully!')
+      showNotice('Application generated successfully!', 'success')
       return inserted
     } catch (err) {
       console.error('Generation error:', err)
@@ -1020,7 +1023,7 @@ function Dashboard() {
       setShowAddApplicationForm(false)
     } catch (err) {
       console.error('Manual application create error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to create application')
+      showNotice(err instanceof Error ? err.message : 'Failed to create application')
     } finally {
       setSavingManualApplication(false)
     }
@@ -2454,6 +2457,13 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      <NoticeModal
+        isOpen={!!notice}
+        message={notice?.message || ''}
+        variant={notice?.variant}
+        onClose={() => setNotice(null)}
+      />
     </DashboardShell>
   )
 }
