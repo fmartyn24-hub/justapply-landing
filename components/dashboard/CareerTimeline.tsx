@@ -30,8 +30,8 @@ const TIMELINE_TYPES: Record<string, { icon: string; label: string }> = {
   volunteer: { icon: '🤝', label: 'Volunteer' },
 }
 
-function sortRolesByDate(roles: TimelineComponent[]): TimelineComponent[] {
-  return [...roles].sort((a, b) => {
+function sortByDateDesc(entries: TimelineComponent[]): TimelineComponent[] {
+  return [...entries].sort((a, b) => {
     const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
     const dateB = b.start_date ? new Date(b.start_date).getTime() : 0
     return dateB - dateA // Most recent first
@@ -44,57 +44,82 @@ function getYear(date?: string): string | null {
   return date && /^\d{4}/.test(date) ? date.slice(0, 4) : null
 }
 
-// A role's own date range, e.g. "2018 – Present" or "2015 – 2017".
-function roleDateRange(role: TimelineComponent): string {
-  const sy = getYear(role.start_date)
-  const ey = getYear(role.end_date)
+// An entry's own date range, e.g. "2018 – Present" or "2015 – 2017".
+function entryDateRange(entry: TimelineComponent): string {
+  const sy = getYear(entry.start_date)
+  const ey = getYear(entry.end_date)
   if (sy && ey) return `${sy} – ${ey}`
   if (sy && !ey) return `${sy} – Present`
   if (!sy && ey) return ey
   return ''
 }
 
-// The full span a person spent at a company: earliest start → latest end
-// (or Present if any role there is still open).
-function companyDateRange(roles: TimelineComponent[]): string {
-  const startYears = roles.map((r) => getYear(r.start_date)).filter(Boolean) as string[]
-  const endYears = roles.map((r) => getYear(r.end_date)).filter(Boolean) as string[]
-  const earliest = startYears.length ? startYears.reduce((a, b) => (a < b ? a : b)) : null
-  const hasOpenRole = roles.some((r) => getYear(r.start_date) && !getYear(r.end_date))
-  const latest = endYears.length ? endYears.reduce((a, b) => (a > b ? a : b)) : null
-  if (!earliest && !latest) return ''
-  const end = hasOpenRole ? 'Present' : latest || 'Present'
-  return `${earliest || '?'} – ${end}`
+function EntryCard({
+  entry,
+  align,
+  onClick,
+}: {
+  entry: TimelineComponent
+  align: 'left' | 'right'
+  onClick?: () => void
+}) {
+  const range = entryDateRange(entry)
+  const meta = TIMELINE_TYPES[entry.type]
+
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-navy-800 rounded-lg p-3 border border-navy-700 hover:border-blue-400 hover:shadow-md hover:shadow-blue-900/40 transition cursor-pointer ${
+        align === 'right' ? 'md:text-left' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2 flex-wrap mb-1">
+        {meta && <span>{meta.icon}</span>}
+        <p className="font-medium text-white">{entry.title}</p>
+      </div>
+      {entry.organization_name && (
+        <p className="text-sm text-blue-300 mb-1">{entry.organization_name}</p>
+      )}
+      {range && (
+        <div className="mb-2">
+          <span className="text-xs text-navy-400">{range}</span>
+        </div>
+      )}
+      {entry.primary_location && (
+        <p className="text-xs text-navy-400 mb-2">{entry.primary_location}</p>
+      )}
+      {entry.description && (
+        <p className="text-xs text-navy-300 mb-2 line-clamp-2">{entry.description}</p>
+      )}
+      {entry.impact_metrics && (
+        <p className="text-xs text-white font-medium mb-2">{entry.impact_metrics}</p>
+      )}
+      {entry.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {entry.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="px-2 py-0.5 bg-navy-700 text-navy-200 text-xs rounded">
+              {tag}
+            </span>
+          ))}
+          {entry.tags.length > 3 && <span className="text-navy-400 text-xs">+{entry.tags.length - 3}</span>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function CareerTimeline({ components, expandedRole, onRoleClick }: CareerTimelineProps) {
-  // Include roles alongside education, certifications, programs, and
-  // volunteer work — the full career + education story, not just jobs.
-  const roles = useMemo(() => {
-    return sortRolesByDate(components.filter((comp) => comp.type in TIMELINE_TYPES))
+  // One unified timeline — roles alongside education, certifications,
+  // programs, and volunteer work — ordered strictly by date rather than
+  // split into separate per-type or per-organization timelines.
+  const entries = useMemo(() => {
+    return sortByDateDesc(components.filter((comp) => comp.type in TIMELINE_TYPES))
   }, [components])
 
-  // Group roles by organization
-  const rolesByOrganization = useMemo(() => {
-    const groups: { [org: string]: TimelineComponent[] } = {}
+  const roleCount = entries.filter((e) => e.type === 'role').length
+  const complementaryCount = entries.length - roleCount
 
-    roles.forEach((role) => {
-      const org = role.organization_name || 'Other'
-      if (!groups[org]) {
-        groups[org] = []
-      }
-      groups[org].push(role)
-    })
-
-    // Sort organizations by most recent role date
-    return Object.entries(groups).sort((a, b) => {
-      const lastDateA = a[1][0]?.start_date ? new Date(a[1][0].start_date).getTime() : 0
-      const lastDateB = b[1][0]?.start_date ? new Date(b[1][0].start_date).getTime() : 0
-      return lastDateB - lastDateA
-    })
-  }, [roles])
-
-  if (roles.length === 0) {
+  if (entries.length === 0) {
     return (
       <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700">
         <p className="text-white font-medium">No timeline entries yet</p>
@@ -110,219 +135,62 @@ export function CareerTimeline({ components, expandedRole, onRoleClick }: Career
       <div>
         <h2 className="text-2xl font-semibold text-white">Career timeline</h2>
         <p className="text-sm text-navy-300 mt-1">
-          {rolesByOrganization.length} {rolesByOrganization.length === 1 ? 'organization' : 'organizations'} · {roles.length} {roles.length === 1 ? 'entry' : 'entries'}
+          {roleCount} {roleCount === 1 ? 'role' : 'roles'}
+          {complementaryCount > 0 && <> · {complementaryCount} complementary {complementaryCount === 1 ? 'entry' : 'entries'}</>}
         </p>
+        <div className="flex items-center gap-4 mt-2 text-xs text-navy-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue-400" /> Work
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-purple-400" /> Education, certifications & more
+          </span>
+        </div>
       </div>
 
-      {/* Desktop: Timeline grouped by organization */}
-      <div className="hidden md:block space-y-8">
-        {rolesByOrganization.map(([ org, orgRoles ]) => {
-          const orgRolesSorted = sortRolesByDate(orgRoles)
-          const hasProgression = orgRolesSorted.length > 1
+      {/* Desktop: single chronological spine, work on the left, everything else on the right */}
+      <div className="hidden md:grid grid-cols-[1fr_2rem_1fr] gap-x-6">
+        {entries.map((entry, i) => {
+          const isRole = entry.type === 'role'
+          const isCurrent = !!getYear(entry.start_date) && !getYear(entry.end_date)
 
           return (
-            <div key={org} className="relative">
-              {/* Organization Header */}
-              <div className="mb-6 pb-3 border-b-2 border-blue-300">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h3 className="text-lg font-semibold text-white">{org}</h3>
-                  {hasProgression && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
-                      ↗ {orgRolesSorted.length} positions
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-navy-400">
-                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'entry' : 'entries'}`}
-                </p>
+            <div key={entry.id} className="contents">
+              <div className="flex justify-end">
+                {isRole && <div className="w-full max-w-md"><EntryCard entry={entry} align="left" onClick={() => onRoleClick?.(entry)} /></div>}
               </div>
-
-              {/* Roles under this organization — a connected sub-timeline so
-                  internal progression (promotions, title changes) reads as growth */}
-              <div className="relative ml-3 pl-6 space-y-3">
-                {/* Vertical connector line spanning the roles */}
-                {hasProgression && (
-                  <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-blue-300 to-blue-200" />
-                )}
-                {orgRolesSorted.map((role, roleIndex) => {
-                  const range = roleDateRange(role)
-                  const isCurrent = !!getYear(role.start_date) && !getYear(role.end_date)
-
-                  return (
-                    <div key={role.id} className="relative">
-                      {/* Timeline dot */}
-                      <div
-                        className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-navy-900 ${
-                          isCurrent ? 'bg-blue-500' : 'bg-blue-300'
-                        }`}
-                        style={{ boxShadow: '0 0 0 2px #151C3D' }}
-                      />
-                      <div
-                        onClick={() => onRoleClick?.(role)}
-                        className="bg-navy-800 rounded-lg p-3 border border-navy-700 hover:border-blue-400 hover:shadow-md hover:shadow-blue-900/40 transition cursor-pointer"
-                      >
-                        {/* Header: title + progression hint */}
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="font-medium text-white">
-                            {role.type !== 'role' && <span className="mr-1">{TIMELINE_TYPES[role.type]?.icon}</span>}
-                            {role.title}
-                          </p>
-                          {hasProgression && roleIndex === 0 && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 flex-shrink-0">
-                              Most recent
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Date range */}
-                        {range && (
-                          <div className="mb-2">
-                            <span className="text-xs text-navy-400">{range}</span>
-                          </div>
-                        )}
-
-                        {/* Location */}
-                        {role.primary_location && (
-                          <p className="text-xs text-navy-400 mb-2">{role.primary_location}</p>
-                        )}
-
-                        {/* Description */}
-                        {role.description && (
-                          <p className="text-xs text-navy-300 mb-2 line-clamp-2">{role.description}</p>
-                        )}
-
-                        {/* Impact metrics */}
-                        {role.impact_metrics && (
-                          <p className="text-xs text-white font-medium mb-2">{role.impact_metrics}</p>
-                        )}
-
-                        {/* Tags */}
-                        {role.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {role.tags.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 bg-navy-700 text-navy-200 text-xs rounded"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {role.tags.length > 3 && (
-                              <span className="text-navy-400 text-xs">+{role.tags.length - 3}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-3 h-3 rounded-full border-2 border-navy-900 flex-shrink-0 ${
+                    isRole ? (isCurrent ? 'bg-blue-500' : 'bg-blue-300') : isCurrent ? 'bg-purple-500' : 'bg-purple-300'
+                  }`}
+                  style={{ boxShadow: '0 0 0 2px #151C3D' }}
+                />
+                {i < entries.length - 1 && <div className="w-0.5 flex-1 bg-navy-700 my-1" />}
+              </div>
+              <div className="flex justify-start">
+                {!isRole && <div className="w-full max-w-md"><EntryCard entry={entry} align="right" onClick={() => onRoleClick?.(entry)} /></div>}
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Mobile: Vertical timeline grouped by organization */}
-      <div className="md:hidden space-y-6">
-        {rolesByOrganization.map(([ org, orgRoles ]) => {
-          const orgRolesSorted = sortRolesByDate(orgRoles)
-          const hasProgression = orgRolesSorted.length > 1
+      {/* Mobile: single stacked chronological list */}
+      <div className="md:hidden space-y-3">
+        {entries.map((entry) => {
+          const isRole = entry.type === 'role'
+          const isCurrent = !!getYear(entry.start_date) && !getYear(entry.end_date)
 
           return (
-            <div key={org}>
-              {/* Organization Header */}
-              <div className="mb-3 pb-2 border-b-2 border-blue-300">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h3 className="text-base font-semibold text-white">{org}</h3>
-                  {hasProgression && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
-                      ↗ {orgRolesSorted.length} positions
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-navy-400">
-                  {companyDateRange(orgRolesSorted) || `${orgRoles.length} ${orgRoles.length === 1 ? 'entry' : 'entries'}`}
-                </p>
-              </div>
-
-              {/* Roles under this organization */}
-              <div className="space-y-2">
-                {orgRolesSorted.map((role) => {
-                  const range = roleDateRange(role)
-                  const isCurrent = !!getYear(role.start_date) && !getYear(role.end_date)
-
-                  return (
-                    <div key={role.id} className="relative pl-4">
-                      {/* Vertical accent line */}
-                      <div className="absolute left-0 top-0 w-0.5 h-full bg-navy-700" />
-                      <div
-                        className={`absolute left-0 top-1.5 -translate-x-1.5 w-3 h-3 bg-navy-900 border-2 rounded-full ${
-                          isCurrent ? 'border-blue-500' : 'border-navy-600'
-                        }`}
-                      />
-
-                      {/* Card */}
-                      <div
-                        onClick={() => onRoleClick?.(role)}
-                        className="bg-navy-800 rounded-lg p-3 border border-navy-700 hover:border-blue-400 hover:shadow-md hover:shadow-blue-900/40 transition cursor-pointer"
-                      >
-                        {/* Header */}
-                        <p className="font-medium text-white text-sm mb-2">
-                          {role.type !== 'role' && <span className="mr-1">{TIMELINE_TYPES[role.type]?.icon}</span>}
-                          {role.title}
-                        </p>
-
-                        {/* Date range */}
-                        {range && (
-                          <div className="mb-2">
-                            <span className="text-xs text-navy-400">{range}</span>
-                          </div>
-                        )}
-
-                        {/* Location */}
-                        {role.primary_location && (
-                          <p className="text-xs text-navy-400 mb-2">
-                            {role.primary_location}
-                          </p>
-                        )}
-
-                        {/* Description */}
-                        {role.description && (
-                          <p className="text-xs text-navy-300 mb-2 line-clamp-2">
-                            {role.description}
-                          </p>
-                        )}
-
-                        {/* Impact metrics */}
-                        {role.impact_metrics && (
-                          <p className="text-xs text-white font-medium mb-2">
-                            {role.impact_metrics}
-                          </p>
-                        )}
-
-                        {/* Tags */}
-                        {role.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {role.tags.slice(0, 2).map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 bg-navy-700 text-navy-200 text-xs rounded"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {role.tags.length > 2 && (
-                              <span className="text-navy-400 text-xs">
-                                +{role.tags.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            <div key={entry.id} className="relative pl-4">
+              <div className="absolute left-0 top-0 w-0.5 h-full bg-navy-700" />
+              <div
+                className={`absolute left-0 top-1.5 -translate-x-1.5 w-3 h-3 bg-navy-900 border-2 rounded-full ${
+                  isRole ? (isCurrent ? 'border-blue-500' : 'border-blue-300') : isCurrent ? 'border-purple-500' : 'border-purple-300'
+                }`}
+              />
+              <EntryCard entry={entry} align="left" onClick={() => onRoleClick?.(entry)} />
             </div>
           )
         })}
