@@ -182,9 +182,50 @@ Return ONLY valid JSON in this exact format:
       "title": "communication style aspect",
       "description": "observed communication style from the documents",
       "tags": ["trait"]
+    },
+    {
+      "type": "education",
+      "title": "degree name and field of study",
+      "organization_name": "school or university name",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "relevant coursework, honors, or focus area",
+      "tags": ["field"]
+    },
+    {
+      "type": "certification",
+      "title": "certification or license name",
+      "organization_name": "issuing body",
+      "start_date": "YYYY-MM or YYYY when obtained",
+      "end_date": "YYYY-MM or YYYY when it expires, or null if it doesn't expire",
+      "description": "what it certifies",
+      "tags": ["area"]
+    },
+    {
+      "type": "program",
+      "title": "program, bootcamp, fellowship, or training name",
+      "organization_name": "organization that ran it",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "what the program covered",
+      "tags": ["area"]
+    },
+    {
+      "type": "volunteer",
+      "title": "volunteer role or activity",
+      "organization_name": "organization",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "what was done",
+      "tags": ["area"]
     }
   ]
 }
+
+Only include "education", "certification", "program", and "volunteer" components when the document explicitly describes a degree, certification, structured program/bootcamp/fellowship, or volunteer work — do not invent one if none is present.
 
 Documents to analyze:
 ${combinedText}`,
