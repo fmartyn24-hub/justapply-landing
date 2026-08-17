@@ -12,6 +12,7 @@ import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { NoticeModal } from '@/components/common/NoticeModal'
+import { AiLockNotice } from '@/components/common/AiLockNotice'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 import type { ApplicationStatus } from '@/lib/applicationStatus'
@@ -193,6 +194,24 @@ function Dashboard() {
   const [savingApplicationStatus, setSavingApplicationStatus] = useState<string | null>(null)
   const { user, signOut } = useAuth()
   const { session } = useAuth()
+
+  // Admin-only preview of what a free (non-paying) account would see — lets
+  // AI-powered features (which cost real API money) be toggled off without
+  // any actual billing/plan infrastructure existing yet.
+  const isAdmin = user?.email === 'fmartyn24@gmail.com'
+  const [previewPlan, setPreviewPlan] = useState<'paid' | 'free'>('paid')
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('justapply-preview-plan') : null
+    if (stored === 'paid' || stored === 'free') setPreviewPlan(stored)
+  }, [])
+  const togglePreviewPlan = () => {
+    setPreviewPlan((prev) => {
+      const next = prev === 'paid' ? 'free' : 'paid'
+      window.localStorage.setItem('justapply-preview-plan', next)
+      return next
+    })
+  }
+  const aiLocked = isAdmin && previewPlan === 'free'
 
   const handleLogout = async () => {
     try {
@@ -389,6 +408,10 @@ function Dashboard() {
 
   const handleExtractComponents = async () => {
     if (!session?.access_token) return
+    if (aiLocked) {
+      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      return
+    }
 
     setExtracting(true)
     try {
@@ -723,6 +746,10 @@ function Dashboard() {
 
   const handleAnalyzeText = async (text: string) => {
     if (!session?.access_token || !session?.user?.id) return
+    if (aiLocked) {
+      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      return
+    }
 
     setAnalyzing(true)
     setAnalyzeStatus({
@@ -904,6 +931,7 @@ function Dashboard() {
     company?: string
   ) => {
     if (!session?.access_token) throw new Error('Not authenticated')
+    if (aiLocked) throw new Error('AI features are on the paid plan — you\'re previewing as a free account.')
 
     const response = await fetch('/api/analyze-job', {
       method: 'POST',
@@ -937,6 +965,10 @@ function Dashboard() {
     length?: string
   ) => {
     if (!session?.access_token || !session?.user?.id) return
+    if (aiLocked) {
+      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      return
+    }
 
     setGeneratingApplication(true)
     try {
@@ -1139,6 +1171,9 @@ function Dashboard() {
       onSignOut={handleLogout}
       hasComponents={components.length > 0}
       applicationsCount={applications.length}
+      isAdmin={isAdmin}
+      previewPlan={previewPlan}
+      onTogglePreviewPlan={togglePreviewPlan}
     >
         <div className="w-full space-y-4">
             {activeTab === 'home' && (
@@ -1213,6 +1248,7 @@ function Dashboard() {
                     components={components}
                     loading={generatingApplication}
                     authToken={session?.access_token}
+                    aiLocked={aiLocked}
                   />
                 )}
 
@@ -1230,6 +1266,7 @@ function Dashboard() {
                     openApplicationId={justGeneratedApplicationId}
                     onApplicationOpened={() => setJustGeneratedApplicationId(null)}
                     components={components}
+                    aiLocked={aiLocked}
                   />
                 )}
 
@@ -1594,7 +1631,7 @@ function Dashboard() {
 
             {/* Paste Tab */}
             {importTab === 'paste' && (
-              <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} />
+              <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} aiLocked={aiLocked} />
             )}
 
             {/* Upload Tab */}
@@ -1623,11 +1660,13 @@ function Dashboard() {
                       <p className="text-sm text-green-800 mt-1">
                         Turn it into career components, or upload another file.
                       </p>
+                      {aiLocked && <AiLockNotice className="mt-2" />}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <Button
                         onClick={handleExtractComponents}
                         loading={extracting}
+                        disabled={aiLocked}
                       >
                         Extract components now
                       </Button>

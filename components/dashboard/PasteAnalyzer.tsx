@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { useAuth } from '@/lib/context/AuthContext'
+import { AiLockNotice } from '@/components/common/AiLockNotice'
 
 interface PasteAnalyzerProps {
   onAnalyze: (text: string) => void
   analyzing: boolean
+  aiLocked?: boolean
 }
 
-export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
+export function PasteAnalyzer({ onAnalyze, analyzing, aiLocked }: PasteAnalyzerProps) {
   const [text, setText] = useState('')
   const [charCount, setCharCount] = useState(0)
 
@@ -79,12 +81,13 @@ export function PasteAnalyzer({ onAnalyze, analyzing }: PasteAnalyzerProps) {
       {/* Action Button */}
       <Button
         onClick={handleAnalyze}
-        disabled={charCount < 50 || analyzing}
+        disabled={charCount < 50 || analyzing || aiLocked}
         loading={analyzing}
         className="w-full"
       >
         Analyze
       </Button>
+      {aiLocked && <AiLockNotice />}
 
       {/* Trust/Safety Message */}
       <div className="rounded-lg p-3 border border-navy-700 bg-navy-800">

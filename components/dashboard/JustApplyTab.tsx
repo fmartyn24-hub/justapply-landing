@@ -3,6 +3,7 @@ import { Button } from '@/components/common/Button'
 import { CvPicker } from './CvPicker'
 import { ToneLengthPicker } from './ToneLengthPicker'
 import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
+import { AiLockNotice } from '@/components/common/AiLockNotice'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -44,6 +45,7 @@ interface JustApplyTabProps {
   components: LibraryComponent[]
   loading?: boolean
   authToken?: string
+  aiLocked?: boolean
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -59,7 +61,7 @@ const TYPE_LABELS: Record<string, string> = {
   context: 'Context',
 }
 
-export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken }: JustApplyTabProps) {
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
   const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
@@ -217,12 +219,13 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
 
           <Button
             type="submit"
-            disabled={analyzing || jobDescription.trim().length < 50}
+            disabled={analyzing || jobDescription.trim().length < 50 || aiLocked}
             loading={analyzing}
             className="w-full"
           >
             {analyzing ? 'Analysing the role...' : 'Analyze & suggest highlights →'}
           </Button>
+          {aiLocked && <AiLockNotice />}
 
           <p className="text-xs text-navy-300 bg-navy-900 rounded p-3 border border-navy-600">
             Tip: Include the full job description for better results. Next, you&apos;ll confirm which
@@ -369,6 +372,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
 
       <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="pt-2" />
       <ToneLengthPicker tone={tone} length={length} onToneChange={setTone} onLengthChange={setLength} className="pt-2" />
+      {aiLocked && <AiLockNotice />}
 
       {/* Reversible navigation — always a way back and a way forward */}
       <div className="flex gap-3 pt-2 border-t border-navy-600">
@@ -387,7 +391,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           type="button"
           onClick={handleGenerate}
           loading={loading}
-          disabled={loading}
+          disabled={loading || aiLocked}
           className="flex-[2]"
         >
           {loading

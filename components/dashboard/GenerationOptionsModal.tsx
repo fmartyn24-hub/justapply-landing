@@ -3,6 +3,7 @@ import { Button } from '@/components/common/Button'
 import { CvPicker } from './CvPicker'
 import { ToneLengthPicker } from './ToneLengthPicker'
 import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
+import { AiLockNotice } from '@/components/common/AiLockNotice'
 
 interface LibraryComponent {
   id: string
@@ -40,6 +41,7 @@ interface GenerationOptionsModalProps {
   authToken?: string
   generating?: boolean
   title?: string
+  locked?: boolean
 }
 
 // The "draft selection step" before generating/regenerating a cover letter
@@ -54,6 +56,7 @@ export function GenerationOptionsModal({
   authToken,
   generating,
   title = 'Generate options',
+  locked,
 }: GenerationOptionsModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [cvId, setCvId] = useState<string | null>(null)
@@ -123,6 +126,8 @@ export function GenerationOptionsModal({
 
         <ToneLengthPicker tone={tone} length={length} onToneChange={setTone} onLengthChange={setLength} />
 
+        {locked && <AiLockNotice />}
+
         <div className="flex gap-3 pt-2">
           <Button
             onClick={() =>
@@ -134,6 +139,7 @@ export function GenerationOptionsModal({
               })
             }
             loading={generating}
+            disabled={locked}
             className="flex-1"
           >
             Generate

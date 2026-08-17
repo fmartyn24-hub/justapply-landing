@@ -17,6 +17,9 @@ interface DashboardShellProps {
   hasComponents: boolean
   applicationsCount: number
   children: ReactNode
+  isAdmin?: boolean
+  previewPlan?: 'paid' | 'free'
+  onTogglePreviewPlan?: () => void
 }
 
 function NavIcon({ path }: { path: string }) {
@@ -76,6 +79,9 @@ export function DashboardShell({
   hasComponents,
   applicationsCount,
   children,
+  isAdmin,
+  previewPlan = 'paid',
+  onTogglePreviewPlan,
 }: DashboardShellProps) {
   const { theme, toggleTheme } = useTheme()
 
@@ -128,6 +134,20 @@ export function DashboardShell({
         </nav>
 
         <div className="px-3 py-4 border-t border-navy-700 space-y-1">
+          {isAdmin && (
+            <button
+              onClick={onTogglePreviewPlan}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white transition"
+            >
+              <NavIcon path="M4 6h16M4 12h16M4 18h7" />
+              <span className="flex-1 text-left">
+                Previewing as
+                <span className={`ml-1.5 font-semibold ${previewPlan === 'free' ? 'text-amber-400' : 'text-blue-400'}`}>
+                  {previewPlan === 'free' ? 'Free' : 'Paid'}
+                </span>
+              </span>
+            </button>
+          )}
           <button
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white transition"

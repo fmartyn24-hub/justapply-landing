@@ -4,6 +4,7 @@ import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
 import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
+import { AiLockNotice } from '@/components/common/AiLockNotice'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -32,6 +33,7 @@ interface ApplicationPreviewProps {
   onClose: () => void
   saving?: boolean
   authToken?: string
+  aiLocked?: boolean
 }
 
 function AiBadge() {
@@ -72,6 +74,7 @@ export function ApplicationPreview({
   onClose,
   saving,
   authToken,
+  aiLocked,
 }: ApplicationPreviewProps) {
   const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details'>('coverLetter')
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
@@ -151,6 +154,11 @@ export function ApplicationPreview({
 
   const handleGenerate = async (choices: GenerationChoices) => {
     if (!id || !authToken) return
+    if (aiLocked) {
+      setGenerateError('AI features are on the paid plan — you\'re previewing as a free account.')
+      setShowGenerationOptions(false)
+      return
+    }
     if (!editedJobDescription.trim()) {
       setGenerateError('Add a job description in Details first — generation needs it to tailor the content.')
       setActiveTab('details')
@@ -274,7 +282,7 @@ export function ApplicationPreview({
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowGenerationOptions(true)}
-                      disabled={generating === 'coverLetter'}
+                      disabled={generating === 'coverLetter' || aiLocked}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
                     >
                       <AiBoltIcon />
@@ -337,9 +345,10 @@ export function ApplicationPreview({
                 <p className="text-navy-300 max-w-sm">
                   No cover letter yet. Generate one tailored to this job description and your career library.
                 </p>
-                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
                   Generate Cover Letter
                 </Button>
+                {aiLocked && <AiLockNotice />}
               </div>
             )
           )}
@@ -351,7 +360,7 @@ export function ApplicationPreview({
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
                   <button
                     onClick={() => setShowGenerationOptions(true)}
-                    disabled={generating === 'coverLetter'}
+                    disabled={generating === 'coverLetter' || aiLocked}
                     className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
                   >
                     <AiBoltIcon size={10} />
@@ -373,9 +382,10 @@ export function ApplicationPreview({
                 <p className="text-navy-300 max-w-sm">
                   No advice yet. Pick a CV and we'll compare this job description against it and suggest specific changes.
                 </p>
-                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
                   Generate CV Advice
                 </Button>
+                {aiLocked && <AiLockNotice />}
               </div>
             )
           )}
@@ -495,6 +505,7 @@ export function ApplicationPreview({
         authToken={authToken}
         generating={generating === 'coverLetter'}
         title={editedCoverLetter ? 'Regenerate cover letter & CV advice' : 'Generate cover letter & CV advice'}
+        locked={aiLocked}
       />
     </div>
   )
