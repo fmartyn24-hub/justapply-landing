@@ -274,7 +274,12 @@ export function ApplicationPreview({
 
           {activeTab === 'coverLetter' && (
             editedCoverLetter ? (
-              <LockedOverlay active={!!aiLocked} className="h-full">
+              <LockedOverlay
+                active={!!aiLocked}
+                className="h-full"
+                title="Keep refining with AI"
+                pitch="Regenerate to pick different components to emphasize, a different tone or length, or a fresh draft as your job search evolves."
+              >
               <div className="h-full flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <p className={`text-xs ${wordCount > ONE_PAGE_WORD_LIMIT ? 'text-amber-400' : 'text-navy-400'}`}>
@@ -342,7 +347,12 @@ export function ApplicationPreview({
               </div>
               </LockedOverlay>
             ) : (
-              <LockedOverlay active={!!aiLocked} className="h-full">
+              <LockedOverlay
+                active={!!aiLocked}
+                className="h-full"
+                title="A cover letter written for this exact role"
+                pitch="We'll draft a contextual cover letter pulling from your career components — tailored to this job description, not a generic template."
+              >
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
@@ -358,7 +368,11 @@ export function ApplicationPreview({
 
           {activeTab === 'cvAdvice' && (
             currentCvAdvice ? (
-              <LockedOverlay active={!!aiLocked}>
+              <LockedOverlay
+                active={!!aiLocked}
+                title="Keep refining with AI"
+                pitch="Regenerate to get fresh advice as your CV or the role's requirements change."
+              >
               <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
@@ -382,7 +396,12 @@ export function ApplicationPreview({
               </div>
               </LockedOverlay>
             ) : (
-              <LockedOverlay active={!!aiLocked} className="h-full">
+              <LockedOverlay
+                active={!!aiLocked}
+                className="h-full"
+                title="Know exactly what to change on your CV"
+                pitch="We'll compare your uploaded CV against this job description and give you specific, actionable suggestions — not a rewrite, just what to adjust."
+              >
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">

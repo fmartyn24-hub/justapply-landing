@@ -1611,6 +1611,13 @@ function Dashboard() {
 
             <LockedOverlay
               active={aiLocked}
+              title="Build your career library in minutes"
+              pitch="Upload CVs, cover letters, a thesis, or any past document, and we'll automatically pull out your roles, skills, and achievements instead of you typing them one by one."
+              bullets={[
+                'Bulk-import from multiple documents at once',
+                'Roles, skills, achievements, and more extracted automatically',
+                'Review and approve before anything is saved',
+              ]}
               ctaLabel="Add a component manually instead"
               onCta={() => {
                 setShowImportModal(false)

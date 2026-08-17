@@ -153,7 +153,18 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
   // ─────────────────────────────── STEP 1: INPUT ───────────────────────────────
   if (step === 'input') {
     return (
-      <LockedOverlay active={!!aiLocked} ctaLabel="Add an application manually instead" onCta={onCreateManual}>
+      <LockedOverlay
+        active={!!aiLocked}
+        title="A perfectly tailored application in seconds"
+        pitch="Paste any job posting and we'll write a contextual cover letter built from your career library — plus specific advice on how to adjust your CV for this exact role."
+        bullets={[
+          'Cover letter written in your voice, for this job',
+          'Highlights the components most relevant to the role',
+          'CV advice grounded in your actual uploaded CV',
+        ]}
+        ctaLabel="Add an application manually instead"
+        onCta={onCreateManual}
+      >
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold text-white">Just Apply</h2>
