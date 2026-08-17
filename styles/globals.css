@@ -71,6 +71,10 @@ a {
 /* Text: white primary -> near-black; navy-2/300 secondary -> mid navy;
    navy-4/500 muted -> lighter mid navy, still readable on white. */
 [data-theme='light'] .text-white { color: #010722; }
+/* ...except on a solid blue button, where white-on-blue is the point —
+   these compound selectors (0,3,0) outweigh the plain rule above (0,2,0). */
+[data-theme='light'] .bg-blue-600.text-white,
+[data-theme='light'] .bg-primary.text-white { color: #FFFFFF; }
 [data-theme='light'] .text-navy-100 { color: #0B1029; }
 [data-theme='light'] .text-navy-200 { color: #212B54; }
 [data-theme='light'] .text-navy-300 { color: #333E6E; }
