@@ -407,7 +407,7 @@ function Dashboard() {
       const extracted = prepareReviewComponents(data.components || [])
 
       if (extracted.length === 0) {
-        showNotice('No components could be extracted from your documents. Try uploading a more detailed CV.')
+        showNotice("We couldn't extract anything new. Either the document's text couldn't be read (common with scanned or image-based PDFs), or everything in it already matches components you've already saved.")
         return
       }
 
@@ -1695,7 +1695,15 @@ function Dashboard() {
             {importTab === 'upload' && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Upload your CV or documents</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-white">Upload your CV or documents</h3>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                        <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+                      </svg>
+                      AI Powered
+                    </span>
+                  </div>
                   <p className="text-navy-300 text-sm mt-1">
                     Upload PDF or DOCX files. We'll extract and analyze your experience.
                   </p>
@@ -1715,7 +1723,7 @@ function Dashboard() {
                         onClick={handleExtractComponents}
                         loading={extracting}
                       >
-                        🤖 Extract components now
+                        Extract components now
                       </Button>
                       <button
                         onClick={() => {
