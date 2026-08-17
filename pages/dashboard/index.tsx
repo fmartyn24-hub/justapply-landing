@@ -12,7 +12,7 @@ import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { NoticeModal } from '@/components/common/NoticeModal'
-import { AiLockNotice } from '@/components/common/AiLockNotice'
+import { LockedOverlay } from '@/components/common/LockedOverlay'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 import type { ApplicationStatus } from '@/lib/applicationStatus'
@@ -1249,6 +1249,10 @@ function Dashboard() {
                     loading={generatingApplication}
                     authToken={session?.access_token}
                     aiLocked={aiLocked}
+                    onCreateManual={() => {
+                      setActiveTab('applications')
+                      setShowAddApplicationForm(true)
+                    }}
                   />
                 )}
 
@@ -1605,6 +1609,18 @@ function Dashboard() {
               </div>
             )}
 
+            <LockedOverlay
+              active={aiLocked}
+              ctaLabel="Add a component manually instead"
+              onCta={() => {
+                setShowImportModal(false)
+                setImportFile(null)
+                setImportUploadError('')
+                setImportUploadSuccess(false)
+                setAnalyzeStatus(null)
+                setShowAddForm(true)
+              }}
+            >
             {/* Tabs */}
             <div className="flex gap-4 border-b border-navy-600 mb-6">
               <button
@@ -1660,7 +1676,6 @@ function Dashboard() {
                       <p className="text-sm text-green-800 mt-1">
                         Turn it into career components, or upload another file.
                       </p>
-                      {aiLocked && <AiLockNotice className="mt-2" />}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <Button
@@ -1719,6 +1734,7 @@ function Dashboard() {
                 )}
               </div>
             )}
+            </LockedOverlay>
           </div>
         </div>
       )}

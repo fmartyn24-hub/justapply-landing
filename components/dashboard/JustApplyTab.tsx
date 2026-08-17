@@ -4,6 +4,7 @@ import { CvPicker } from './CvPicker'
 import { ToneLengthPicker } from './ToneLengthPicker'
 import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
 import { AiLockNotice } from '@/components/common/AiLockNotice'
+import { LockedOverlay } from '@/components/common/LockedOverlay'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -46,6 +47,7 @@ interface JustApplyTabProps {
   loading?: boolean
   authToken?: string
   aiLocked?: boolean
+  onCreateManual?: () => void
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -61,7 +63,7 @@ const TYPE_LABELS: Record<string, string> = {
   context: 'Context',
 }
 
-export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked }: JustApplyTabProps) {
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onCreateManual }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
   const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
@@ -151,6 +153,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
   // ─────────────────────────────── STEP 1: INPUT ───────────────────────────────
   if (step === 'input') {
     return (
+      <LockedOverlay active={!!aiLocked} ctaLabel="Add an application manually instead" onCta={onCreateManual}>
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold text-white">Just Apply</h2>
@@ -225,7 +228,6 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           >
             {analyzing ? 'Analysing the role...' : 'Analyze & suggest highlights →'}
           </Button>
-          {aiLocked && <AiLockNotice />}
 
           <p className="text-xs text-navy-300 bg-navy-900 rounded p-3 border border-navy-600">
             Tip: Include the full job description for better results. Next, you&apos;ll confirm which
@@ -233,6 +235,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           </p>
         </form>
       </div>
+      </LockedOverlay>
     )
   }
 

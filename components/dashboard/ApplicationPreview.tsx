@@ -4,7 +4,7 @@ import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
 import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
-import { AiLockNotice } from '@/components/common/AiLockNotice'
+import { LockedOverlay } from '@/components/common/LockedOverlay'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -274,6 +274,7 @@ export function ApplicationPreview({
 
           {activeTab === 'coverLetter' && (
             editedCoverLetter ? (
+              <LockedOverlay active={!!aiLocked} className="h-full">
               <div className="h-full flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <p className={`text-xs ${wordCount > ONE_PAGE_WORD_LIMIT ? 'text-amber-400' : 'text-navy-400'}`}>
@@ -339,7 +340,9 @@ export function ApplicationPreview({
                   placeholder="Edit your cover letter..."
                 />
               </div>
+              </LockedOverlay>
             ) : (
+              <LockedOverlay active={!!aiLocked} className="h-full">
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
@@ -348,13 +351,14 @@ export function ApplicationPreview({
                 <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
                   Generate Cover Letter
                 </Button>
-                {aiLocked && <AiLockNotice />}
               </div>
+              </LockedOverlay>
             )
           )}
 
           {activeTab === 'cvAdvice' && (
             currentCvAdvice ? (
+              <LockedOverlay active={!!aiLocked}>
               <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
@@ -376,7 +380,9 @@ export function ApplicationPreview({
                   ))}
                 </div>
               </div>
+              </LockedOverlay>
             ) : (
+              <LockedOverlay active={!!aiLocked} className="h-full">
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
@@ -385,8 +391,8 @@ export function ApplicationPreview({
                 <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
                   Generate CV Advice
                 </Button>
-                {aiLocked && <AiLockNotice />}
               </div>
+              </LockedOverlay>
             )
           )}
 

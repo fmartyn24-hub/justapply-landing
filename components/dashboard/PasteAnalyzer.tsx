@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { useAuth } from '@/lib/context/AuthContext'
-import { AiLockNotice } from '@/components/common/AiLockNotice'
 
 interface PasteAnalyzerProps {
   onAnalyze: (text: string) => void
@@ -87,7 +86,6 @@ export function PasteAnalyzer({ onAnalyze, analyzing, aiLocked }: PasteAnalyzerP
       >
         Analyze
       </Button>
-      {aiLocked && <AiLockNotice />}
 
       {/* Trust/Safety Message */}
       <div className="rounded-lg p-3 border border-navy-700 bg-navy-800">
