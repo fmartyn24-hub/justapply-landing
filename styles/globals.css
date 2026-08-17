@@ -84,6 +84,7 @@ a {
 /* Status/accent text set for -300 on dark, translucent chips — too pale on
    a white background, so darken one step for contrast. Backgrounds/borders
    stay translucent Tailwind colors, which read fine on light too. */
+[data-theme='light'] .text-blue-200 { color: #1D4ED8; }
 [data-theme='light'] .text-blue-300 { color: #1D4ED8; }
 [data-theme='light'] .text-blue-400 { color: #1D4ED8; }
 [data-theme='light'] .text-purple-300 { color: #7E22CE; }
