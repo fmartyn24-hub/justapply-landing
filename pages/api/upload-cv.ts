@@ -134,6 +134,12 @@ export default async function handler(
       })
     }
 
+    // Cover letters sometimes land in this same upload path (e.g. via the
+    // "Import your information" flow, which accepts any past document for
+    // extraction) — flag them so the CV Advice picker never mistakes one for
+    // an actual CV/resume.
+    const documentType = /cover[ _-]?letter/i.test(filename) ? 'other' : 'cv'
+
     // Save metadata to cvs table
     const { data: cvRecord, error: dbError } = await serverSupabase
       .from('cvs')
@@ -144,6 +150,7 @@ export default async function handler(
         file_size_bytes: fileBuffer.length,
         mime_type: mimeType,
         extracted_text: extractedText,
+        document_type: documentType,
         metadata: {
           originalFilename: filename,
           uploadedAt: new Date().toISOString(),

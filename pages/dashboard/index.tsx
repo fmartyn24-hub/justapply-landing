@@ -141,7 +141,7 @@ function Dashboard() {
   // so feedback appears where the user is working rather than as a banner on
   // the page behind the modal.
   const [analyzeStatus, setAnalyzeStatus] = useState<{ text: string; variant: 'info' | 'success' | 'error' } | null>(null)
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'cvs' | 'security'>('profile')
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'security'>('profile')
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -1279,6 +1279,9 @@ function Dashboard() {
                   />
                 )}
 
+                {/* CVs Tab */}
+                {activeTab === 'cvs' && <CvManager authToken={session?.access_token} />}
+
                 {/* Candidate Board Tab */}
                 {activeTab === 'candidateBoard' && (
                   <CandidateBoard
@@ -1367,16 +1370,6 @@ function Dashboard() {
                   }`}
                 >
                   Profile
-                </button>
-                <button
-                  onClick={() => setSettingsTab('cvs')}
-                  className={`px-4 py-2 font-medium transition border-b-2 ${
-                    settingsTab === 'cvs'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  CVs
                 </button>
                 <button
                   onClick={() => setSettingsTab('security')}
@@ -1587,9 +1580,6 @@ function Dashboard() {
                   </div>
                 </form>
               )}
-
-              {/* CVs Tab */}
-              {settingsTab === 'cvs' && <CvManager authToken={session?.access_token} />}
 
               {/* Security Tab */}
               {settingsTab === 'security' && (
@@ -2454,8 +2444,16 @@ function Dashboard() {
       {/* Add Application Manually */}
       {showAddApplicationForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Add application</h2>
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-md w-full p-6 relative">
+            <button
+              type="button"
+              onClick={() => setShowAddApplicationForm(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold text-white mb-4 pr-8">Add application</h2>
             <form
               onSubmit={(e) => {
                 e.preventDefault()

@@ -86,9 +86,10 @@ export function CvManager({ authToken }: CvManagerProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="font-semibold text-gray-900">Your CVs</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Uploaded CVs, by date. Pick which one to use whenever you generate a cover letter or CV advice.
+        <h2 className="text-2xl font-semibold text-white">CVs</h2>
+        <p className="text-navy-300 mt-1">
+          Your uploaded CVs/resumes, by date — pick which one to use whenever you generate a cover letter or CV advice.
+          Cover letters don't belong here; they live with each application instead.
         </p>
       </div>
 
@@ -97,23 +98,23 @@ export function CvManager({ authToken }: CvManagerProps) {
       )}
 
       {cvs === null ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="text-sm text-navy-400">Loading…</p>
       ) : cvs.length === 0 ? (
-        <p className="text-sm text-gray-500">No CVs uploaded yet.</p>
+        <p className="text-sm text-navy-400">No CVs uploaded yet.</p>
       ) : (
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg">
+        <ul className="divide-y divide-navy-700 border border-navy-700 rounded-lg bg-navy-800">
           {cvs.map((cv) => (
             <li key={cv.id} className="flex items-center justify-between px-4 py-3 gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{cv.filename}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-white truncate">{cv.filename}</p>
+                <p className="text-xs text-navy-400">
                   Uploaded {new Date(cv.created_at).toLocaleDateString()} · {(cv.file_size_bytes / 1024).toFixed(0)} KB
                 </p>
               </div>
               <button
                 onClick={() => setConfirmDeleteId(cv.id)}
                 disabled={deletingId === cv.id}
-                className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 flex-shrink-0"
+                className="text-sm font-semibold text-red-400 hover:text-red-300 disabled:opacity-50 flex-shrink-0"
               >
                 Delete
               </button>
@@ -122,16 +123,21 @@ export function CvManager({ authToken }: CvManagerProps) {
         </ul>
       )}
 
-      <div className="space-y-3 pt-2 border-t border-gray-200">
+      <div className="space-y-3 pt-2 border-t border-navy-700">
+        <p className="text-sm font-medium text-navy-200">Upload your CV or resume (not a cover letter)</p>
         <CVUploadZone onFileSelect={setFile} isLoading={uploading} />
         {file && (
           <div className="flex gap-3">
             <Button onClick={handleUpload} loading={uploading} size="sm" className="flex-1">
               Upload CV
             </Button>
-            <Button onClick={() => setFile(null)} variant="outline" size="sm" className="flex-1" disabled={uploading}>
+            <button
+              onClick={() => setFile(null)}
+              disabled={uploading}
+              className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+            >
               Cancel
-            </Button>
+            </button>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { Logo } from '@/components/common/Logo'
 
-export type DashboardTab = 'home' | 'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard' | 'settings'
+export type DashboardTab = 'home' | 'library' | 'timeline' | 'cvs' | 'justApply' | 'myApplications' | 'candidateBoard' | 'settings'
 
 interface NavItem {
   tab: DashboardTab
@@ -84,6 +84,7 @@ export function DashboardShell({
     { tab: 'home', label: 'Home', icon: <NavIcon path="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" /> },
     { tab: 'library', label: 'Components', icon: <NavIcon path="M4 6h16M4 12h16M4 18h7" /> },
     { tab: 'timeline', label: 'Timeline', icon: <NavIcon path="M5 4v16M5 8h5a3 3 0 0 1 0 6H5m0 6h5a3 3 0 0 0 0-6" /> },
+    { tab: 'cvs', label: 'CVs', icon: <NavIcon path="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v5h5M9 13h6M9 17h6" /> },
     {
       tab: 'myApplications',
       label: 'Applications',

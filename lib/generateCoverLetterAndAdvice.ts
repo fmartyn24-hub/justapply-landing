@@ -52,6 +52,7 @@ export async function generateCoverLetterAndAdvice(
     .from('cvs')
     .select('extracted_text, filename, created_at')
     .eq('user_id', userId)
+    .eq('document_type', 'cv')
 
   const { data: selectedCv } = cvId
     ? await cvQuery.eq('id', cvId).maybeSingle()

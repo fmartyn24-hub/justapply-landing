@@ -41,6 +41,7 @@ export default async function handler(
       .from('cvs')
       .select('id, filename, file_size_bytes, created_at')
       .eq('user_id', user.id)
+      .eq('document_type', 'cv')
       .order('created_at', { ascending: false })
 
     if (error) {
