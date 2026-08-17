@@ -837,6 +837,7 @@ function Dashboard() {
       start_date: component.start_date,
       end_date: component.end_date,
       impact_metrics: component.impact_metrics,
+      organization_name: component.organization_name,
       primary_location: component.primary_location,
       tags: component.tags || [],
     })
@@ -857,6 +858,7 @@ function Dashboard() {
           start_date: editFormData.start_date || null,
           end_date: editFormData.end_date || null,
           impact_metrics: editFormData.impact_metrics || null,
+          organization_name: editFormData.organization_name || null,
           primary_location: editFormData.primary_location || null,
           tags: editFormData.tags || [],
           tone_keywords: editFormData.tone_keywords || null,
@@ -2057,18 +2059,29 @@ function Dashboard() {
       {/* Edit Component Modal */}
       {editingComponent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Edit {getComponentIcon(editFormData.type || 'achievement')} {editFormData.type}</h2>
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingComponent(null)
+                setEditFormData({})
+              }}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Edit {getComponentIcon(editFormData.type || 'achievement')} {editFormData.type}</h2>
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Type *
                   </label>
                   <select
                     value={editFormData.type || 'achievement'}
                     onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   >
                     <option value="achievement">Achievement</option>
                     <option value="skill">Skill</option>
@@ -2085,108 +2098,122 @@ function Dashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Title *
                   </label>
                   <input
                     type="text"
                     value={editFormData.title || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Description
                 </label>
                 <textarea
                   value={editFormData.description || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   rows={3}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={editFormData.start_date || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={editFormData.end_date || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Impact Metrics
                 </label>
                 <input
                   type="text"
                   value={editFormData.impact_metrics || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, impact_metrics: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   placeholder="e.g., Increased sales by 40%"
                 />
               </div>
 
-              {editFormData.type === 'role' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.primary_location || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, primary_location: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
-                    placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
-                  />
+              {['role', 'education', 'certification', 'program', 'volunteer'].includes(editFormData.type || '') && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      {editFormData.type === 'role' ? 'Company/Organization' : 'Organizing Body'}
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.organization_name || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, organization_name: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder={editFormData.type === 'role' ? 'e.g., Acme Corp, Google, Startup Inc' : 'e.g., Coursera, Harvard University, Red Cross'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.primary_location || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, primary_location: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
+                    />
+                  </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
+                <label className="block text-sm font-medium text-navy-200 mb-1">
                   Tags
                 </label>
                 <input
                   type="text"
                   value={(editFormData.tags || []).join(', ')}
                   onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value.split(',').map(t => t.trim()) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                   placeholder="e.g., React, TypeScript, Performance"
                 />
               </div>
 
               {editFormData.type === 'voice' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Tone Keywords
                   </label>
                   <input
                     type="text"
                     value={editFormData.tone_keywords || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, tone_keywords: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     placeholder="e.g., direct, warm, analytical, storytelling-focused"
                   />
                   <p className="text-xs text-navy-400 mt-1">Comma-separated keywords describing your communication style</p>
@@ -2195,14 +2222,14 @@ function Dashboard() {
 
               {editFormData.type === 'context' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
                     Related Terms
                   </label>
                   <input
                     type="text"
                     value={editFormData.related_terms || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, related_terms: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
                   />
                   <p className="text-xs text-navy-400 mt-1">Comma-separated related concepts this term explains</p>
@@ -2213,17 +2240,16 @@ function Dashboard() {
                 <Button type="submit" loading={savingEdit} className="flex-1">
                   Save Changes
                 </Button>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => {
                     setEditingComponent(null)
                     setEditFormData({})
                   }}
-                  className="flex-1"
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </form>
           </div>
@@ -2233,8 +2259,16 @@ function Dashboard() {
       {/* Add Component Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-96 overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-4">Add Component</h2>
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Add Component</h2>
             <form onSubmit={handleAddComponent} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2325,19 +2359,19 @@ function Dashboard() {
                 />
               </div>
 
-              {formData.type === 'role' && (
+              {['role', 'education', 'certification', 'program', 'volunteer'].includes(formData.type) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-navy-200 mb-1">
-                      Company/Organization *
+                      {formData.type === 'role' ? 'Company/Organization *' : 'Organizing Body'}
                     </label>
                     <input
                       type="text"
                       value={formData.organization_name || ''}
                       onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
                       className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
-                      placeholder="e.g., Acme Corp, Google, Startup Inc"
-                      required
+                      placeholder={formData.type === 'role' ? 'e.g., Acme Corp, Google, Startup Inc' : 'e.g., Coursera, Harvard University, Red Cross'}
+                      required={formData.type === 'role'}
                     />
                   </div>
                   <div>
