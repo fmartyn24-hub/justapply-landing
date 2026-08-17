@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
 import { APPLICATION_STATUSES, STATUS_BY_VALUE, type ApplicationStatus } from '@/lib/applicationStatus'
@@ -31,6 +31,8 @@ interface MyApplicationsTabProps {
   onCreateManual?: () => void
   loading?: boolean
   authToken?: string
+  openApplicationId?: string | null
+  onApplicationOpened?: () => void
 }
 
 export function MyApplicationsTab({
@@ -43,8 +45,21 @@ export function MyApplicationsTab({
   onCreateManual,
   loading,
   authToken,
+  openApplicationId,
+  onApplicationOpened,
 }: MyApplicationsTabProps) {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
+
+  // Jump straight to the just-generated application instead of leaving the
+  // user to find it themselves in the list after Just Apply finishes.
+  useEffect(() => {
+    if (!openApplicationId) return
+    const app = applications.find((a) => a.id === openApplicationId)
+    if (app) {
+      setSelectedApp(app)
+      onApplicationOpened?.()
+    }
+  }, [openApplicationId, applications, onApplicationOpened])
   const [deleting, setDeleting] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)

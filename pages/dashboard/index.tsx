@@ -175,6 +175,7 @@ function Dashboard() {
   })
   const [analyzing, setAnalyzing] = useState(false)
   const [activeTab, setActiveTab] = useState<DashboardTab>('home')
+  const [justGeneratedApplicationId, setJustGeneratedApplicationId] = useState<string | null>(null)
   const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
   const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
   const [savingEdit, setSavingEdit] = useState(false)
@@ -983,6 +984,11 @@ function Dashboard() {
       }
 
       showNotice('Application generated successfully!', 'success')
+      const insertedId = (inserted as any)?.id
+      if (insertedId) {
+        setActiveTab('myApplications')
+        setJustGeneratedApplicationId(insertedId)
+      }
       return inserted
     } catch (err) {
       console.error('Generation error:', err)
@@ -1305,6 +1311,8 @@ function Dashboard() {
                     onCreateManual={() => setShowAddApplicationForm(true)}
                     loading={generatingApplication}
                     authToken={session?.access_token}
+                    openApplicationId={justGeneratedApplicationId}
+                    onApplicationOpened={() => setJustGeneratedApplicationId(null)}
                   />
                 )}
 
