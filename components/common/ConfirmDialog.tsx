@@ -1,4 +1,5 @@
 import { Button } from './Button'
+import { Logo } from './Logo'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -29,7 +30,7 @@ export function ConfirmDialog({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4">
       <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-sm w-full p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <img src="/logo-dark.svg" alt="justapply" className="h-9" />
+          <Logo className="h-9" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>

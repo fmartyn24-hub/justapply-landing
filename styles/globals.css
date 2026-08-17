@@ -30,3 +30,63 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Dashboard light theme
+ *
+ * The dashboard is built dark-first with literal Tailwind utility classes
+ * (bg-navy-900, text-white, etc.) scattered across ~15 component files
+ * rather than semantic tokens. Rewriting every className to a theme-aware
+ * token would touch hundreds of call sites for one toggle. Instead, these
+ * rules re-skin those same utility classes when nested under
+ * [data-theme="light"] (set on DashboardShell's root element) — an
+ * attribute-selector + class selector (0,2,0) always outweighs Tailwind's
+ * own single-class utility (0,1,0), so no !important or source-order care
+ * is needed, and every modal/dropdown rendered inside the shell picks this
+ * up automatically since CSS descendant matching doesn't care about
+ * `position: fixed`.
+ * ───────────────────────────────────────────────────────────────────────*/
+
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+/* Logo variant swap — see components/common/Logo.tsx */
+.logo-for-light { display: none; }
+[data-theme='light'] .logo-for-dark { display: none; }
+[data-theme='light'] .logo-for-light { display: inline-block; }
+
+/* Surfaces: darkest navy (page bg) -> palest lavender; card bg -> white;
+   hover/secondary surface -> pale lavender one step down from page bg. */
+[data-theme='light'] .bg-navy-900 { background-color: #F5F6FC; }
+[data-theme='light'] .bg-navy-800 { background-color: #FFFFFF; }
+[data-theme='light'] .bg-navy-700 { background-color: #EEF1FB; }
+
+/* Borders */
+[data-theme='light'] .border-navy-900,
+[data-theme='light'] .border-navy-700,
+[data-theme='light'] .border-navy-600 { border-color: #D7DCF0; }
+[data-theme='light'] .border-navy-500 { border-color: #AEB6DE; }
+
+/* Text: white primary -> near-black; navy-2/300 secondary -> mid navy;
+   navy-4/500 muted -> lighter mid navy, still readable on white. */
+[data-theme='light'] .text-white { color: #010722; }
+[data-theme='light'] .text-navy-100 { color: #0B1029; }
+[data-theme='light'] .text-navy-200 { color: #212B54; }
+[data-theme='light'] .text-navy-300 { color: #333E6E; }
+[data-theme='light'] .text-navy-400,
+[data-theme='light'] .text-navy-500 { color: #525E92; }
+
+/* Status/accent text set for -300 on dark, translucent chips — too pale on
+   a white background, so darken one step for contrast. Backgrounds/borders
+   stay translucent Tailwind colors, which read fine on light too. */
+[data-theme='light'] .text-blue-300 { color: #1D4ED8; }
+[data-theme='light'] .text-blue-400 { color: #1D4ED8; }
+[data-theme='light'] .text-purple-300 { color: #7E22CE; }
+[data-theme='light'] .text-amber-300 { color: #B45309; }
+[data-theme='light'] .text-amber-400 { color: #B45309; }
+[data-theme='light'] .text-red-300 { color: #B91C1C; }
+[data-theme='light'] .text-red-400 { color: #B91C1C; }
+[data-theme='light'] .text-emerald-300 { color: #047857; }
+[data-theme='light'] .text-green-300 { color: #15803D; }
+[data-theme='light'] .text-green-400 { color: #15803D; }

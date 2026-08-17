@@ -1,4 +1,5 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { Logo } from '@/components/common/Logo'
 
 export type DashboardTab = 'home' | 'library' | 'timeline' | 'justApply' | 'myApplications' | 'candidateBoard' | 'settings'
 
@@ -49,6 +50,25 @@ function NavButton({ item, isActive, onClick }: { item: NavItem; isActive: boole
   )
 }
 
+function useTheme() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('justapply-theme') : null
+    if (stored === 'light' || stored === 'dark') setTheme(stored)
+  }, [])
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      window.localStorage.setItem('justapply-theme', next)
+      return next
+    })
+  }
+
+  return { theme, toggleTheme }
+}
+
 export function DashboardShell({
   activeTab,
   onTabChange,
@@ -57,6 +77,8 @@ export function DashboardShell({
   applicationsCount,
   children,
 }: DashboardShellProps) {
+  const { theme, toggleTheme } = useTheme()
+
   // Core CRUD features: free, always available.
   const coreNavItems: NavItem[] = [
     { tab: 'home', label: 'Home', icon: <NavIcon path="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" /> },
@@ -82,11 +104,11 @@ export function DashboardShell({
   ]
 
   return (
-    <div className="min-h-screen bg-navy-900 flex">
+    <div className="min-h-screen bg-navy-900 flex" data-theme={theme}>
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 border-r border-navy-700 flex flex-col fixed inset-y-0 left-0 z-40">
+      <aside className="w-60 flex-shrink-0 bg-navy-900 border-r border-navy-700 flex flex-col fixed inset-y-0 left-0 z-40">
         <div className="px-5 py-6">
-          <img src="/logo-dark.svg" alt="justapply" className="h-8" />
+          <Logo className="h-8" />
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
@@ -110,6 +132,17 @@ export function DashboardShell({
         </nav>
 
         <div className="px-3 py-4 border-t border-navy-700 space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white transition"
+          >
+            {theme === 'dark' ? (
+              <NavIcon path="M12 3v1m0 16v1m9-9h-1M4 12H3m15.36 6.36-.7-.7M6.34 6.34l-.7-.7m12.72 0-.7.7M6.34 17.66l-.7.7M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />
+            ) : (
+              <NavIcon path="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+            )}
+            <span className="flex-1 text-left">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </button>
           <button
             onClick={() => onTabChange('settings')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
