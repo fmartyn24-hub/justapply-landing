@@ -61,6 +61,8 @@ export default async function handler(
       })
     }
 
+    const { cvId } = (req.body || {}) as { cvId?: string }
+
     const result = await generateCoverLetterAndAdvice(
       serverSupabase,
       user.id,
@@ -68,7 +70,8 @@ export default async function handler(
       application.job_description,
       application.job_title,
       application.company_name,
-      undefined
+      undefined,
+      cvId ?? application.cv_id
     )
 
     const { data: updated, error: updateError } = await serverSupabase
@@ -77,6 +80,7 @@ export default async function handler(
         generated_cover_letter: result.coverLetter,
         generated_cover_letter_json: result.coverLetterStructured,
         cv_advice: result.cvAdvice,
+        cv_id: cvId ?? application.cv_id ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

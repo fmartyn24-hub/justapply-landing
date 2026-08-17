@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/common/Button'
+import { CvPicker } from './CvPicker'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -33,10 +34,12 @@ interface JustApplyTabProps {
     jobDescription: string,
     jobTitle?: string,
     company?: string,
-    selectedComponentIds?: string[]
+    selectedComponentIds?: string[],
+    cvId?: string | null
   ) => Promise<void>
   components: LibraryComponent[]
   loading?: boolean
+  authToken?: string
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -52,8 +55,9 @@ const TYPE_LABELS: Record<string, string> = {
   context: 'Context',
 }
 
-export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustApplyTabProps) {
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
+  const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
 
   const [jobDescription, setJobDescription] = useState('')
   const [jobTitle, setJobTitle] = useState('')
@@ -125,7 +129,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
         jobDescription,
         jobTitle || undefined,
         company || undefined,
-        selectedIds.size > 0 ? Array.from(selectedIds) : undefined
+        selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
+        selectedCvId
       )
       resetAll()
     } catch (err) {
@@ -353,6 +358,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading }: JustA
           </div>
         )}
       </div>
+
+      <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="pt-2" />
 
       {/* Reversible navigation — always a way back and a way forward */}
       <div className="flex gap-3 pt-2 border-t border-navy-600">

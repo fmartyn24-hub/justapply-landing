@@ -3,6 +3,7 @@ import { Button } from '@/components/common/Button'
 import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
+import { CvPicker } from './CvPicker'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -69,6 +70,7 @@ export function ApplicationPreview({
   const [changingStatus, setChangingStatus] = useState(false)
   const [generating, setGenerating] = useState<'coverLetter' | 'cvAdvice' | null>(null)
   const [generateError, setGenerateError] = useState('')
+  const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
 
   // Auto-save functionality — cover letter text + details fields only. Status
   // changes save immediately on select (see handleStatusChange); CV advice
@@ -141,7 +143,11 @@ export function ApplicationPreview({
     try {
       const res = await fetch(`/api/applications/${id}/generate`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ cvId: selectedCvId }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Generation failed')
@@ -303,6 +309,7 @@ export function ApplicationPreview({
                 <p className="text-navy-300 max-w-sm">
                   No cover letter yet. Generate one tailored to this job description and your career library.
                 </p>
+                <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="w-full max-w-sm text-left" />
                 <Button onClick={() => handleGenerate('coverLetter')} loading={generating === 'coverLetter'}>
                   Generate Cover Letter
                 </Button>
@@ -336,8 +343,9 @@ export function ApplicationPreview({
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
-                  No advice yet. We'll compare this job description against your most recently uploaded CV and suggest specific changes.
+                  No advice yet. Pick a CV below and we'll compare this job description against it and suggest specific changes.
                 </p>
+                <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="w-full max-w-sm text-left" />
                 <Button onClick={() => handleGenerate('cvAdvice')} loading={generating === 'cvAdvice'}>
                   Generate CV Advice
                 </Button>

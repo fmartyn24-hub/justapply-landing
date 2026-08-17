@@ -18,7 +18,8 @@ export async function generateCoverLetterAndAdvice(
   jobDescription: string,
   jobTitle: string | undefined,
   company: string | undefined,
-  selectedComponentIds: string[] | undefined
+  selectedComponentIds: string[] | undefined,
+  cvId?: string | null
 ): Promise<GenerationResult> {
   const highlightIds: string[] = Array.isArray(selectedComponentIds)
     ? selectedComponentIds.filter((id): id is string => typeof id === 'string')
@@ -43,15 +44,20 @@ export async function generateCoverLetterAndAdvice(
     .eq('user_id', userId)
     .single()
 
-  // Most recently uploaded CV's extracted text — advice is grounded in what
-  // the candidate actually has on the page today, not a document we invent.
-  const { data: latestCv } = await serverSupabase
+  // Advice is grounded in a specific CV's actual text, not one we invent.
+  // If the candidate picked a CV, use that one; otherwise fall back to the
+  // most recently uploaded one (e.g. regeneration on an older application
+  // that predates the CV picker).
+  const cvQuery = serverSupabase
     .from('cvs')
     .select('extracted_text, filename, created_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  const { data: selectedCv } = cvId
+    ? await cvQuery.eq('id', cvId).maybeSingle()
+    : await cvQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+  const latestCv = selectedCv
 
   const roles = (components || []).filter((c: any) => c.type === 'experience' || c.type === 'role')
   const skills = (components || []).filter((c: any) => c.type === 'tool' || c.type === 'skill')

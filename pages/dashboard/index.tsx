@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/common/Button'
 import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
 import { CVUploadZone } from '@/components/upload/CVUploadZone'
+import { CvManager } from '@/components/dashboard/CvManager'
 import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
@@ -140,7 +141,7 @@ function Dashboard() {
   // so feedback appears where the user is working rather than as a banner on
   // the page behind the modal.
   const [analyzeStatus, setAnalyzeStatus] = useState<{ text: string; variant: 'info' | 'success' | 'error' } | null>(null)
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'security'>('profile')
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'cvs' | 'security'>('profile')
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -927,7 +928,8 @@ function Dashboard() {
     jobDescription: string,
     jobTitle?: string,
     company?: string,
-    selectedComponentIds?: string[]
+    selectedComponentIds?: string[],
+    cvId?: string | null
   ) => {
     if (!session?.access_token || !session?.user?.id) return
 
@@ -939,7 +941,7 @@ function Dashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds }),
+        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds, cvId }),
       })
 
       if (!response.ok) {
@@ -965,6 +967,7 @@ function Dashboard() {
           generated_cover_letter: data.coverLetter,
           generated_cover_letter_json: data.coverLetterStructured ?? null,
           cv_advice: data.cvAdvice,
+          cv_id: cvId || null,
           status: 'draft',
         } as any)
         .select()
@@ -1296,6 +1299,7 @@ function Dashboard() {
                     onSubmit={handleGenerateApplication}
                     components={components}
                     loading={generatingApplication}
+                    authToken={session?.access_token}
                   />
                 )}
 
@@ -1361,6 +1365,16 @@ function Dashboard() {
                   }`}
                 >
                   Profile
+                </button>
+                <button
+                  onClick={() => setSettingsTab('cvs')}
+                  className={`px-4 py-2 font-medium transition border-b-2 ${
+                    settingsTab === 'cvs'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  CVs
                 </button>
                 <button
                   onClick={() => setSettingsTab('security')}
@@ -1571,6 +1585,9 @@ function Dashboard() {
                   </div>
                 </form>
               )}
+
+              {/* CVs Tab */}
+              {settingsTab === 'cvs' && <CvManager authToken={session?.access_token} />}
 
               {/* Security Tab */}
               {settingsTab === 'security' && (

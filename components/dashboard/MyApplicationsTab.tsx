@@ -14,6 +14,7 @@ export interface Application {
   generated_cv?: string
   generated_cover_letter: string
   cv_advice?: string
+  cv_id?: string | null
   deadline?: string
   persons_of_interest?: string
   status: ApplicationStatus
