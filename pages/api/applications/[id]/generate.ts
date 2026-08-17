@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { generateCoverLetterAndAdvice } from '@/lib/generateCoverLetterAndAdvice'
+import type { CoverLetterTone, CoverLetterLength } from '@/lib/coverLetterOptions'
 
 interface ApiResponse {
   success: boolean
@@ -61,7 +62,12 @@ export default async function handler(
       })
     }
 
-    const { cvId } = (req.body || {}) as { cvId?: string }
+    const { cvId, selectedComponentIds, tone, length } = (req.body || {}) as {
+      cvId?: string
+      selectedComponentIds?: string[]
+      tone?: string
+      length?: string
+    }
 
     const result = await generateCoverLetterAndAdvice(
       serverSupabase,
@@ -70,8 +76,10 @@ export default async function handler(
       application.job_description,
       application.job_title,
       application.company_name,
-      undefined,
-      cvId ?? application.cv_id
+      selectedComponentIds,
+      cvId ?? application.cv_id,
+      { tone: tone as CoverLetterTone | undefined, length: length as CoverLetterLength | undefined },
+      id
     )
 
     const { data: updated, error: updateError } = await serverSupabase

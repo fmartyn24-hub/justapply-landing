@@ -8,8 +8,7 @@ import { CvManager } from '@/components/dashboard/CvManager'
 import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
 import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
 import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
-import { MyApplicationsTab } from '@/components/dashboard/MyApplicationsTab'
-import { CandidateBoard } from '@/components/dashboard/CandidateBoard'
+import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { NoticeModal } from '@/components/common/NoticeModal'
@@ -80,9 +79,11 @@ interface Application {
   generated_cover_letter: string
   generated_cv_json?: any
   generated_cover_letter_json?: any
+  cv_advice?: string
+  cv_id?: string | null
   deadline?: string
   persons_of_interest?: string
-  status: 'draft' | 'applied'
+  status: ApplicationStatus
   created_at: string
   updated_at: string
 }
@@ -931,7 +932,9 @@ function Dashboard() {
     jobTitle?: string,
     company?: string,
     selectedComponentIds?: string[],
-    cvId?: string | null
+    cvId?: string | null,
+    tone?: string,
+    length?: string
   ) => {
     if (!session?.access_token || !session?.user?.id) return
 
@@ -943,7 +946,7 @@ function Dashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds, cvId }),
+        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds, cvId, tone, length }),
       })
 
       if (!response.ok) {
@@ -991,7 +994,7 @@ function Dashboard() {
       showNotice('Application generated successfully!', 'success')
       const insertedId = (inserted as any)?.id
       if (insertedId) {
-        setActiveTab('myApplications')
+        setActiveTab('applications')
         setJustGeneratedApplicationId(insertedId)
       }
       return inserted
@@ -1056,60 +1059,6 @@ function Dashboard() {
     } catch (err) {
       console.error('Delete error:', err)
       throw err
-    }
-  }
-
-  const handleRegenerateApplication = async (id: string) => {
-    if (!session?.access_token || !session?.user?.id) return
-    const app = applications.find((a) => a.id === id)
-    if (!app) return
-
-    setGeneratingApplication(true)
-    try {
-      // Regenerate content for THIS application and update it in place. (The old
-      // implementation called the create handler, which inserted a duplicate row
-      // and left the original showing stale content.)
-      const response = await fetch('/api/generate-application', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          jobDescription: app.job_description || '',
-          jobTitle: app.job_title,
-          company: app.company_name,
-        }),
-      })
-
-      if (!response.ok) {
-        const d = await response.json().catch(() => ({}))
-        throw new Error(d.error || 'Failed to regenerate application')
-      }
-
-      const data = await response.json()
-
-      const { data: updated, error } = await (supabase.from('applications') as any)
-        .update({
-          generated_cover_letter: data.coverLetter,
-          generated_cover_letter_json: data.coverLetterStructured ?? null,
-          cv_advice: data.cvAdvice,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('user_id', session.user.id)
-        .select()
-        .single()
-
-      if (error) throw error
-      if (updated) {
-        setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
-      }
-    } catch (err) {
-      console.error('Regenerate error:', err)
-      throw err
-    } finally {
-      setGeneratingApplication(false)
     }
   }
 
@@ -1282,21 +1231,6 @@ function Dashboard() {
                 {/* CVs Tab */}
                 {activeTab === 'cvs' && <CvManager authToken={session?.access_token} />}
 
-                {/* Candidate Board Tab */}
-                {activeTab === 'candidateBoard' && (
-                  <CandidateBoard
-                    applications={applications}
-                    onStatusChange={handleUpdateApplicationStatus}
-                    onDelete={handleDeleteApplication}
-                    onRegenerate={handleRegenerateApplication}
-                    onUpdateApplication={handleUpdateApplication}
-                    onGenerated={handleApplicationGenerated}
-                    onCreateManual={() => setShowAddApplicationForm(true)}
-                    loading={generatingApplication}
-                    authToken={session?.access_token}
-                  />
-                )}
-
                 {/* Just Apply Tab */}
                 {activeTab === 'justApply' && (
                   <JustApplyTab
@@ -1308,13 +1242,12 @@ function Dashboard() {
                   />
                 )}
 
-                {/* My Applications Tab */}
-                {activeTab === 'myApplications' && (
-                  <MyApplicationsTab
+                {/* Applications Tab (list + kanban views) */}
+                {activeTab === 'applications' && (
+                  <ApplicationsView
                     applications={applications}
+                    onStatusChange={handleUpdateApplicationStatus}
                     onDelete={handleDeleteApplication}
-                    onRegenerate={handleRegenerateApplication}
-                    onSaveStatus={handleUpdateApplicationStatus}
                     onUpdateApplication={handleUpdateApplication}
                     onGenerated={handleApplicationGenerated}
                     onCreateManual={() => setShowAddApplicationForm(true)}
@@ -1322,6 +1255,7 @@ function Dashboard() {
                     authToken={session?.access_token}
                     openApplicationId={justGeneratedApplicationId}
                     onApplicationOpened={() => setJustGeneratedApplicationId(null)}
+                    components={components}
                   />
                 )}
 

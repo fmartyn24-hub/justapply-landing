@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { Logo } from '@/components/common/Logo'
 
-export type DashboardTab = 'home' | 'library' | 'timeline' | 'cvs' | 'justApply' | 'myApplications' | 'candidateBoard' | 'settings'
+export type DashboardTab = 'home' | 'library' | 'timeline' | 'cvs' | 'justApply' | 'applications' | 'settings'
 
 interface NavItem {
   tab: DashboardTab
@@ -86,15 +86,10 @@ export function DashboardShell({
     { tab: 'timeline', label: 'Timeline', icon: <NavIcon path="M5 4v16M5 8h5a3 3 0 0 1 0 6H5m0 6h5a3 3 0 0 0 0-6" /> },
     { tab: 'cvs', label: 'CVs', icon: <NavIcon path="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v5h5M9 13h6M9 17h6" /> },
     {
-      tab: 'myApplications',
+      tab: 'applications',
       label: 'Applications',
       icon: <NavIcon path="M7 4h7l5 5v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm7 0v5h5" />,
       badge: applicationsCount || undefined,
-    },
-    {
-      tab: 'candidateBoard',
-      label: 'Tracker',
-      icon: <NavIcon path="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1ZM5 7h14v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7Z" />,
     },
   ]
 
@@ -115,7 +110,7 @@ export function DashboardShell({
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {coreNavItems.map((item) => {
             if ((item.tab === 'library' || item.tab === 'timeline') && !hasComponents) return null
-            if ((item.tab === 'myApplications' || item.tab === 'candidateBoard') && !applicationsCount) return null
+            if (item.tab === 'applications' && !applicationsCount) return null
             return <NavButton key={item.tab} item={item} isActive={activeTab === item.tab} onClick={() => onTabChange(item.tab)} />
           })}
 

@@ -3,9 +3,16 @@ import { Button } from '@/components/common/Button'
 import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
-import { CvPicker } from './CvPicker'
+import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
 
 const ONE_PAGE_WORD_LIMIT = 320
+
+interface LibraryComponent {
+  id: string
+  type: string
+  title: string
+  organization_name?: string
+}
 
 interface ApplicationPreviewProps {
   id?: string
@@ -18,6 +25,7 @@ interface ApplicationPreviewProps {
   deadline?: string
   personsOfInterest?: string
   status?: ApplicationStatus
+  components?: LibraryComponent[]
   onSave?: (id: string, data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
   onStatusChange?: (status: ApplicationStatus) => Promise<void>
   onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => void
@@ -48,6 +56,7 @@ export function ApplicationPreview({
   deadline,
   personsOfInterest,
   status,
+  components = [],
   onSave,
   onStatusChange,
   onGenerated,
@@ -70,7 +79,7 @@ export function ApplicationPreview({
   const [changingStatus, setChangingStatus] = useState(false)
   const [generating, setGenerating] = useState<'coverLetter' | 'cvAdvice' | null>(null)
   const [generateError, setGenerateError] = useState('')
-  const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
+  const [showGenerationOptions, setShowGenerationOptions] = useState(false)
 
   // Auto-save functionality — cover letter text + details fields only. Status
   // changes save immediately on select (see handleStatusChange); CV advice
@@ -131,15 +140,16 @@ export function ApplicationPreview({
     }
   }
 
-  const handleGenerate = async (type: 'coverLetter' | 'cvAdvice') => {
+  const handleGenerate = async (choices: GenerationChoices) => {
     if (!id || !authToken) return
     if (!editedJobDescription.trim()) {
       setGenerateError('Add a job description in Details first — generation needs it to tailor the content.')
       setActiveTab('details')
+      setShowGenerationOptions(false)
       return
     }
     setGenerateError('')
-    setGenerating(type)
+    setGenerating('coverLetter')
     try {
       const res = await fetch(`/api/applications/${id}/generate`, {
         method: 'POST',
@@ -147,13 +157,14 @@ export function ApplicationPreview({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ cvId: selectedCvId }),
+        body: JSON.stringify(choices),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Generation failed')
       setEditedCoverLetter(body.data.generated_cover_letter || '')
       setCurrentCvAdvice(body.data.cv_advice || '')
       onGenerated?.(id, { generated_cover_letter: body.data.generated_cover_letter, cv_advice: body.data.cv_advice })
+      setShowGenerationOptions(false)
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
@@ -253,6 +264,13 @@ export function ApplicationPreview({
                   </p>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => setShowGenerationOptions(true)}
+                      disabled={generating === 'coverLetter'}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+                    >
+                      Regenerate
+                    </button>
+                    <button
                       onClick={() => setShowTemplateSelector(true)}
                       disabled={showTemplateSelector || !id || !authToken}
                       className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
@@ -309,8 +327,7 @@ export function ApplicationPreview({
                 <p className="text-navy-300 max-w-sm">
                   No cover letter yet. Generate one tailored to this job description and your career library.
                 </p>
-                <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="w-full max-w-sm text-left" />
-                <Button onClick={() => handleGenerate('coverLetter')} loading={generating === 'coverLetter'}>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
                   Generate Cover Letter
                 </Button>
               </div>
@@ -323,11 +340,11 @@ export function ApplicationPreview({
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
                   <button
-                    onClick={() => handleGenerate('cvAdvice')}
-                    disabled={generating === 'cvAdvice'}
+                    onClick={() => setShowGenerationOptions(true)}
+                    disabled={generating === 'coverLetter'}
                     className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
                   >
-                    {generating === 'cvAdvice' ? 'Regenerating…' : 'Regenerate'}
+                    Regenerate
                   </button>
                 </div>
                 <p className="text-xs text-navy-400">
@@ -343,10 +360,9 @@ export function ApplicationPreview({
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
-                  No advice yet. Pick a CV below and we'll compare this job description against it and suggest specific changes.
+                  No advice yet. Pick a CV and we'll compare this job description against it and suggest specific changes.
                 </p>
-                <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="w-full max-w-sm text-left" />
-                <Button onClick={() => handleGenerate('cvAdvice')} loading={generating === 'cvAdvice'}>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
                   Generate CV Advice
                 </Button>
               </div>
@@ -459,6 +475,16 @@ export function ApplicationPreview({
           onClose={() => setShowTemplateSelector(false)}
         />
       )}
+
+      <GenerationOptionsModal
+        isOpen={showGenerationOptions}
+        onClose={() => setShowGenerationOptions(false)}
+        onGenerate={handleGenerate}
+        components={components}
+        authToken={authToken}
+        generating={generating === 'coverLetter'}
+        title={editedCoverLetter ? 'Regenerate cover letter & CV advice' : 'Generate cover letter & CV advice'}
+      />
     </div>
   )
 }

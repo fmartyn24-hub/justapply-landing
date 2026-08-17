@@ -1,10 +1,66 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { getToneOption, getLengthOption, type CoverLetterTone, type CoverLetterLength } from './coverLetterOptions'
 
 export interface GenerationResult {
   coverLetter: string
   cvAdvice: string
   coverLetterStructured: any
+}
+
+export interface GenerationOptions {
+  tone?: CoverLetterTone | null
+  length?: CoverLetterLength | null
+}
+
+// Flattens the structured cover letter JSON into plain text for comparison
+// purposes only (detecting whether a saved cover letter was hand-edited) —
+// deliberately simpler than lib/previewHtml.ts's buildCoverLetterData, which
+// is for rendering, not diffing.
+function flattenStructuredCoverLetter(json: any): string {
+  if (!json || typeof json !== 'object') return ''
+  const parts = [
+    json.opening || '',
+    ...(Array.isArray(json.body_paragraphs) ? json.body_paragraphs : []),
+    json.closing || '',
+  ]
+  return parts.filter(Boolean).join('\n\n').trim()
+}
+
+// Pulls a couple of the candidate's own past cover letters that they
+// meaningfully hand-edited after generation (current text differs from the
+// AI's original structured draft), so future generations can learn their
+// actual voice/wording preferences instead of drifting back to generic
+// phrasing every time — edits inform future drafts instead of staying
+// siloed per application.
+async function getEditedVoiceExamples(serverSupabase: SupabaseClient, userId: string, excludeApplicationId?: string | null) {
+  let query = serverSupabase
+    .from('applications')
+    .select('id, generated_cover_letter, generated_cover_letter_json, updated_at')
+    .eq('user_id', userId)
+    .not('generated_cover_letter_json', 'is', null)
+    .not('generated_cover_letter', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(15)
+
+  if (excludeApplicationId) {
+    query = query.neq('id', excludeApplicationId)
+  }
+
+  const { data } = await query
+  if (!data) return []
+
+  const normalize = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+  return data
+    .filter((app: any) => {
+      const original = normalize(flattenStructuredCoverLetter(app.generated_cover_letter_json))
+      const current = normalize(app.generated_cover_letter || '')
+      // Require a real, substantive edit — not just whitespace or a typo fix.
+      return original && current && original !== current && Math.abs(original.length - current.length) > 15
+    })
+    .slice(0, 2)
+    .map((app: any) => app.generated_cover_letter as string)
 }
 
 // Shared by the Just Apply wizard (generate-application.ts) and the on-demand
@@ -19,7 +75,9 @@ export async function generateCoverLetterAndAdvice(
   jobTitle: string | undefined,
   company: string | undefined,
   selectedComponentIds: string[] | undefined,
-  cvId?: string | null
+  cvId?: string | null,
+  options?: GenerationOptions,
+  currentApplicationId?: string | null
 ): Promise<GenerationResult> {
   const highlightIds: string[] = Array.isArray(selectedComponentIds)
     ? selectedComponentIds.filter((id): id is string => typeof id === 'string')
@@ -59,6 +117,18 @@ export async function generateCoverLetterAndAdvice(
     : await cvQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
 
   const latestCv = selectedCv
+
+  const toneOption = getToneOption(options?.tone)
+  const lengthOption = getLengthOption(options?.length)
+  const voiceExamples = await getEditedVoiceExamples(serverSupabase, userId, currentApplicationId)
+  const voiceExamplesSection = voiceExamples.length > 0
+    ? `
+
+## THIS CANDIDATE'S OWN VOICE — examples of past cover letters they hand-edited after generation
+These are drafts THIS candidate personally rewrote — study their actual wording choices, sentence rhythm, and phrasing preferences and lean toward that demonstrated style over generic phrasing. Do NOT reuse their content; these are for a different job.
+${voiceExamples.map((text, i) => `### Edited example ${i + 1}\n${text}`).join('\n\n')}
+`
+    : ''
 
   const roles = (components || []).filter((c: any) => c.type === 'experience' || c.type === 'role')
   const skills = (components || []).filter((c: any) => c.type === 'tool' || c.type === 'skill')
@@ -114,7 +184,7 @@ ${profileAnswers?.answers ? `
 ${JSON.stringify(profileAnswers.answers, null, 2)}
 ` : ''}
 ${highlightedSection}
-
+${voiceExamplesSection}
 ## Candidate's Most Recently Uploaded CV/Resume (the actual document they currently use)
 ${latestCv?.extracted_text
   ? `File: ${latestCv.filename}\n\n${latestCv.extracted_text}`
@@ -167,10 +237,11 @@ A cover letter is not a prose version of the CV. It is a focused argument for wh
 - Close (1 short paragraph): forward-looking, specific to what they could contribute, warm but not saccharine.
 
 **Voice and tone:**
-- Write in the candidate's voice as inferred from their career context. Professional but human. Confident but not arrogant.
+- Requested tone for this draft: ${toneOption.promptInstruction}
+- Write in the candidate's voice as inferred from their career context (and their own past edited drafts, if provided below) filtered through that requested tone. Confident but not arrogant.
 - Avoid every cover-letter cliché: "I am excited to apply," "I believe I would be a great fit," "synergy," "dynamic team player," "wear many hats," "hit the ground running," "passionate about."
 - No bullet points — it should read as considered prose.
-- **Strict length: 200–280 words total across opening + body + closing. This MUST fit on a single printed page with normal margins — err short rather than long.**
+- **Strict length: ${lengthOption.wordRange} total across opening + body + closing. This MUST fit on a single printed page with normal margins — err toward the shorter end rather than long.**
 
 **Personalization signals:**
 - Reference the company by name in a way that demonstrates real understanding, drawn from the JD itself

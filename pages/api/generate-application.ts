@@ -34,7 +34,7 @@ export default async function handler(
     return res.status(401).json({ success: false, error: 'Unauthorized' })
   }
 
-  const { jobDescription, jobTitle, company, selectedComponentIds, cvId } = req.body
+  const { jobDescription, jobTitle, company, selectedComponentIds, cvId, tone, length } = req.body
 
   if (!jobDescription) {
     return res.status(400).json({ success: false, error: 'Job description is required' })
@@ -49,7 +49,8 @@ export default async function handler(
       jobTitle,
       company,
       selectedComponentIds,
-      cvId
+      cvId,
+      { tone, length }
     )
 
     return res.status(200).json({

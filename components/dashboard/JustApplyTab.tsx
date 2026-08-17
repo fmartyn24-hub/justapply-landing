@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { CvPicker } from './CvPicker'
+import { ToneLengthPicker } from './ToneLengthPicker'
+import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -35,7 +37,9 @@ interface JustApplyTabProps {
     jobTitle?: string,
     company?: string,
     selectedComponentIds?: string[],
-    cvId?: string | null
+    cvId?: string | null,
+    tone?: CoverLetterTone,
+    length?: CoverLetterLength
   ) => Promise<void>
   components: LibraryComponent[]
   loading?: boolean
@@ -58,6 +62,8 @@ const TYPE_LABELS: Record<string, string> = {
 export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
+  const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
+  const [length, setLength] = useState<CoverLetterLength>(DEFAULT_LENGTH)
 
   const [jobDescription, setJobDescription] = useState('')
   const [jobTitle, setJobTitle] = useState('')
@@ -130,7 +136,9 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
         jobTitle || undefined,
         company || undefined,
         selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
-        selectedCvId
+        selectedCvId,
+        tone,
+        length
       )
       resetAll()
     } catch (err) {
@@ -360,6 +368,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
       </div>
 
       <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="pt-2" />
+      <ToneLengthPicker tone={tone} length={length} onToneChange={setTone} onLengthChange={setLength} className="pt-2" />
 
       {/* Reversible navigation — always a way back and a way forward */}
       <div className="flex gap-3 pt-2 border-t border-navy-600">
