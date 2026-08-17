@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/common/Button'
 import { ExportTemplateSelector } from './ExportTemplateSelector'
-import { APPLICATION_STATUSES, type ApplicationStatus } from '@/lib/applicationStatus'
+import { type ApplicationStatus } from '@/lib/applicationStatus'
+import { StatusSelect } from '@/components/common/StatusSelect'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -158,7 +159,6 @@ export function ApplicationPreview({
     'w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-blue-500'
 
   const wordCount = editedCoverLetter.trim() ? editedCoverLetter.trim().split(/\s+/).length : 0
-  const currentStatusMeta = APPLICATION_STATUSES.find((s) => s.value === status) || APPLICATION_STATUSES[0]
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 m-0">
@@ -181,21 +181,11 @@ export function ApplicationPreview({
               <p className="text-sm text-green-400">Saved</p>
             )}
             {onStatusChange && (
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${currentStatusMeta.dot}`} />
-                <select
-                  value={status || 'draft'}
-                  onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
-                  disabled={changingStatus}
-                  className="bg-navy-900 border border-navy-600 rounded-lg text-white text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                >
-                  {APPLICATION_STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <StatusSelect
+                value={status || 'draft'}
+                onChange={handleStatusChange}
+                disabled={changingStatus}
+              />
             )}
             <button
               onClick={onClose}

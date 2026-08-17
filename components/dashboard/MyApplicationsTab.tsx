@@ -3,6 +3,7 @@ import { Button } from '@/components/common/Button'
 import { ApplicationPreview } from './ApplicationPreview'
 import { APPLICATION_STATUSES, STATUS_BY_VALUE, type ApplicationStatus } from '@/lib/applicationStatus'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { StatusSelect } from '@/components/common/StatusSelect'
 
 export interface Application {
   id: string
@@ -47,6 +48,17 @@ export function MyApplicationsTab({
   const [deleting, setDeleting] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [cardSavingStatusId, setCardSavingStatusId] = useState<string | null>(null)
+
+  const handleCardStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
+    if (!onSaveStatus) return
+    setCardSavingStatusId(appId)
+    try {
+      await onSaveStatus(appId, newStatus)
+    } finally {
+      setCardSavingStatusId(null)
+    }
+  }
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
@@ -79,7 +91,7 @@ export function MyApplicationsTab({
 
     return (
       <div className="bg-navy-800 border border-navy-700 rounded-lg p-5 hover:border-blue-400 transition">
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-3 gap-3">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-white">{app.job_title}</h3>
             <p className="text-navy-300">{app.company_name}</p>
@@ -90,6 +102,14 @@ export function MyApplicationsTab({
             )}
             <p className="text-xs text-navy-400 mt-2">Created {new Date(app.created_at).toLocaleDateString()}</p>
           </div>
+          {onSaveStatus && (
+            <StatusSelect
+              value={app.status || 'draft'}
+              onChange={(newStatus) => handleCardStatusChange(app.id, newStatus)}
+              disabled={cardSavingStatusId === app.id}
+              size="sm"
+            />
+          )}
         </div>
 
         {/* Actions */}
