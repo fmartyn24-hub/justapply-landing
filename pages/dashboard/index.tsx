@@ -1285,40 +1285,39 @@ function Dashboard() {
             )}
         </div>
 
-      {/* Settings Modal */}
+      {/* Settings */}
       {activeTab === 'settings' && (
-        <div className="bg-white rounded-xl max-w-md w-full overflow-y-auto">
-          <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-              </div>
+        <div className="space-y-6 max-w-2xl">
+          <div>
+            <h2 className="text-2xl font-semibold text-white">Settings</h2>
+            <p className="text-navy-300 mt-1">Your personal info and account preferences.</p>
+          </div>
 
-              {/* Tabs */}
-              <div className="flex gap-4 border-b border-gray-200">
-                <button
-                  onClick={() => setSettingsTab('profile')}
-                  className={`px-4 py-2 font-medium transition border-b-2 ${
-                    settingsTab === 'profile'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Profile
-                </button>
-                <button
-                  onClick={() => setSettingsTab('security')}
-                  className={`px-4 py-2 font-medium transition border-b-2 ${
-                    settingsTab === 'security'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Security
-                </button>
-              </div>
-            </div>
+          {/* Tabs */}
+          <div className="flex gap-4 border-b border-navy-700">
+            <button
+              onClick={() => setSettingsTab('profile')}
+              className={`px-1 pb-3 font-medium transition border-b-2 ${
+                settingsTab === 'profile'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-navy-300 hover:text-white'
+              }`}
+            >
+              About Me
+            </button>
+            <button
+              onClick={() => setSettingsTab('security')}
+              className={`px-1 pb-3 font-medium transition border-b-2 ${
+                settingsTab === 'security'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-navy-300 hover:text-white'
+              }`}
+            >
+              Account
+            </button>
+          </div>
 
-            <div className="p-6 space-y-4">
+          <div className="bg-navy-800 border border-navy-700 rounded-lg p-6 space-y-4">
               {/* Success Message */}
               {successMessage && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
@@ -1340,53 +1339,53 @@ function Dashboard() {
                 <form onSubmit={handleSaveProfile} className="space-y-4">
                   {/* Email Display */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Email Address
                     </label>
                     <input
                       type="email"
                       value={user?.email || ''}
                       disabled
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                      className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-900 text-navy-300 cursor-not-allowed"
                     />
-                    <p className="text-xs text-gray-500 mt-1">This is the email you signed up with</p>
+                    <p className="text-xs text-navy-400 mt-1">This is the email you signed up with</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       First Name *
                     </label>
                     <input
                       type="text"
                       value={profileData.firstName}
                       onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Last Name *
                     </label>
                     <input
                       type="text"
                       value={profileData.lastName}
                       onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={profileData.phone}
                       onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                     />
                   </div>
 
@@ -1394,34 +1393,34 @@ function Dashboard() {
                       (authoritative source for the CV header location) and
                       whether they're open to relocating. */}
                   <div className="pt-2">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">About Me</h3>
+                    <h3 className="text-sm font-semibold text-white mb-3">Location</h3>
                     <div className="space-y-3">
                       {/* Card 1: Where are you based? */}
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-base">📍</span>
-                          <label className="block text-sm font-medium text-gray-900">
+                          <label className="block text-sm font-medium text-white">
                             Where are you based?
                           </label>
                         </div>
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs text-navy-400 mb-2">
                           This is shown on your CV. Use the format “City, Country”.
                         </p>
                         <input
                           type="text"
                           value={profileData.basedIn}
                           onChange={(e) => setProfileData({ ...profileData, basedIn: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                          className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
                           placeholder="e.g., Brussels, Belgium"
                         />
                       </div>
 
                       {/* Card 2: Open to relocation? */}
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-base">✈️</span>
-                            <label htmlFor="openToRelocation" className="block text-sm font-medium text-gray-900">
+                            <label htmlFor="openToRelocation" className="block text-sm font-medium text-white">
                               Open to relocation?
                             </label>
                           </div>
@@ -1433,32 +1432,32 @@ function Dashboard() {
                               checked={profileData.openToRelocation}
                               onChange={(e) => setProfileData({ ...profileData, openToRelocation: e.target.checked })}
                             />
-                            <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            <div className="w-11 h-6 bg-navy-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                           </label>
                         </div>
 
                         {profileData.openToRelocation && (
                           <div className="mt-3 space-y-3">
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="block text-xs font-medium text-navy-300 mb-1">
                                 Where would you relocate to?
                               </label>
                               <input
                                 type="text"
                                 value={profileData.relocationLocations}
                                 onChange={(e) => setProfileData({ ...profileData, relocationLocations: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                                className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
                                 placeholder="e.g., London, Amsterdam, anywhere in the EU"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="block text-xs font-medium text-navy-300 mb-1">
                                 Work-location preference
                               </label>
                               <select
                                 value={profileData.remotePreference}
                                 onChange={(e) => setProfileData({ ...profileData, remotePreference: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary"
+                                className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
                               >
                                 <option value="">No preference</option>
                                 <option value="onsite">On-site</option>
@@ -1474,42 +1473,34 @@ function Dashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Professional Website or Portfolio
                     </label>
                     <input
                       type="url"
                       value={profileData.website}
                       onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       placeholder="https://yourportfolio.com"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       LinkedIn Profile URL
                     </label>
                     <input
                       type="url"
                       value={profileData.linkedinUrl}
                       onChange={(e) => setProfileData({ ...profileData, linkedinUrl: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       placeholder="https://linkedin.com/in/yourprofile"
                     />
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-gray-200">
-                    <Button type="submit" loading={savingProfile} className="flex-1">
+                  <div className="pt-4 border-t border-navy-700">
+                    <Button type="submit" loading={savingProfile} className="w-full">
                       Save Profile
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setActiveTab('home')}
-                      className="flex-1"
-                    >
-                      Close
                     </Button>
                   </div>
                 </form>
@@ -1519,56 +1510,48 @@ function Dashboard() {
               {settingsTab === 'security' && (
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Current Password *
                     </label>
                     <input
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       New Password *
                     </label>
                     <input
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                    <p className="text-xs text-navy-400 mt-1">Minimum 6 characters</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Confirm Password *
                     </label>
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-gray-200">
-                    <Button type="submit" loading={savingPassword} className="flex-1">
+                  <div className="pt-4 border-t border-navy-700">
+                    <Button type="submit" loading={savingPassword} className="w-full">
                       Change Password
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setActiveTab('home')}
-                      className="flex-1"
-                    >
-                      Close
                     </Button>
                   </div>
                 </form>
