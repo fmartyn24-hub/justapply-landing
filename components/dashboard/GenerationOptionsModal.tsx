@@ -82,7 +82,15 @@ export function GenerationOptionsModal({
         >
           ×
         </button>
-        <h2 className="text-xl font-bold text-white pr-8">{title}</h2>
+        <div className="flex items-center gap-2 pr-8">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40 flex-shrink-0">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+              <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+            </svg>
+            AI Powered
+          </span>
+        </div>
 
         <CvPicker authToken={authToken} value={cvId} onChange={setCvId} />
 

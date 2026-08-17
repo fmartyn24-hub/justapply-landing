@@ -37,11 +37,20 @@ interface ApplicationPreviewProps {
 function AiBadge() {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-        <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
-      </svg>
+      <AiBoltIcon size={10} />
       AI Powered
     </span>
+  )
+}
+
+// Same bolt used by the sidebar's "AI-Powered" section marker — a compact
+// way to flag a control as an AI feature (one that would be gated behind a
+// paid plan) without the full pill taking over a small toolbar button.
+function AiBoltIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+      <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+    </svg>
   )
 }
 
@@ -266,8 +275,9 @@ export function ApplicationPreview({
                     <button
                       onClick={() => setShowGenerationOptions(true)}
                       disabled={generating === 'coverLetter'}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
                     >
+                      <AiBoltIcon />
                       Regenerate
                     </button>
                     <button
@@ -342,8 +352,9 @@ export function ApplicationPreview({
                   <button
                     onClick={() => setShowGenerationOptions(true)}
                     disabled={generating === 'coverLetter'}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
+                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
                   >
+                    <AiBoltIcon size={10} />
                     Regenerate
                   </button>
                 </div>
