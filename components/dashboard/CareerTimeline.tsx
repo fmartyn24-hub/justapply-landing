@@ -20,21 +20,36 @@ interface CareerTimelineProps {
   onRoleClick?: (role: TimelineComponent | null) => void
 }
 
-// Types shown on the timeline — not just jobs. Icon shown on non-role
-// entries so the timeline reads as a full career + education story.
-const TIMELINE_TYPES: Record<string, { icon: string; label: string }> = {
-  role: { icon: '💼', label: 'Role' },
-  education: { icon: '🎓', label: 'Education' },
-  certification: { icon: '📜', label: 'Certification' },
-  program: { icon: '🚀', label: 'Program' },
-  volunteer: { icon: '🤝', label: 'Volunteer' },
+// Types shown on the timeline — not just jobs. Non-role entries get a small
+// text label so the timeline reads as a full career + education story.
+const TIMELINE_TYPES: Record<string, { label: string }> = {
+  role: { label: 'Role' },
+  education: { label: 'Education' },
+  certification: { label: 'Certification' },
+  program: { label: 'Program' },
+  volunteer: { label: 'Volunteer' },
+}
+
+// An entry's position in the timeline is driven by how recent it is — an
+// ongoing entry (start date but no end date) is still happening now, so it
+// ranks as most recent regardless of how long ago it started. A finished
+// entry ranks by when it ended. Only entries with no dates at all fall back
+// to their start date (or the very bottom).
+function sortKey(entry: TimelineComponent): number {
+  if (entry.start_date && !entry.end_date) return Infinity
+  if (entry.end_date) return new Date(entry.end_date).getTime()
+  if (entry.start_date) return new Date(entry.start_date).getTime()
+  return -Infinity
 }
 
 function sortByDateDesc(entries: TimelineComponent[]): TimelineComponent[] {
   return [...entries].sort((a, b) => {
-    const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
-    const dateB = b.start_date ? new Date(b.start_date).getTime() : 0
-    return dateB - dateA // Most recent first
+    const diff = sortKey(b) - sortKey(a)
+    if (diff !== 0) return diff
+    // Tie (e.g. two ongoing entries) — more recently started wins.
+    const startA = a.start_date ? new Date(a.start_date).getTime() : 0
+    const startB = b.start_date ? new Date(b.start_date).getTime() : 0
+    return startB - startA
   })
 }
 
@@ -74,8 +89,12 @@ function EntryCard({
       }`}
     >
       <div className="flex items-center gap-2 flex-wrap mb-1">
-        {meta && <span>{meta.icon}</span>}
         <p className="font-medium text-white">{entry.title}</p>
+        {meta && entry.type !== 'role' && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-purple-300 bg-purple-500/10 border border-purple-500/30 rounded px-1.5 py-0.5">
+            {meta.label}
+          </span>
+        )}
       </div>
       {entry.organization_name && (
         <p className="text-sm text-blue-300 mb-1">{entry.organization_name}</p>

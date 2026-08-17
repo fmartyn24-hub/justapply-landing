@@ -273,7 +273,7 @@ function Dashboard() {
         newPassword: '',
         confirmPassword: '',
       })
-      setPasswordMessage('✅ Password changed successfully!')
+      setPasswordMessage('Password changed successfully!')
       setTimeout(() => setPasswordMessage(''), 4000)
     } catch (err) {
       console.error('Password change error:', err)
@@ -518,7 +518,7 @@ function Dashboard() {
       closeReviewModal()
       setActiveTab('library')
       const voiceMsg = voiceApplied ? ' + Voice profile updated' : ''
-      setSuccessMessage(`✅ Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library${voiceMsg}`)
+      setSuccessMessage(`Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library${voiceMsg}`)
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
       console.error('Approve components error:', err)
@@ -726,7 +726,7 @@ function Dashboard() {
 
     setAnalyzing(true)
     setAnalyzeStatus({
-      text: '✨ Analyzing your documents… This can take a moment.',
+      text: 'Analyzing your documents… This can take a moment.',
       variant: 'info',
     })
 
@@ -752,7 +752,7 @@ function Dashboard() {
       const docs = documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>
 
       setAnalyzeStatus({
-        text: '✨ Pulling out your roles, skills and achievements…',
+        text: 'Pulling out your roles, skills and achievements…',
         variant: 'info',
       })
 
@@ -803,7 +803,7 @@ function Dashboard() {
 
       if (extracted.length === 0) {
         setAnalyzeStatus({
-          text: '⚠️ We couldn’t pull any components out of that text. Try pasting a more detailed CV.',
+          text: 'We couldn’t pull any components out of that text. Try pasting a more detailed CV.',
           variant: 'error',
         })
         return
@@ -821,7 +821,7 @@ function Dashboard() {
     } catch (err) {
       console.error('Analysis error:', err)
       setAnalyzeStatus({
-        text: `❌ ${err instanceof Error ? err.message : 'Failed to analyze text'}`,
+        text: err instanceof Error ? err.message : 'Failed to analyze text',
         variant: 'error',
       })
     } finally {
@@ -1131,32 +1131,6 @@ function Dashboard() {
     setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ...data } : app)))
   }
 
-  const getComponentIcon = (type: string) => {
-    switch (type) {
-      case 'kpi':
-        return '📊'
-      case 'project':
-        return '🚀'
-      case 'achievement':
-        return '⭐'
-      case 'skill':
-        return '🛠️'
-      case 'role':
-        return '💼'
-      case 'voice':
-        return '🎤'
-      case 'education':
-        return '🎓'
-      case 'certification':
-        return '📜'
-      case 'program':
-        return '🚀'
-      case 'volunteer':
-        return '🤝'
-      default:
-        return '📝'
-    }
-  }
 
   return (
     <DashboardShell
@@ -1398,7 +1372,6 @@ function Dashboard() {
                       {/* Card 1: Where are you based? */}
                       <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-base">📍</span>
                           <label className="block text-sm font-medium text-white">
                             Where are you based?
                           </label>
@@ -1419,7 +1392,6 @@ function Dashboard() {
                       <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-base">✈️</span>
                             <label htmlFor="openToRelocation" className="block text-sm font-medium text-white">
                               Open to relocation?
                             </label>
@@ -1874,7 +1846,6 @@ function Dashboard() {
           <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">💼</span>
                 <div>
                   <h2 className="text-2xl font-bold text-white">{expandedRole.title}</h2>
                   {expandedRole.start_date && (
@@ -1907,7 +1878,7 @@ function Dashboard() {
               {/* Impact Metrics */}
               {expandedRole.impact_metrics && (
                 <div className="bg-navy-700 border border-navy-600 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-white mb-2">📈 Impact & Metrics</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">Impact & Metrics</h3>
                   <p className="text-navy-200">{expandedRole.impact_metrics}</p>
                 </div>
               )}
@@ -1978,7 +1949,7 @@ function Dashboard() {
             >
               ×
             </button>
-            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Edit {getComponentIcon(editFormData.type || 'achievement')} {editFormData.type}</h2>
+            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Edit {editFormData.type}</h2>
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
