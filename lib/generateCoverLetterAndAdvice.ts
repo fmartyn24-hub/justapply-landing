@@ -6,6 +6,7 @@ export interface GenerationResult {
   coverLetter: string
   cvAdvice: string
   coverLetterStructured: any
+  cvAdviceStructured: any
 }
 
 export interface GenerationOptions {
@@ -241,6 +242,7 @@ A cover letter is not a prose version of the CV. It is a focused argument for wh
 - Write in the candidate's voice as inferred from their career context (and their own past edited drafts, if provided below) filtered through that requested tone. Confident but not arrogant.
 - Avoid every cover-letter cliché: "I am excited to apply," "I believe I would be a great fit," "synergy," "dynamic team player," "wear many hats," "hit the ground running," "passionate about."
 - No bullet points — it should read as considered prose.
+- **Never use em dashes (—) or en dashes (–) anywhere in the letter, including inside this instruction's own punctuation style. Rewrite anything that would naturally take a dash as two sentences, or join it with a comma, "and," or "which" instead.**
 - **Strict length: ${lengthOption.wordRange} total across opening + body + closing. This MUST fit on a single printed page with normal margins — err toward the shorter end rather than long.**
 
 **Personalization signals:**
@@ -250,12 +252,16 @@ A cover letter is not a prose version of the CV. It is a focused argument for wh
 ═══════════════════════════════════════════════
 PHASE 3 — CV/RESUME ADVICE (not a rewritten CV)
 ═══════════════════════════════════════════════
-Give 4–7 specific, actionable suggestions for adjusting their EXISTING CV for this specific application. Each suggestion should name the concrete change, not a vague principle. Examples of the right level of specificity:
-- "Move your Acme Corp role above Beta Inc — it's more relevant to this JD's emphasis on B2B sales, and it's currently buried on page 2."
-- "Your summary doesn't mention budget ownership at all, but this JD lists it as a must-have and you managed a $2M budget at Acme — add one line."
-- "Cut the 'Proficient in Microsoft Office' bullet — it's noise for a role at this seniority level."
+This must be scannable in a few seconds, not read like a report. Short bullets only, no paragraphs, no dashes as punctuation.
 
-If no CV was uploaded, give advice based on the career components instead, framed as "when you add your CV, prioritise..." guidance grounded in what's missing from their component library relative to this JD.
+1. **Match score (0-100)** — how well this CV currently matches this specific JD as it stands today, before any edits. Base it on real overlap between the JD's stated requirements and what's actually on the CV, not on potential. One short sentence explaining the score.
+2. **What's good (2-4 bullets)** — the strongest genuine overlaps between this CV and this JD. Each bullet under 15 words. Skip this section content (return an empty array) rather than invent a strength that isn't really there.
+3. **What to change (4-6 bullets)** — specific, concrete edits, most impactful first. Each bullet under 20 words and names the exact change, not a vague principle. Examples of the right level of specificity:
+   - "Move Acme Corp above Beta Inc: more relevant to this JD's B2B sales focus, currently buried on page 2."
+   - "Summary omits budget ownership; add the $2M Acme budget line, this JD lists it as a must-have."
+   - "Cut 'Proficient in Microsoft Office': noise at this seniority level."
+
+If no CV was uploaded, base the match score and bullets on the career components instead, and frame "what to change" as "when you add your CV, prioritise..." guidance grounded in what's missing relative to this JD.
 
 Never invent facts, dates, employers, or numbers not present in the provided CV text or career components.
 
@@ -271,14 +277,16 @@ Respond with valid JSON only — no preamble, no commentary, no markdown code fe
     "closing": "Professional closing paragraph"
   },
   "cvAdvice": {
-    "summary": "One sentence on the overall fit and the biggest lever to pull",
-    "suggestions": [
-      {"area": "Short label e.g. 'Professional Summary' or 'Acme Corp role'", "advice": "The specific, actionable change"}
+    "matchScore": 72,
+    "matchSummary": "One short sentence explaining the score",
+    "strengths": ["Bullet under 15 words", "Another genuine strength"],
+    "improvements": [
+      {"area": "Short label e.g. 'Professional Summary' or 'Acme Corp role'", "advice": "The specific, actionable change, under 20 words"}
     ]
   }
 }
 
-All text fields must be plain text with newlines escaped as \\n where needed. Ensure all JSON is valid and properly escaped.`,
+matchScore must be a plain integer 0-100 with no % sign. strengths and improvements are arrays (use [] if genuinely empty, never invent content to fill them). All text fields must be plain text with newlines escaped as \\n where needed, and must never contain an em dash (—) or en dash (–). Ensure all JSON is valid and properly escaped.`,
       },
     ],
   })
@@ -291,6 +299,39 @@ All text fields must be plain text with newlines escaped as \\n where needed. En
   let coverLetter = ''
   let cvAdvice = ''
   let coverLetterStructured: any = null
+  let cvAdviceStructured: any = null
+
+  // Belt-and-suspenders against the model's own dash habit — the prompt
+  // instructs against em/en dashes, but this strips any that slip through
+  // before they reach the cover letter or its exports.
+  function stripDashes(text: string): string {
+    if (!text) return text
+    return text.replace(/\s+[—–]\s+/g, ', ').replace(/[—–]/g, ',')
+  }
+
+  function sanitizeCoverLetterStructured(cl: any) {
+    return {
+      ...cl,
+      opening: cl.opening ? stripDashes(cl.opening) : cl.opening,
+      body_paragraphs: Array.isArray(cl.body_paragraphs) ? cl.body_paragraphs.map(stripDashes) : cl.body_paragraphs,
+      closing: cl.closing ? stripDashes(cl.closing) : cl.closing,
+    }
+  }
+
+  function sanitizeCvAdvice(advice: any) {
+    return {
+      ...advice,
+      matchSummary: advice.matchSummary ? stripDashes(advice.matchSummary) : advice.matchSummary,
+      strengths: Array.isArray(advice.strengths) ? advice.strengths.map(stripDashes) : advice.strengths,
+      improvements: Array.isArray(advice.improvements)
+        ? advice.improvements.map((imp: any) => ({
+            ...imp,
+            area: imp.area ? stripDashes(imp.area) : imp.area,
+            advice: imp.advice ? stripDashes(imp.advice) : imp.advice,
+          }))
+        : advice.improvements,
+    }
+  }
 
   function extractJson(text: string): any {
     let jsonText = text.trim()
@@ -307,16 +348,17 @@ All text fields must be plain text with newlines escaped as \\n where needed. En
 
   function applyParsed(parsed: any) {
     if (typeof parsed.coverLetter === 'object' && parsed.coverLetter !== null) {
-      coverLetterStructured = parsed.coverLetter
-      coverLetter = convertStructuredCoverLetterToPlainText(parsed.coverLetter)
+      coverLetterStructured = sanitizeCoverLetterStructured(parsed.coverLetter)
+      coverLetter = convertStructuredCoverLetterToPlainText(coverLetterStructured)
     } else if (typeof parsed.coverLetter === 'string') {
-      coverLetter = parsed.coverLetter
+      coverLetter = stripDashes(parsed.coverLetter)
     } else {
       throw new Error('Cover letter is missing or invalid')
     }
 
     if (typeof parsed.cvAdvice === 'object' && parsed.cvAdvice !== null) {
-      cvAdvice = convertCvAdviceToPlainText(parsed.cvAdvice)
+      cvAdviceStructured = sanitizeCvAdvice(parsed.cvAdvice)
+      cvAdvice = convertCvAdviceToPlainText(cvAdviceStructured)
     } else if (typeof parsed.cvAdvice === 'string') {
       cvAdvice = parsed.cvAdvice
     } else {
@@ -359,7 +401,7 @@ All text fields must be plain text with newlines escaped as \\n where needed. En
     throw new Error('Cover letter or CV advice is empty in the response')
   }
 
-  return { coverLetter, cvAdvice, coverLetterStructured }
+  return { coverLetter, cvAdvice, coverLetterStructured, cvAdviceStructured }
 }
 
 function convertStructuredCoverLetterToPlainText(clData: any): string {
@@ -384,20 +426,32 @@ function convertStructuredCoverLetterToPlainText(clData: any): string {
   return lines.join('\n').trim()
 }
 
+// Flat-text fallback for anywhere still reading the plain cv_advice column.
+// The structured cvAdviceStructured object is the source of truth for the UI.
 function convertCvAdviceToPlainText(advice: any): string {
   const lines: string[] = []
 
-  if (advice.summary) {
-    lines.push(advice.summary)
+  if (typeof advice.matchScore === 'number') {
+    lines.push(`Match score: ${advice.matchScore}/100.${advice.matchSummary ? ` ${advice.matchSummary}` : ''}`)
+    lines.push('')
+  } else if (advice.matchSummary) {
+    lines.push(advice.matchSummary)
     lines.push('')
   }
 
-  if (advice.suggestions && Array.isArray(advice.suggestions)) {
-    advice.suggestions.forEach((s: any) => {
-      if (s.area && s.advice) {
-        lines.push(`${s.area}: ${s.advice}`)
-      } else if (s.advice) {
-        lines.push(s.advice)
+  if (Array.isArray(advice.strengths) && advice.strengths.length > 0) {
+    lines.push("What's good:")
+    advice.strengths.forEach((s: string) => lines.push(`- ${s}`))
+    lines.push('')
+  }
+
+  if (Array.isArray(advice.improvements) && advice.improvements.length > 0) {
+    lines.push('What to change:')
+    advice.improvements.forEach((imp: any) => {
+      if (imp.area && imp.advice) {
+        lines.push(`- ${imp.area}: ${imp.advice}`)
+      } else if (imp.advice) {
+        lines.push(`- ${imp.advice}`)
       }
     })
   }

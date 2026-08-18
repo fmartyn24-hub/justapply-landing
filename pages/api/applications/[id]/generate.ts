@@ -88,6 +88,7 @@ export default async function handler(
         generated_cover_letter: result.coverLetter,
         generated_cover_letter_json: result.coverLetterStructured,
         cv_advice: result.cvAdvice,
+        cv_advice_json: result.cvAdviceStructured,
         cv_id: cvId ?? application.cv_id ?? null,
         updated_at: new Date().toISOString(),
       })

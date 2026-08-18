@@ -14,6 +14,7 @@ export interface Application {
   generated_cv?: string
   generated_cover_letter: string
   cv_advice?: string
+  cv_advice_json?: any
   cv_id?: string | null
   deadline?: string
   persons_of_interest?: string
@@ -29,7 +30,7 @@ interface ApplicationsViewProps {
   onDelete: (id: string) => Promise<void>
   onStatusChange: (id: string, status: ApplicationStatus) => Promise<void>
   onUpdateApplication?: (id: string, data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
-  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => void
+  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string; cv_advice_json?: any }) => void
   onCreateManual?: () => void
   loading?: boolean
   authToken?: string
@@ -346,6 +347,7 @@ export function ApplicationsView({
           id={selectedApp.id}
           coverLetter={selectedApp.generated_cover_letter}
           cvAdvice={selectedApp.cv_advice}
+          cvAdviceJson={selectedApp.cv_advice_json}
           jobTitle={selectedApp.job_title}
           company={selectedApp.company_name}
           jobDescription={selectedApp.job_description}

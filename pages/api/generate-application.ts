@@ -7,6 +7,7 @@ interface ApiResponse {
   coverLetter?: string
   cvAdvice?: string
   coverLetterStructured?: any
+  cvAdviceStructured?: any
   error?: string
 }
 
@@ -58,6 +59,7 @@ export default async function handler(
       coverLetter: result.coverLetter,
       cvAdvice: result.cvAdvice,
       coverLetterStructured: result.coverLetterStructured,
+      cvAdviceStructured: result.cvAdviceStructured,
     })
   } catch (error) {
     console.error('Generate application error:', error)

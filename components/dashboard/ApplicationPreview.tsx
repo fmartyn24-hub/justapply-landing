@@ -15,10 +15,23 @@ interface LibraryComponent {
   organization_name?: string
 }
 
+interface CvAdviceImprovement {
+  area?: string
+  advice: string
+}
+
+interface CvAdviceStructured {
+  matchScore?: number
+  matchSummary?: string
+  strengths?: string[]
+  improvements?: CvAdviceImprovement[]
+}
+
 interface ApplicationPreviewProps {
   id?: string
   coverLetter: string
   cvAdvice?: string
+  cvAdviceJson?: CvAdviceStructured | null
   jobTitle?: string
   company?: string
   jobDescription?: string
@@ -29,7 +42,7 @@ interface ApplicationPreviewProps {
   components?: LibraryComponent[]
   onSave?: (id: string, data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
   onStatusChange?: (status: ApplicationStatus) => Promise<void>
-  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => void
+  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string; cv_advice_json?: CvAdviceStructured | null }) => void
   onClose: () => void
   saving?: boolean
   authToken?: string
@@ -56,10 +69,27 @@ function AiBoltIcon({ size = 12 }: { size?: number }) {
   )
 }
 
+function MatchScoreBadge({ score }: { score: number }) {
+  const color =
+    score >= 75
+      ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
+      : score >= 50
+      ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+      : 'text-red-400 border-red-500/40 bg-red-500/10'
+
+  return (
+    <div className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-full border-2 ${color}`}>
+      <span className="text-base font-bold leading-none">{score}</span>
+      <span className="text-[9px] font-medium leading-none mt-0.5">/100</span>
+    </div>
+  )
+}
+
 export function ApplicationPreview({
   id,
   coverLetter,
   cvAdvice,
+  cvAdviceJson,
   jobTitle,
   company,
   jobDescription,
@@ -76,9 +106,20 @@ export function ApplicationPreview({
   authToken,
   aiLocked,
 }: ApplicationPreviewProps) {
+  // Lock the page behind the modal so scrolling to the end of this panel
+  // doesn't chain into scrolling the dashboard underneath it.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
   const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details'>('coverLetter')
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
   const [currentCvAdvice, setCurrentCvAdvice] = useState(cvAdvice || '')
+  const [currentCvAdviceJson, setCurrentCvAdviceJson] = useState<CvAdviceStructured | null>(cvAdviceJson || null)
   const [editedJobTitle, setEditedJobTitle] = useState(jobTitle || '')
   const [editedCompany, setEditedCompany] = useState(company || '')
   const [editedJobDescription, setEditedJobDescription] = useState(jobDescription || '')
@@ -180,7 +221,12 @@ export function ApplicationPreview({
       if (!res.ok) throw new Error(body.error || 'Generation failed')
       setEditedCoverLetter(body.data.generated_cover_letter || '')
       setCurrentCvAdvice(body.data.cv_advice || '')
-      onGenerated?.(id, { generated_cover_letter: body.data.generated_cover_letter, cv_advice: body.data.cv_advice })
+      setCurrentCvAdviceJson(body.data.cv_advice_json || null)
+      onGenerated?.(id, {
+        generated_cover_letter: body.data.generated_cover_letter,
+        cv_advice: body.data.cv_advice,
+        cv_advice_json: body.data.cv_advice_json,
+      })
       setShowGenerationOptions(false)
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Generation failed')
@@ -265,7 +311,7 @@ export function ApplicationPreview({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-navy-900">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 bg-navy-900">
           {generateError && (
             <div className="mb-4 bg-red-500/10 border border-red-400/40 rounded-lg p-3 text-sm text-red-300">
               {generateError}
@@ -373,7 +419,7 @@ export function ApplicationPreview({
                 title="Keep refining with AI"
                 pitch="Regenerate to get fresh advice as your CV or the role's requirements change."
               >
-              <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-3">
+              <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
                   <button
@@ -388,11 +434,56 @@ export function ApplicationPreview({
                 <p className="text-xs text-navy-400">
                   We don't rewrite your CV — this is guidance on what to change in the document you already have.
                 </p>
-                <div className="space-y-2">
-                  {currentCvAdvice.split('\n').filter(Boolean).map((line, i) => (
-                    <p key={i} className="text-navy-100 text-sm leading-relaxed">{line}</p>
-                  ))}
-                </div>
+
+                {currentCvAdviceJson ? (
+                  <>
+                    {typeof currentCvAdviceJson.matchScore === 'number' && (
+                      <div className="flex items-center gap-3">
+                        <MatchScoreBadge score={currentCvAdviceJson.matchScore} />
+                        {currentCvAdviceJson.matchSummary && (
+                          <p className="text-navy-200 text-sm">{currentCvAdviceJson.matchSummary}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {Array.isArray(currentCvAdviceJson.strengths) && currentCvAdviceJson.strengths.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2">What's good</p>
+                        <ul className="space-y-1.5">
+                          {currentCvAdviceJson.strengths.map((s, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-navy-100">
+                              <span className="text-emerald-400 flex-shrink-0">+</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {Array.isArray(currentCvAdviceJson.improvements) && currentCvAdviceJson.improvements.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-2">What to change</p>
+                        <ul className="space-y-1.5">
+                          {currentCvAdviceJson.improvements.map((imp, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-navy-100">
+                              <span className="text-amber-400 flex-shrink-0">•</span>
+                              <span>
+                                {imp.area && <span className="font-medium text-white">{imp.area}: </span>}
+                                {imp.advice}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    {currentCvAdvice.split('\n').filter(Boolean).map((line, i) => (
+                      <p key={i} className="text-navy-100 text-sm leading-relaxed">{line}</p>
+                    ))}
+                  </div>
+                )}
               </div>
               </LockedOverlay>
             ) : (

@@ -81,6 +81,7 @@ interface Application {
   generated_cv_json?: any
   generated_cover_letter_json?: any
   cv_advice?: string
+  cv_advice_json?: any
   cv_id?: string | null
   deadline?: string
   persons_of_interest?: string
@@ -1004,6 +1005,7 @@ function Dashboard() {
           generated_cover_letter: data.coverLetter,
           generated_cover_letter_json: data.coverLetterStructured ?? null,
           cv_advice: data.cvAdvice,
+          cv_advice_json: data.cvAdviceStructured ?? null,
           cv_id: cvId || null,
           status: 'draft',
         } as any)
@@ -1159,7 +1161,7 @@ function Dashboard() {
   // The on-demand "Generate Cover Letter"/"Generate CV Advice" endpoint saves
   // directly to the DB itself — this just syncs the local list so the card
   // reflects the new content without a full refetch.
-  const handleApplicationGenerated = (id: string, data: { generated_cover_letter?: string; cv_advice?: string }) => {
+  const handleApplicationGenerated = (id: string, data: { generated_cover_letter?: string; cv_advice?: string; cv_advice_json?: any }) => {
     setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ...data } : app)))
   }
 
