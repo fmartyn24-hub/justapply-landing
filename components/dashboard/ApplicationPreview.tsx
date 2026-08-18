@@ -116,7 +116,7 @@ export function ApplicationPreview({
     }
   }, [])
 
-  const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details'>('coverLetter')
+  const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details'>('details')
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
   const [currentCvAdvice, setCurrentCvAdvice] = useState(cvAdvice || '')
   const [currentCvAdviceJson, setCurrentCvAdviceJson] = useState<CvAdviceStructured | null>(cvAdviceJson || null)
@@ -276,17 +276,17 @@ export function ApplicationPreview({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — free/CRUD first (Details), AI-powered features after (CV Advice, Cover Letter) */}
         <div className="flex gap-4 border-b border-navy-600 px-6 pt-4">
           <button
-            onClick={() => setActiveTab('coverLetter')}
+            onClick={() => setActiveTab('details')}
             className={`px-4 py-2 font-medium transition border-b-2 ${
-              activeTab === 'coverLetter'
+              activeTab === 'details'
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-navy-300 hover:text-white'
             }`}
           >
-            Cover Letter
+            Details
           </button>
           <button
             onClick={() => setActiveTab('cvAdvice')}
@@ -299,14 +299,14 @@ export function ApplicationPreview({
             CV/Resume Advice
           </button>
           <button
-            onClick={() => setActiveTab('details')}
+            onClick={() => setActiveTab('coverLetter')}
             className={`px-4 py-2 font-medium transition border-b-2 ${
-              activeTab === 'details'
+              activeTab === 'coverLetter'
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-navy-300 hover:text-white'
             }`}
           >
-            Details
+            Cover Letter
           </button>
         </div>
 
