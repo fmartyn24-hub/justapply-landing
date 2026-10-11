@@ -29,9 +29,15 @@ module.exports = {
         accent: {
           navy: '#052790',
         },
+        // Marketing pages (pages/index.tsx)
+        ink: '#010722',
+        paper: '#F7F6F2',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // The landing page loads these via next/font and sets the variables on its root.
+        landing: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Georgia', 'serif'],
       },
     },
   },
