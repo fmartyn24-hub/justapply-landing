@@ -12,7 +12,7 @@ const DESCRIPTION =
 const SOURCES = [
   {
     id: 1,
-    label: 'LinkedIn data reported by The New York Times, June 2025',
+    label: 'LinkedIn figures reported by Ars Technica, June 2025 (summary by CO/AI)',
     url: 'https://getcoai.com/news/ai-job-applications-flood-linkedin-with-11000-per-minute/',
   },
   {
@@ -22,8 +22,8 @@ const SOURCES = [
   },
   {
     id: 3,
-    label: 'Greenhouse, 2025 Workforce & Hiring Report',
-    url: 'https://www.greenhouse.com/blog/greenhouse-2025-workforce-hiring-report',
+    label: 'Greenhouse, 2025 Workforce & Hiring Report (2,200 job seekers, US/UK/IE)',
+    url: 'https://cdn.prod.website-files.com/66bf84e70c6fc57dbbe0187e/687530e016ce4153b861335b_Greenhouse_2025WorkforceAndHiringReport.pdf',
   },
   {
     id: 4,
@@ -50,7 +50,7 @@ const STATS = [
   },
   {
     value: '63%',
-    label: 'of candidates were ghosted after an interview. Without a system, it’s easy to lose track of where you stand.',
+    label: 'of US candidates were ghosted after a job interview. Without a system, it’s easy to lose track of where you stand.',
     source: 3,
   },
 ]
