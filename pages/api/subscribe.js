@@ -17,10 +17,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data, error } = await supabase
+    // No .select(): returning the inserted row needs SELECT permission, which
+    // anonymous visitors (rightly) don't have under RLS, so it made every
+    // signup fail with 42501.
+    const { error } = await supabase
       .from('emails')
       .insert([{ email }])
-      .select()
 
     if (error) {
       console.error('Supabase error:', error)
