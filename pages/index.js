@@ -79,6 +79,7 @@ const FREE_FEATURES = [
   'CV storage, with every version in one place',
   'Application tracker with list and board views',
   'Deadlines, links and contacts for every role',
+  'Job fit preview: see which of your experiences match a posting',
   'Export cover letters to Word, PDF, ODT and plain text',
 ]
 
@@ -126,7 +127,7 @@ const FAQ = [
   },
   {
     q: 'Is JustApply free?',
-    a: 'Yes. The career library, timeline, CV storage, application tracker and document exports are free. AI-powered features, like importing your CV automatically and drafting tailored cover letters, are in beta and will be offered as an optional upgrade.',
+    a: 'Yes, there is a free plan. Today it includes the career library, timeline, CV storage, application tracker, job fit preview and document exports. AI-powered features, like importing your CV automatically and drafting tailored cover letters, are in beta and will be offered as an optional upgrade.',
   },
   {
     q: 'Does JustApply apply to jobs for me?',
@@ -428,7 +429,7 @@ export default function Home() {
               </p>
               <div className="mt-8 max-w-lg">
                 <WaitlistForm location="hero" />
-                <p className="mt-3 text-sm text-ink/50">Free forever for the core tools. No credit card.</p>
+                <p className="mt-3 text-sm text-ink/50">Free plan available. No credit card.</p>
               </div>
             </div>
             <HeroMock />
@@ -498,7 +499,7 @@ export default function Home() {
                 Everything you need to get organised, <span className="font-serif italic font-normal">free.</span>
               </h2>
               <p className="mt-5 text-lg text-ink/65 leading-relaxed">
-                The core workspace is free, for good. AI features are in beta and will be an optional upgrade
+                There’s always a free way to use JustApply. AI features are in beta and will be an optional upgrade
                 for when you want to move faster.
               </p>
             </div>
@@ -506,7 +507,7 @@ export default function Home() {
               <div className="bg-white rounded-2xl p-7 sm:p-8 ring-1 ring-ink/10">
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-2xl font-semibold">Free</h3>
-                  <p className="text-ink/60">€0, forever</p>
+                  <p className="text-ink/60">€0</p>
                 </div>
                 <ul className="mt-6 space-y-3">
                   {FREE_FEATURES.map((f) => (
