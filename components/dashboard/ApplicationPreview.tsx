@@ -425,6 +425,7 @@ export function ApplicationPreview({
                     <FitPreview
                       posting={editedJobDescription}
                       components={components}
+                      exclude={[editedCompany]}
                       compact
                       renderAction={(m) => (
                         <button

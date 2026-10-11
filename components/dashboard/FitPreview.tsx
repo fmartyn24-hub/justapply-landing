@@ -31,6 +31,8 @@ const MIN_POSTING_CHARS = 80
 interface FitPreviewProps<T extends MatchableComponent> {
   posting: string
   components: T[]
+  // Posting words to ignore as keywords, e.g. the company name.
+  exclude?: Array<string | undefined>
   limit?: number
   compact?: boolean
   // Optional per-match action, e.g. "Insert" in the cover letter editor.
@@ -60,6 +62,7 @@ function Highlighted({ text, stems, className = '' }: { text: string; stems: Set
 export function FitPreview<T extends MatchableComponent>({
   posting,
   components,
+  exclude,
   limit = 5,
   compact = false,
   renderAction,
@@ -68,8 +71,9 @@ export function FitPreview<T extends MatchableComponent>({
   // Matching runs on every keystroke while pasting/typing; let React defer it.
   const deferredPosting = useDeferredValue(posting)
   const result = useMemo(
-    () => matchComponentsToPosting(deferredPosting, components),
-    [deferredPosting, components]
+    () => matchComponentsToPosting(deferredPosting, components, { exclude }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deferredPosting, components, (exclude || []).join('|')]
   )
 
   const libraryCount = components.filter((c) => c.type !== 'voice' && c.type !== 'context').length

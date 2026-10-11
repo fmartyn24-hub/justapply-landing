@@ -52,7 +52,8 @@ const STOPWORDS = new Set(
   preferred plus bonus responsibilities responsible responsibility day days new well like make making help helping
   key based using use used across environment level skills skill knowledge understanding proven demonstrated
   benefits salary offer offering competitive what's we're you'll you're we'll it's who'll please send
-  successful e.g i.e eg ie one two three four five within want need needs`
+  successful e.g i.e eg ie one two three four five within want need needs run runs base own owns driven drive
+  ensure deliver collaborate collaborating closely fast-paced ambitious passionate motivated detail oriented`
     .split(/\s+/)
     .filter(Boolean)
 )
@@ -113,9 +114,11 @@ function fieldText(c: MatchableComponent, field: keyof MatchableComponent): stri
 export function matchComponentsToPosting<T extends MatchableComponent>(
   posting: string,
   components: T[],
-  { maxKeywords = 18 }: { maxKeywords?: number } = {}
+  { maxKeywords = 18, exclude = [] }: { maxKeywords?: number; exclude?: Array<string | undefined> } = {}
 ): FitResult<T> {
-  const postingTokens = tokenize(posting)
+  // Words that aren't skills, e.g. the employer's own name.
+  const excluded = new Set(exclude.flatMap((e) => tokenize(e || '').map((t) => t.stem)))
+  const postingTokens = tokenize(posting).filter((t) => !excluded.has(t.stem))
   if (postingTokens.length === 0) return { matches: [], keywords: [] }
 
   // Posting term frequencies, remembering the first way each stem was written.
@@ -163,7 +166,7 @@ export function matchComponentsToPosting<T extends MatchableComponent>(
     const score = contributions.reduce((sum, x) => sum + x.value, 0) + phraseBonus
     const distinct = contributions.length
     const strength: FitStrength =
-      score >= 14 || distinct >= 5 || (phraseBonus > 0 && distinct >= 2)
+      score >= 14 || distinct >= 4 || (phraseBonus > 0 && distinct >= 2)
         ? 'strong'
         : score >= 6 || distinct >= 2
           ? 'good'
@@ -177,15 +180,23 @@ export function matchComponentsToPosting<T extends MatchableComponent>(
       matchedStems: new Set(contributions.map((x) => x.stem)),
     })
   }
-  matches.sort((a, b) => b.score - a.score)
+  const tier: Record<FitStrength, number> = { strong: 0, good: 1, some: 2 }
+  matches.sort((a, b) => tier[a.strength] - tier[b.strength] || b.score - a.score)
 
   // The posting's most-repeated terms (earlier mentions break ties), and
   // whether anything in the library covers them.
-  const keywords: PostingKeyword[] = Array.from(counts.entries())
+  // Near-duplicates ("grow"/"growth", "manage"/"manager") collapse into the
+  // first one listed.
+  const keywords: PostingKeyword[] = []
+  const ranked = Array.from(counts.entries())
     .filter(([s]) => s.length > 2)
     .sort((a, b) => b[1] - a[1] || (firstSeen.get(a[0])! - firstSeen.get(b[0])!))
-    .slice(0, maxKeywords)
-    .map(([s, count]) => ({ word: surface.get(s) || s, stem: s, count, covered: libraryStems.has(s) }))
+  for (const [s, count] of ranked) {
+    if (keywords.length >= maxKeywords) break
+    const dupe = keywords.some((k) => Math.min(k.stem.length, s.length) >= 4 && (k.stem.startsWith(s) || s.startsWith(k.stem)))
+    if (dupe) continue
+    keywords.push({ word: surface.get(s) || s, stem: s, count, covered: libraryStems.has(s) })
+  }
 
   return { matches, keywords }
 }

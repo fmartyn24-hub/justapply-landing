@@ -246,7 +246,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           </form>
 
           <div className="space-y-6 lg:sticky lg:top-6">
-            <FitPreview posting={jobDescription} components={components} onAddComponent={onAddComponent} />
+            <FitPreview posting={jobDescription} components={components} exclude={[company]} onAddComponent={onAddComponent} />
             <AiFeatureTeaser
               feature="match_analysis"
               title="Go deeper with AI match analysis"
