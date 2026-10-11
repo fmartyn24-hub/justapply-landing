@@ -3,8 +3,7 @@ import { Button } from '@/components/common/Button'
 import { CvPicker } from './CvPicker'
 import { ToneLengthPicker } from './ToneLengthPicker'
 import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
-import { AiLockNotice } from '@/components/common/AiLockNotice'
-import { LockedOverlay } from '@/components/common/LockedOverlay'
+import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -47,7 +46,15 @@ interface JustApplyTabProps {
   loading?: boolean
   authToken?: string
   aiLocked?: boolean
-  onCreateManual?: () => void
+  // Free path (AI locked): save the job as a tracked application.
+  onSaveApplication?: (data: {
+    job_title: string
+    company_name: string
+    job_url?: string
+    deadline?: string
+    job_description?: string
+  }) => Promise<unknown>
+  savingApplication?: boolean
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -63,7 +70,7 @@ const TYPE_LABELS: Record<string, string> = {
   context: 'Context',
 }
 
-export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onCreateManual }: JustApplyTabProps) {
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onSaveApplication, savingApplication }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
   const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
@@ -72,6 +79,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
   const [jobDescription, setJobDescription] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   const [company, setCompany] = useState('')
+  const [jobUrl, setJobUrl] = useState('')
+  const [deadline, setDeadline] = useState('')
 
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState('')
@@ -95,6 +104,8 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
     setJobDescription('')
     setJobTitle('')
     setCompany('')
+    setJobUrl('')
+    setDeadline('')
     setAnalysis(null)
     setSelectedIds(new Set())
     setError('')
@@ -150,21 +161,103 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
     }
   }
 
+  const inputClass =
+    'w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-500 focus:ring-2 focus:ring-blue-500'
+
+  // ─────────────────────── FREE: SAVE THE JOB (AI LOCKED) ───────────────────────
+  if (aiLocked) {
+    const handleSave = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setError('')
+      if (!jobTitle.trim() || !company.trim()) {
+        setError('Add the job title and company so you can find this application later.')
+        return
+      }
+      try {
+        const created = await onSaveApplication?.({
+          job_title: jobTitle.trim(),
+          company_name: company.trim(),
+          job_url: jobUrl.trim() || undefined,
+          deadline: deadline || undefined,
+          job_description: jobDescription.trim() || undefined,
+        })
+        // The dashboard shows its own error notice and returns nothing on
+        // failure; keep what the user typed in that case.
+        if (created) resetAll()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save the application.')
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white">Just Apply</h2>
+          <p className="text-navy-300 mt-1 max-w-2xl">
+            Found a job worth going for? Save it here. The posting, link and deadline stay together with your cover
+            letter, and you can track it all the way to an offer.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6 items-start">
+          <form onSubmit={handleSave} className="space-y-4 bg-navy-800 rounded-lg p-6 border border-navy-600">
+            {error && (
+              <div className="bg-red-500/10 border border-red-400/40 rounded-lg p-3 text-sm text-red-300">{error}</div>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="ja-title" className="block text-sm font-medium text-navy-200 mb-1">Job title *</label>
+                <input id="ja-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g. Product Designer" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-company" className="block text-sm font-medium text-navy-200 mb-1">Company *</label>
+                <input id="ja-company" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Acme Inc" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-url" className="block text-sm font-medium text-navy-200 mb-1">Link to the posting</label>
+                <input id="ja-url" type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} placeholder="https://" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-deadline" className="block text-sm font-medium text-navy-200 mb-1">Deadline</label>
+                <input id="ja-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputClass} />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="ja-jd" className="block text-sm font-medium text-navy-200 mb-1">Job description</label>
+              <textarea
+                id="ja-jd"
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full posting. Job ads often disappear once the role closes, and you'll want it before the interview."
+                className={`${inputClass} py-3 resize-y h-48`}
+              />
+            </div>
+            <Button type="submit" loading={savingApplication} className="w-full">
+              Save application
+            </Button>
+            <p className="text-xs text-navy-400">
+              Next: write your cover letter in the application, and export it to Word or PDF.
+            </p>
+          </form>
+
+          <AiFeatureTeaser
+            feature="match_analysis"
+            title="See what this employer is really asking for"
+            pitch="With AI, we'd read the posting against your career library and show you the keywords that matter, why you fit, and which of your experiences to lead with. Then draft the cover letter from them."
+            bullets={[
+              'Keywords and priorities pulled from the posting',
+              'Your most relevant roles and achievements, pre-selected',
+              'A first-draft cover letter, in your voice',
+            ]}
+          />
+        </div>
+      </div>
+    )
+  }
+
   // ─────────────────────────────── STEP 1: INPUT ───────────────────────────────
   if (step === 'input') {
     return (
-      <LockedOverlay
-        active={!!aiLocked}
-        title="A perfectly tailored application in seconds"
-        pitch="Paste any job posting and we'll write a contextual cover letter built from your career library — plus specific advice on how to adjust your CV for this exact role."
-        bullets={[
-          'Cover letter written in your voice, for this job',
-          'Highlights the components most relevant to the role',
-          'CV advice grounded in your actual uploaded CV',
-        ]}
-        ctaLabel="Add an application manually instead"
-        onCta={onCreateManual}
-      >
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold text-white">Just Apply</h2>
@@ -233,7 +326,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
 
           <Button
             type="submit"
-            disabled={analyzing || jobDescription.trim().length < 50 || aiLocked}
+            disabled={analyzing || jobDescription.trim().length < 50}
             loading={analyzing}
             className="w-full"
           >
@@ -246,7 +339,6 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           </p>
         </form>
       </div>
-      </LockedOverlay>
     )
   }
 
@@ -386,7 +478,6 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
 
       <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="pt-2" />
       <ToneLengthPicker tone={tone} length={length} onToneChange={setTone} onLengthChange={setLength} className="pt-2" />
-      {aiLocked && <AiLockNotice />}
 
       {/* Reversible navigation — always a way back and a way forward */}
       <div className="flex gap-3 pt-2 border-t border-navy-600">
@@ -405,7 +496,7 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
           type="button"
           onClick={handleGenerate}
           loading={loading}
-          disabled={loading || aiLocked}
+          disabled={loading}
           className="flex-[2]"
         >
           {loading

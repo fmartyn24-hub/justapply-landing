@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import Anthropic from '@anthropic-ai/sdk'
+import { requireAiUser } from '@/lib/aiAccess'
 
 interface DocumentAnalysis {
   type: 'cv' | 'coverLetter'
@@ -22,6 +23,9 @@ export default async function handler(
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' })
   }
+
+  const ctx = await requireAiUser(req, res)
+  if (!ctx) return
 
   const { text } = req.body
 

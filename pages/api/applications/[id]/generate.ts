@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { createClient } from '@supabase/supabase-js'
+import { requireAiUser } from '@/lib/aiAccess'
 import { generateCoverLetterAndAdvice } from '@/lib/generateCoverLetterAndAdvice'
 import type { CoverLetterTone, CoverLetterLength } from '@/lib/coverLetterOptions'
 
@@ -22,21 +22,9 @@ export default async function handler(
     return res.status(405).json({ success: false, error: 'Method not allowed' })
   }
 
-  const authHeader = req.headers.authorization
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' })
-  }
-
-  const token = authHeader.substring(7)
-  const serverSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  const { data: { user }, error: userError } = await serverSupabase.auth.getUser(token)
-  if (userError || !user?.id) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' })
-  }
+  const ctx = await requireAiUser(req, res)
+  if (!ctx) return
+  const { user, serverSupabase } = ctx
 
   const { id } = req.query
   if (!id || typeof id !== 'string') {

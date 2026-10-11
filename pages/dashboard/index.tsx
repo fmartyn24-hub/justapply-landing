@@ -12,7 +12,8 @@ import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { NoticeModal } from '@/components/common/NoticeModal'
-import { LockedOverlay } from '@/components/common/LockedOverlay'
+import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { DEFAULT_ADMIN_EMAIL } from '@/lib/aiAccess'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
 import type { ApplicationStatus } from '@/lib/applicationStatus'
@@ -116,6 +117,22 @@ function componentMatchKey(c: {
   return `${norm(c.type)}::${norm(c.title)}::${norm(c.organization_name)}`
 }
 
+// One-line explanations shown under the type picker, so people know which
+// bucket a piece of their experience belongs in.
+const COMPONENT_TYPE_HINTS: Record<string, string> = {
+  role: 'A job or position you held: full-time, part-time, internship or freelance.',
+  achievement: 'Something you made happen, ideally with a result: "Cut onboarding time by 30%".',
+  project: 'A piece of work with a clear outcome: at work, university, or on your own.',
+  skill: 'A tool, method or ability you can evidence: "SQL", "Stakeholder management".',
+  kpi: 'A number you moved or owned: revenue, growth, satisfaction, time saved.',
+  education: 'A degree, diploma or course of study.',
+  certification: 'A professional certificate or licence.',
+  program: 'A bootcamp, fellowship, accelerator or training programme.',
+  volunteer: 'Unpaid work, societies, community roles. These count.',
+  voice: 'How you like to come across in writing: e.g. direct, warm, analytical.',
+  context: 'Background that explains a term, product or company someone might not know.',
+}
+
 function Dashboard() {
   const [components, setComponents] = useState<CareerComponent[]>([])
   const [cvs, setCvs] = useState<CV[]>([])
@@ -196,10 +213,11 @@ function Dashboard() {
   const { user, signOut } = useAuth()
   const { session } = useAuth()
 
-  // Admin-only preview of what a free (non-paying) account would see — lets
-  // AI-powered features (which cost real API money) be toggled off without
-  // any actual billing/plan infrastructure existing yet.
-  const isAdmin = user?.email === 'fmartyn24@gmail.com'
+  // AI features are in beta: locked for everyone unless the deployment sets
+  // NEXT_PUBLIC_AI_FEATURES=on (the API routes enforce the same rule — see
+  // lib/aiAccess). Admins always have AI, and can toggle a preview of the
+  // free experience from the sidebar.
+  const isAdmin = user?.email === DEFAULT_ADMIN_EMAIL
   const [previewPlan, setPreviewPlan] = useState<'paid' | 'free'>('paid')
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('justapply-preview-plan') : null
@@ -212,7 +230,26 @@ function Dashboard() {
       return next
     })
   }
-  const aiLocked = isAdmin && previewPlan === 'free'
+  const aiLocked = isAdmin ? previewPlan === 'free' : process.env.NEXT_PUBLIC_AI_FEATURES !== 'on'
+
+  const closeImportModal = () => {
+    setShowImportModal(false)
+    setImportFile(null)
+    setImportUploadError('')
+    setImportUploadSuccess(false)
+    setAnalyzeStatus(null)
+  }
+
+  // Free accounts land on Upload (which works without AI); AI accounts on Paste.
+  const openImportModal = () => {
+    setImportTab(aiLocked ? 'upload' : 'paste')
+    setShowImportModal(true)
+  }
+
+  const openAddForm = (type: NewComponent['type'] = 'achievement') => {
+    setFormData((prev) => ({ ...prev, type }))
+    setShowAddForm(true)
+  }
 
   const handleLogout = async () => {
     try {
@@ -377,6 +414,12 @@ function Dashboard() {
     fetchData()
   }, [session])
 
+  // CvManager uploads/deletes on its own, so refresh the CV count shown on Home.
+  useEffect(() => {
+    if (activeTab === 'home') refetchCvs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
   // Normalize raw extracted components from the API into review previews and
   // flag any that already exist in the current library.
   const prepareReviewComponents = (raw: any[]): ExtractedComponentPreview[] => {
@@ -410,7 +453,7 @@ function Dashboard() {
   const handleExtractComponents = async () => {
     if (!session?.access_token) return
     if (aiLocked) {
-      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      showNotice('AI features are in beta and not available on your account yet.')
       return
     }
 
@@ -611,7 +654,7 @@ function Dashboard() {
       // Don't leave the user at a dead-end: immediately extract components from
       // the file they just uploaded and surface them in the review modal.
       const uploadedText: string = uploadResult?.extractedText || ''
-      if (uploadedText.trim().length > 0) {
+      if (!aiLocked && uploadedText.trim().length > 0) {
         await extractAndReviewFromText(uploadedText)
       }
     } catch (err) {
@@ -748,7 +791,7 @@ function Dashboard() {
   const handleAnalyzeText = async (text: string) => {
     if (!session?.access_token || !session?.user?.id) return
     if (aiLocked) {
-      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      showNotice('AI features are in beta and not available on your account yet.')
       return
     }
 
@@ -762,7 +805,10 @@ function Dashboard() {
       // Step 1: Classify and split the pasted text into documents + voice.
       const classifyResponse = await fetch('/api/analyze-mixed-documents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ text }),
       })
 
@@ -932,7 +978,7 @@ function Dashboard() {
     company?: string
   ) => {
     if (!session?.access_token) throw new Error('Not authenticated')
-    if (aiLocked) throw new Error('AI features are on the paid plan — you\'re previewing as a free account.')
+    if (aiLocked) throw new Error('AI features are in beta and not available on your account yet.')
 
     const response = await fetch('/api/analyze-job', {
       method: 'POST',
@@ -967,7 +1013,7 @@ function Dashboard() {
   ) => {
     if (!session?.access_token || !session?.user?.id) return
     if (aiLocked) {
-      showNotice('AI features are on the paid plan — you\'re previewing as a free account.')
+      showNotice('AI features are in beta and not available on your account yet.')
       return
     }
 
@@ -1045,6 +1091,7 @@ function Dashboard() {
     company_name: string
     job_url?: string
     deadline?: string
+    job_description?: string
   }) => {
     if (!session?.user?.id) return
 
@@ -1058,6 +1105,7 @@ function Dashboard() {
           company_name: data.company_name,
           job_url: data.job_url || null,
           deadline: data.deadline || null,
+          job_description: data.job_description || null,
           generated_cv: '',
           generated_cover_letter: '',
           status: 'draft',
@@ -1069,6 +1117,13 @@ function Dashboard() {
 
       setApplications((prev) => [inserted, ...prev])
       setShowAddApplicationForm(false)
+      // Open the new application so the user lands on its details/cover letter.
+      const insertedId = (inserted as any)?.id
+      if (insertedId) {
+        setActiveTab('applications')
+        setJustGeneratedApplicationId(insertedId)
+      }
+      return inserted
     } catch (err) {
       console.error('Manual application create error:', err)
       showNotice(err instanceof Error ? err.message : 'Failed to create application')
@@ -1184,7 +1239,11 @@ function Dashboard() {
                 componentsCount={components.length}
                 applicationsCount={applications.length}
                 appliedCount={applications.filter((a) => a.status === 'applied').length}
+                cvsCount={cvs.length}
                 onJustApply={() => setActiveTab('justApply')}
+                onCompleteProfile={() => setActiveTab('settings')}
+                onAddRole={() => openAddForm('role')}
+                onUploadCv={() => setActiveTab('cvs')}
               />
             )}
 
@@ -1224,8 +1283,8 @@ function Dashboard() {
                     components={components}
                     onEdit={handleEditComponent}
                     onDelete={handleDeleteComponent}
-                    onAdd={() => setShowAddForm(true)}
-                    onImport={() => setShowImportModal(true)}
+                    onAdd={() => openAddForm()}
+                    onImport={openImportModal}
                     isDeleting={(id) => deletingComponent === id}
                   />
                 )}
@@ -1251,10 +1310,8 @@ function Dashboard() {
                     loading={generatingApplication}
                     authToken={session?.access_token}
                     aiLocked={aiLocked}
-                    onCreateManual={() => {
-                      setActiveTab('applications')
-                      setShowAddApplicationForm(true)
-                    }}
+                    onSaveApplication={handleCreateManualApplication}
+                    savingApplication={savingManualApplication}
                   />
                 )}
 
@@ -1276,26 +1333,44 @@ function Dashboard() {
                   />
                 )}
 
-                {/* Empty State for Components */}
-                {!loading && components.length === 0 && (
-                  <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700 space-y-4">
+                {/* Empty State for Components (library/timeline only) */}
+                {!loading && components.length === 0 && (activeTab === 'library' || activeTab === 'timeline') && (
+                  <div className="bg-navy-800 rounded-xl border border-navy-700 p-8 space-y-5">
                     <div>
-                      <p className="text-white font-medium">Ready to build your profile?</p>
-                      <p className="text-navy-300 text-sm mt-1">
-                        Add your experience information to get started. We'll intelligently extract your roles, achievements, skills, and experience.
+                      <h2 className="text-xl font-semibold text-white">Start your career library</h2>
+                      <p className="text-navy-300 text-sm mt-2 max-w-xl">
+                        {aiLocked
+                          ? 'Your library is a set of reusable building blocks: roles, projects, achievements, skills. Start with your most recent role. Every application you write will draw on it.'
+                          : "Import your CV or paste your experience and we'll pull out your roles, achievements and skills. Or add them one at a time."}
                       </p>
                     </div>
-                    <div className="flex gap-2 justify-center flex-wrap">
-                      <Button onClick={() => setShowImportModal(true)}>
-                        Import your experience
-                      </Button>
-                      <button
-                        onClick={() => setShowAddForm(true)}
-                        className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
-                      >
-                        Add component
-                      </button>
+                    <div className="flex gap-2 flex-wrap">
+                      {aiLocked ? (
+                        <>
+                          <Button onClick={() => openAddForm('role')}>Add your first role</Button>
+                          <button
+                            onClick={openImportModal}
+                            className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Upload your CV
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Button onClick={openImportModal}>Import your experience</Button>
+                          <button
+                            onClick={() => openAddForm()}
+                            className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Add component
+                          </button>
+                        </>
+                      )}
                     </div>
+                    <p className="text-xs text-navy-400">
+                      Not much work experience yet? Internships, university projects, societies, volunteering and
+                      part-time jobs all count.
+                    </p>
                   </div>
                 )}
               </>
@@ -1580,15 +1655,10 @@ function Dashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Import your information</h2>
+              <h2 className="text-2xl font-bold text-white">{aiLocked ? 'Add your experience' : 'Import your information'}</h2>
               <button
-                onClick={() => {
-                  setShowImportModal(false)
-                  setImportFile(null)
-                  setImportUploadError('')
-                  setImportUploadSuccess(false)
-                  setAnalyzeStatus(null)
-                }}
+                onClick={closeImportModal}
+                aria-label="Close"
                 className="text-navy-300 hover:text-white text-2xl font-bold"
               >
                 ×
@@ -1611,53 +1681,54 @@ function Dashboard() {
               </div>
             )}
 
-            <LockedOverlay
-              active={aiLocked}
-              title="Build your career library in minutes"
-              pitch="Upload CVs, cover letters, a thesis, or any past document, and we'll automatically pull out your roles, skills, and achievements instead of you typing them one by one."
-              bullets={[
-                'Bulk-import from multiple documents at once',
-                'Roles, skills, achievements, and more extracted automatically',
-                'Review and approve before anything is saved',
-              ]}
-              ctaLabel="Add a component manually instead"
-              onCta={() => {
-                setShowImportModal(false)
-                setImportFile(null)
-                setImportUploadError('')
-                setImportUploadSuccess(false)
-                setAnalyzeStatus(null)
-                setShowAddForm(true)
-              }}
-            >
+            {aiLocked && (
+              <p className="text-sm text-navy-300 mb-6">
+                Upload your CV to keep it on file, then add your experience one piece at a time.{' '}
+                <button
+                  onClick={() => {
+                    closeImportModal()
+                    openAddForm('role')
+                  }}
+                  className="text-blue-400 font-semibold hover:underline"
+                >
+                  Add a role manually
+                </button>
+              </p>
+            )}
+
             {/* Tabs */}
             <div className="flex gap-4 border-b border-navy-600 mb-6">
-              <button
-                onClick={() => setImportTab('paste')}
-                className={`px-4 py-3 font-medium transition border-b-2 ${
-                  importTab === 'paste'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-navy-300 hover:text-white'
-                }`}
-              >
-                Paste Information
-              </button>
-              <button
-                onClick={() => setImportTab('upload')}
-                className={`px-4 py-3 font-medium transition border-b-2 ${
-                  importTab === 'upload'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-navy-300 hover:text-white'
-                }`}
-              >
-                Upload File
-              </button>
+              {(aiLocked ? (['upload', 'paste'] as const) : (['paste', 'upload'] as const)).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setImportTab(tab)}
+                  className={`px-4 py-3 font-medium transition border-b-2 ${
+                    importTab === tab
+                      ? 'border-blue-500 text-blue-400'
+                      : 'border-transparent text-navy-300 hover:text-white'
+                  }`}
+                >
+                  {tab === 'upload' ? 'Upload File' : aiLocked ? 'Auto-import with AI' : 'Paste Information'}
+                </button>
+              ))}
             </div>
 
             {/* Paste Tab */}
-            {importTab === 'paste' && (
-              <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} aiLocked={aiLocked} />
-            )}
+            {importTab === 'paste' &&
+              (aiLocked ? (
+                <AiFeatureTeaser
+                  feature="import"
+                  title="Build your career library in minutes"
+                  pitch="Paste or upload your CVs, cover letters or any past document, and we'll pull out your roles, skills and achievements for you, instead of typing them one by one."
+                  bullets={[
+                    'Import from several documents at once',
+                    'Roles, skills, achievements and more extracted automatically',
+                    'Review and approve before anything is saved',
+                  ]}
+                />
+              ) : (
+                <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} aiLocked={aiLocked} />
+              ))}
 
             {/* Upload Tab */}
             {importTab === 'upload' && (
@@ -1665,46 +1736,83 @@ function Dashboard() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-white">Upload your CV or documents</h3>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-                        <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
-                      </svg>
-                      AI Powered
-                    </span>
+                    {!aiLocked && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                          <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+                        </svg>
+                        AI Powered
+                      </span>
+                    )}
                   </div>
                   <p className="text-navy-300 text-sm mt-1">
-                    Upload PDF or DOCX files. We'll extract and analyze your experience.
+                    {aiLocked
+                      ? 'PDF or DOCX. Your CV is saved under CVs, ready to attach to applications.'
+                      : "Upload PDF or DOCX files. We'll extract and analyze your experience."}
                   </p>
                 </div>
 
                 {importUploadSuccess ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center space-y-4">
-                    <div className="text-4xl">✓</div>
-                    <div>
-                      <p className="font-semibold text-green-900">CV uploaded successfully</p>
-                      <p className="text-sm text-green-800 mt-1">
-                        Turn it into career components, or upload another file.
-                      </p>
+                  aiLocked ? (
+                    <div className="space-y-4">
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                        <p className="font-semibold text-emerald-300">CV saved</p>
+                        <p className="text-sm text-navy-200 mt-1">
+                          Next, add your most recent role. It takes about a minute, and every application you write
+                          will draw on it.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              closeImportModal()
+                              openAddForm('role')
+                            }}
+                          >
+                            Add a role
+                          </Button>
+                          <button
+                            onClick={() => {
+                              setImportUploadSuccess(false)
+                              setImportUploadError('')
+                            }}
+                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Upload another file
+                          </button>
+                        </div>
+                      </div>
+                      <AiFeatureTeaser
+                        feature="import"
+                        title="Skip the typing next time"
+                        pitch="With AI import, we'd read the CV you just uploaded and turn it into roles, skills and achievements for you to review."
+                      />
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <Button
-                        onClick={handleExtractComponents}
-                        loading={extracting}
-                        disabled={aiLocked}
-                      >
-                        Extract components now
-                      </Button>
-                      <button
-                        onClick={() => {
-                          setImportUploadSuccess(false)
-                          setImportUploadError('')
-                        }}
-                        className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
-                      >
-                        Upload another file
-                      </button>
+                  ) : (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center space-y-4">
+                      <div className="text-4xl">✓</div>
+                      <div>
+                        <p className="font-semibold text-green-900">CV uploaded successfully</p>
+                        <p className="text-sm text-green-800 mt-1">
+                          Turn it into career components, or upload another file.
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button onClick={handleExtractComponents} loading={extracting}>
+                          Extract components now
+                        </Button>
+                        <button
+                          onClick={() => {
+                            setImportUploadSuccess(false)
+                            setImportUploadError('')
+                          }}
+                          className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                        >
+                          Upload another file
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )
                 ) : (
                   <>
                     <CVUploadZone
@@ -1732,18 +1840,19 @@ function Dashboard() {
                       </Button>
                     </div>
 
-                    <p className="text-xs text-navy-400 text-center">
-                      PDF or DOCX up to 10 MB. Not sure how to export your CV? Try the{' '}
-                      <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">
-                        Paste Information
-                      </button>{' '}
-                      tab instead.
-                    </p>
+                    {!aiLocked && (
+                      <p className="text-xs text-navy-400 text-center">
+                        PDF or DOCX up to 10 MB. Not sure how to export your CV? Try the{' '}
+                        <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">
+                          Paste Information
+                        </button>{' '}
+                        tab instead.
+                      </p>
+                    )}
                   </>
                 )}
               </div>
             )}
-            </LockedOverlay>
           </div>
         </div>
       )}
@@ -2210,7 +2319,8 @@ function Dashboard() {
             >
               ×
             </button>
-            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Add Component</h2>
+            <h2 className="text-2xl font-bold text-white mb-1 pr-8">Add to your library</h2>
+            <p className="text-sm text-navy-300 mb-4">{COMPONENT_TYPE_HINTS[formData.type]}</p>
             <form onSubmit={handleAddComponent} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2396,7 +2506,7 @@ function Dashboard() {
       {/* Add Application Manually */}
       {showAddApplicationForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-md w-full p-6 relative">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setShowAddApplicationForm(false)}
@@ -2414,12 +2524,14 @@ function Dashboard() {
                 const companyName = (form.elements.namedItem('company_name') as HTMLInputElement).value.trim()
                 const jobUrl = (form.elements.namedItem('job_url') as HTMLInputElement).value.trim()
                 const deadline = (form.elements.namedItem('deadline') as HTMLInputElement).value
+                const jobDescription = (form.elements.namedItem('job_description') as HTMLTextAreaElement).value.trim()
                 if (!jobTitle || !companyName) return
                 handleCreateManualApplication({
                   job_title: jobTitle,
                   company_name: companyName,
                   job_url: jobUrl || undefined,
                   deadline: deadline || undefined,
+                  job_description: jobDescription || undefined,
                 })
               }}
               className="space-y-4"
@@ -2456,6 +2568,15 @@ function Dashboard() {
                   name="deadline"
                   type="date"
                   className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job description</label>
+                <textarea
+                  name="job_description"
+                  rows={4}
+                  placeholder="Paste the posting so you have it to hand, even after the ad comes down"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary resize-y"
                 />
               </div>
               <div className="flex gap-3 pt-2">

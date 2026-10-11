@@ -4,7 +4,7 @@ import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
 import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
-import { LockedOverlay } from '@/components/common/LockedOverlay'
+import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -133,6 +133,8 @@ export function ApplicationPreview({
   const [generating, setGenerating] = useState<'coverLetter' | 'cvAdvice' | null>(null)
   const [generateError, setGenerateError] = useState('')
   const [showGenerationOptions, setShowGenerationOptions] = useState(false)
+  // Free path: open the editor on an empty letter so people can write their own.
+  const [writingOwnLetter, setWritingOwnLetter] = useState(false)
 
   // Auto-save functionality — cover letter text + details fields only. Status
   // changes save immediately on select (see handleStatusChange); CV advice
@@ -196,7 +198,7 @@ export function ApplicationPreview({
   const handleGenerate = async (choices: GenerationChoices) => {
     if (!id || !authToken) return
     if (aiLocked) {
-      setGenerateError('AI features are on the paid plan — you\'re previewing as a free account.')
+      setGenerateError('AI features are in beta and not available on your account yet.')
       setShowGenerationOptions(false)
       return
     }
@@ -319,27 +321,23 @@ export function ApplicationPreview({
           )}
 
           {activeTab === 'coverLetter' && (
-            editedCoverLetter ? (
-              <LockedOverlay
-                active={!!aiLocked}
-                className="h-full"
-                title="Keep refining with AI"
-                pitch="Regenerate to pick different components to emphasize, a different tone or length, or a fresh draft as your job search evolves."
-              >
+            editedCoverLetter || writingOwnLetter ? (
               <div className="h-full flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <p className={`text-xs ${wordCount > ONE_PAGE_WORD_LIMIT ? 'text-amber-400' : 'text-navy-400'}`}>
                     {wordCount} words {wordCount > ONE_PAGE_WORD_LIMIT ? '— likely over one page, consider trimming' : '(fits one page)'}
                   </p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowGenerationOptions(true)}
-                      disabled={generating === 'coverLetter' || aiLocked}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
-                    >
-                      <AiBoltIcon />
-                      Regenerate
-                    </button>
+                    {!aiLocked && (
+                      <button
+                        onClick={() => setShowGenerationOptions(true)}
+                        disabled={generating === 'coverLetter'}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+                      >
+                        <AiBoltIcon />
+                        Regenerate
+                      </button>
+                    )}
                     <button
                       onClick={() => setShowTemplateSelector(true)}
                       disabled={showTemplateSelector || !id || !authToken}
@@ -388,48 +386,58 @@ export function ApplicationPreview({
                   value={editedCoverLetter}
                   onChange={(e) => setEditedCoverLetter(e.target.value)}
                   className="w-full flex-1 bg-navy-800 text-white p-6 rounded-lg border border-navy-600 text-sm resize-none focus:outline-none focus:border-blue-500"
-                  placeholder="Edit your cover letter..."
+                  placeholder={"Dear hiring manager,\n\nStart with why this role and this company. Then pick two or three things from your library that prove you can do the job, with numbers where you have them.\n\nKeep it under a page."}
                 />
               </div>
-              </LockedOverlay>
             ) : (
-              <LockedOverlay
-                active={!!aiLocked}
-                className="h-full"
-                title="A cover letter written for this exact role"
-                pitch="We'll draft a contextual cover letter pulling from your career components — tailored to this job description, not a generic template."
-              >
-              <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
-                <AiBadge />
-                <p className="text-navy-300 max-w-sm">
-                  No cover letter yet. Generate one tailored to this job description and your career library.
-                </p>
-                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
-                  Generate Cover Letter
-                </Button>
+              <div className="grid lg:grid-cols-2 gap-6 items-start max-w-5xl mx-auto pt-4">
+                <div className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Write your cover letter</h3>
+                  <p className="text-sm text-navy-300">
+                    Start from a blank page. It saves as you type, and exports to Word, PDF, ODT or plain text.
+                  </p>
+                  <ul className="text-sm text-navy-200 space-y-1.5">
+                    <li className="flex gap-2"><span className="text-blue-400">1.</span>Why this role, at this company</li>
+                    <li className="flex gap-2"><span className="text-blue-400">2.</span>Two or three proof points from your library</li>
+                    <li className="flex gap-2"><span className="text-blue-400">3.</span>A short, confident close</li>
+                  </ul>
+                  <Button onClick={() => setWritingOwnLetter(true)}>Start writing</Button>
+                </div>
+                {aiLocked ? (
+                  <AiFeatureTeaser
+                    feature="cover_letter"
+                    title="Or get a first draft in seconds"
+                    pitch="With AI, we'd draft a cover letter for this exact job description from the components in your library, in your tone and at your chosen length. You edit from there."
+                  />
+                ) : (
+                  <div className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
+                    <AiBadge />
+                    <h3 className="text-lg font-semibold text-white">Or generate a first draft</h3>
+                    <p className="text-sm text-navy-300">Tailored to this job description and your career library.</p>
+                    <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
+                      Generate Cover Letter
+                    </Button>
+                  </div>
+                )}
               </div>
-              </LockedOverlay>
             )
           )}
 
           {activeTab === 'cvAdvice' && (
             currentCvAdvice ? (
-              <LockedOverlay
-                active={!!aiLocked}
-                title="Keep refining with AI"
-                pitch="Regenerate to get fresh advice as your CV or the role's requirements change."
-              >
               <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
-                  <button
-                    onClick={() => setShowGenerationOptions(true)}
-                    disabled={generating === 'coverLetter' || aiLocked}
-                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
-                  >
-                    <AiBoltIcon size={10} />
-                    Regenerate
-                  </button>
+                  {!aiLocked && (
+                    <button
+                      onClick={() => setShowGenerationOptions(true)}
+                      disabled={generating === 'coverLetter'}
+                      className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
+                    >
+                      <AiBoltIcon size={10} />
+                      Regenerate
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-navy-400">
                   We don't rewrite your CV — this is guidance on what to change in the document you already have.
@@ -485,24 +493,29 @@ export function ApplicationPreview({
                   </div>
                 )}
               </div>
-              </LockedOverlay>
+            ) : aiLocked ? (
+              <div className="max-w-2xl mx-auto pt-4">
+                <AiFeatureTeaser
+                  feature="cv_advice"
+                  title="Know exactly what to change on your CV"
+                  pitch="With AI, we'd compare your uploaded CV with this job description and tell you what's working, what's missing and what to reword. Not a rewrite: specific changes to the CV you already have."
+                  bullets={[
+                    'A match score for this role',
+                    "What's already strong, and what to cut",
+                    'Concrete edits, section by section',
+                  ]}
+                />
+              </div>
             ) : (
-              <LockedOverlay
-                active={!!aiLocked}
-                className="h-full"
-                title="Know exactly what to change on your CV"
-                pitch="We'll compare your uploaded CV against this job description and give you specific, actionable suggestions — not a rewrite, just what to adjust."
-              >
               <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
                 <AiBadge />
                 <p className="text-navy-300 max-w-sm">
                   No advice yet. Pick a CV and we'll compare this job description against it and suggest specific changes.
                 </p>
-                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'} disabled={aiLocked}>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
                   Generate CV Advice
                 </Button>
               </div>
-              </LockedOverlay>
             )
           )}
 

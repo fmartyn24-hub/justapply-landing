@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { createClient } from '@supabase/supabase-js'
+import { requireAiUser } from '@/lib/aiAccess'
 import Anthropic from '@anthropic-ai/sdk'
 
 interface ExtractedComponent {
@@ -49,25 +49,9 @@ export default async function handler(
   }
 
   try {
-    // Get auth token
-    const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' })
-    }
-
-    const token = authHeader.substring(7)
-
-    // Create service role client
-    const serverSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Verify user
-    const { data: { user }, error: userError } = await serverSupabase.auth.getUser(token)
-    if (userError || !user?.id) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' })
-    }
+    const ctx = await requireAiUser(req, res)
+    if (!ctx) return
+    const { user, serverSupabase } = ctx
 
     // Resolve the source text to extract from. Two modes:
     //   1. Body text provided (e.g. freshly pasted CV from the Analyze flow):

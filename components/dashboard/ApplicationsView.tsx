@@ -279,11 +279,12 @@ export function ApplicationsView({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-8 bg-navy-800 rounded-lg border border-navy-700 space-y-3">
+      <div className="text-center py-8 px-6 bg-navy-800 rounded-lg border border-navy-700 space-y-3">
         <div>
           <p className="text-white font-medium">No applications yet</p>
-          <p className="text-navy-300 text-sm mt-1">
-            Click "Just Apply" to generate your first application, or add one manually.
+          <p className="text-navy-300 text-sm mt-1 max-w-md mx-auto">
+            Every job you go for lives here: the posting, your cover letter, the deadline and where you stand.
+            Use &ldquo;Just Apply&rdquo; when you find a role, or add one you&apos;ve already sent.
           </p>
         </div>
         {onCreateManual && (
