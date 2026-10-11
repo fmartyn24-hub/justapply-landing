@@ -1312,6 +1312,7 @@ function Dashboard() {
                     aiLocked={aiLocked}
                     onSaveApplication={handleCreateManualApplication}
                     savingApplication={savingManualApplication}
+                    onAddComponent={() => openAddForm()}
                   />
                 )}
 

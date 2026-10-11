@@ -4,6 +4,7 @@ import { CvPicker } from './CvPicker'
 import { ToneLengthPicker } from './ToneLengthPicker'
 import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
 import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { FitPreview } from './FitPreview'
 
 // Minimal shape of a career component needed by this wizard. The dashboard's
 // richer CareerComponent is structurally compatible.
@@ -13,6 +14,9 @@ interface LibraryComponent {
   title: string
   organization_name?: string
   description?: string
+  impact_metrics?: string
+  tags?: string[]
+  related_terms?: string
 }
 
 interface Recommendation {
@@ -55,6 +59,7 @@ interface JustApplyTabProps {
     job_description?: string
   }) => Promise<unknown>
   savingApplication?: boolean
+  onAddComponent?: () => void
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -70,7 +75,7 @@ const TYPE_LABELS: Record<string, string> = {
   context: 'Context',
 }
 
-export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onSaveApplication, savingApplication }: JustApplyTabProps) {
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onSaveApplication, savingApplication, onAddComponent }: JustApplyTabProps) {
   const [step, setStep] = useState<'input' | 'proposal'>('input')
   const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
   const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
@@ -240,16 +245,14 @@ export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authTok
             </p>
           </form>
 
-          <AiFeatureTeaser
-            feature="match_analysis"
-            title="See what this employer is really asking for"
-            pitch="With AI, we'd read the posting against your career library and show you the keywords that matter, why you fit, and which of your experiences to lead with. Then draft the cover letter from them."
-            bullets={[
-              'Keywords and priorities pulled from the posting',
-              'Your most relevant roles and achievements, pre-selected',
-              'A first-draft cover letter, in your voice',
-            ]}
-          />
+          <div className="space-y-6 lg:sticky lg:top-6">
+            <FitPreview posting={jobDescription} components={components} onAddComponent={onAddComponent} />
+            <AiFeatureTeaser
+              feature="match_analysis"
+              title="Go deeper with AI match analysis"
+              pitch="AI would read the posting for meaning, not just shared words: what the employer really prioritises, why you fit in one line, and a first-draft cover letter built from your best-fit components."
+            />
+          </div>
         </div>
       </div>
     )

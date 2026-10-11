@@ -36,7 +36,7 @@ interface ApplicationsViewProps {
   authToken?: string
   openApplicationId?: string | null
   onApplicationOpened?: () => void
-  components?: { id: string; type: string; title: string; organization_name?: string }[]
+  components?: { id: string; type: string; title: string; organization_name?: string; description?: string; impact_metrics?: string; tags?: string[]; related_terms?: string }[]
   aiLocked?: boolean
 }
 

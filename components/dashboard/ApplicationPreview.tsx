@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/common/Button'
 import { ExportTemplateSelector } from './ExportTemplateSelector'
 import { type ApplicationStatus } from '@/lib/applicationStatus'
 import { StatusSelect } from '@/components/common/StatusSelect'
 import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
 import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { FitPreview } from './FitPreview'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -13,6 +14,18 @@ interface LibraryComponent {
   type: string
   title: string
   organization_name?: string
+  description?: string
+  impact_metrics?: string
+  tags?: string[]
+  related_terms?: string
+}
+
+// A starting line for a component inserted into the cover letter: the facts,
+// for the user to turn into their own sentence. No dashes (see cover letter style).
+function componentSnippet(c: LibraryComponent): string {
+  const where = c.organization_name ? ` at ${c.organization_name}` : ''
+  const proof = c.impact_metrics || c.description || ''
+  return `${c.title}${where}${proof ? `: ${proof.trim().replace(/\s+/g, ' ')}` : ''}`
 }
 
 interface CvAdviceImprovement {
@@ -135,6 +148,24 @@ export function ApplicationPreview({
   const [showGenerationOptions, setShowGenerationOptions] = useState(false)
   // Free path: open the editor on an empty letter so people can write their own.
   const [writingOwnLetter, setWritingOwnLetter] = useState(false)
+  const letterRef = useRef<HTMLTextAreaElement>(null)
+
+  // Insert a component's facts at the cursor (or at the end) as its own paragraph.
+  const insertComponent = (c: LibraryComponent) => {
+    const el = letterRef.current
+    const text = componentSnippet(c)
+    const at = el ? el.selectionStart : editedCoverLetter.length
+    const before = editedCoverLetter.slice(0, at).replace(/\s*$/, '')
+    const after = editedCoverLetter.slice(at).replace(/^\s*/, '')
+    const next = `${before}${before ? '\n\n' : ''}${text}${after ? '\n\n' + after : ''}`
+    setEditedCoverLetter(next)
+    requestAnimationFrame(() => {
+      if (!el) return
+      const caret = (before ? before.length + 2 : 0) + text.length
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
 
   // Auto-save functionality — cover letter text + details fields only. Status
   // changes save immediately on select (see handleStatusChange); CV advice
@@ -382,12 +413,31 @@ export function ApplicationPreview({
                     </a>
                   </div>
                 </div>
-                <textarea
-                  value={editedCoverLetter}
-                  onChange={(e) => setEditedCoverLetter(e.target.value)}
-                  className="w-full flex-1 bg-navy-800 text-white p-6 rounded-lg border border-navy-600 text-sm resize-none focus:outline-none focus:border-blue-500"
-                  placeholder={"Dear hiring manager,\n\nStart with why this role and this company. Then pick two or three things from your library that prove you can do the job, with numbers where you have them.\n\nKeep it under a page."}
-                />
+                <div className="flex-1 min-h-0 grid lg:grid-cols-[1fr_340px] gap-4">
+                  <textarea
+                    ref={letterRef}
+                    value={editedCoverLetter}
+                    onChange={(e) => setEditedCoverLetter(e.target.value)}
+                    className="w-full h-full min-h-[320px] bg-navy-800 text-white p-6 rounded-lg border border-navy-600 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    placeholder={"Dear hiring manager,\n\nStart with why this role and this company. Then pick two or three things from your library that prove you can do the job, with numbers where you have them.\n\nKeep it under a page."}
+                  />
+                  <div className="min-h-0 overflow-y-auto">
+                    <FitPreview
+                      posting={editedJobDescription}
+                      components={components}
+                      compact
+                      renderAction={(m) => (
+                        <button
+                          onClick={() => insertComponent(m.component)}
+                          title="Insert its facts at your cursor"
+                          className="px-2 py-1 text-xs font-semibold rounded-md border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                        >
+                          Insert
+                        </button>
+                      )}
+                    />
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="grid lg:grid-cols-2 gap-6 items-start max-w-5xl mx-auto pt-4">
