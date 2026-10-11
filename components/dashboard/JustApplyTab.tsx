@@ -1,0 +1,514 @@
+import { useState } from 'react'
+import { Button } from '@/components/common/Button'
+import { CvPicker } from './CvPicker'
+import { ToneLengthPicker } from './ToneLengthPicker'
+import { DEFAULT_TONE, DEFAULT_LENGTH, type CoverLetterTone, type CoverLetterLength } from '@/lib/coverLetterOptions'
+import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { FitPreview } from './FitPreview'
+
+// Minimal shape of a career component needed by this wizard. The dashboard's
+// richer CareerComponent is structurally compatible.
+interface LibraryComponent {
+  id: string
+  type: string
+  title: string
+  organization_name?: string
+  description?: string
+  impact_metrics?: string
+  tags?: string[]
+  related_terms?: string
+}
+
+interface Recommendation {
+  id: string
+  title: string
+  type: string
+  reason: string
+}
+
+interface AnalysisResult {
+  success: boolean
+  keywords: string[]
+  thesis: string
+  recommendations: Recommendation[]
+}
+
+interface JustApplyTabProps {
+  // Advice step: analyse the job ad and return keywords + recommended components.
+  onAnalyze: (jobDescription: string, jobTitle?: string, company?: string) => Promise<AnalysisResult>
+  // Generation step: build the cover letter + CV advice, foregrounding the chosen components.
+  onSubmit: (
+    jobDescription: string,
+    jobTitle?: string,
+    company?: string,
+    selectedComponentIds?: string[],
+    cvId?: string | null,
+    tone?: CoverLetterTone,
+    length?: CoverLetterLength
+  ) => Promise<void>
+  components: LibraryComponent[]
+  loading?: boolean
+  authToken?: string
+  aiLocked?: boolean
+  // Free path (AI locked): save the job as a tracked application.
+  onSaveApplication?: (data: {
+    job_title: string
+    company_name: string
+    job_url?: string
+    deadline?: string
+    job_description?: string
+  }) => Promise<unknown>
+  savingApplication?: boolean
+  onAddComponent?: () => void
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  role: 'Role',
+  experience: 'Role',
+  skill: 'Skill',
+  tool: 'Skill',
+  achievement: 'Achievement',
+  campaign: 'Achievement',
+  project: 'Project',
+  kpi: 'KPI',
+  voice: 'Voice',
+  context: 'Context',
+}
+
+export function JustApplyTab({ onAnalyze, onSubmit, components, loading, authToken, aiLocked, onSaveApplication, savingApplication, onAddComponent }: JustApplyTabProps) {
+  const [step, setStep] = useState<'input' | 'proposal'>('input')
+  const [selectedCvId, setSelectedCvId] = useState<string | null>(null)
+  const [tone, setTone] = useState<CoverLetterTone>(DEFAULT_TONE)
+  const [length, setLength] = useState<CoverLetterLength>(DEFAULT_LENGTH)
+
+  const [jobDescription, setJobDescription] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  const [company, setCompany] = useState('')
+  const [jobUrl, setJobUrl] = useState('')
+  const [deadline, setDeadline] = useState('')
+
+  const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState('')
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const reasonById = new Map<string, string>(
+    (analysis?.recommendations || []).map((r) => [r.id, r.reason])
+  )
+  const recommendedIds = new Set((analysis?.recommendations || []).map((r) => r.id))
+
+  // Show recommended components first, then the rest of the library.
+  const orderedComponents = [...components].sort((a, b) => {
+    const ra = recommendedIds.has(a.id) ? 0 : 1
+    const rb = recommendedIds.has(b.id) ? 0 : 1
+    return ra - rb
+  })
+
+  const resetAll = () => {
+    setStep('input')
+    setJobDescription('')
+    setJobTitle('')
+    setCompany('')
+    setJobUrl('')
+    setDeadline('')
+    setAnalysis(null)
+    setSelectedIds(new Set())
+    setError('')
+  }
+
+  const handleAnalyze = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (jobDescription.trim().length < 50) {
+      setError('Please paste a job description (at least 50 characters).')
+      return
+    }
+
+    setAnalyzing(true)
+    try {
+      const result = await onAnalyze(jobDescription, jobTitle || undefined, company || undefined)
+      setAnalysis(result)
+      // Pre-select the recommended components.
+      setSelectedIds(new Set(result.recommendations.map((r) => r.id)))
+      setStep('proposal')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyse the job posting.')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleGenerate = async () => {
+    setError('')
+    try {
+      await onSubmit(
+        jobDescription,
+        jobTitle || undefined,
+        company || undefined,
+        selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
+        selectedCvId,
+        tone,
+        length
+      )
+      resetAll()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate application.')
+    }
+  }
+
+  const inputClass =
+    'w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-500 focus:ring-2 focus:ring-blue-500'
+
+  // ─────────────────────── FREE: SAVE THE JOB (AI LOCKED) ───────────────────────
+  if (aiLocked) {
+    const handleSave = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setError('')
+      if (!jobTitle.trim() || !company.trim()) {
+        setError('Add the job title and company so you can find this application later.')
+        return
+      }
+      try {
+        const created = await onSaveApplication?.({
+          job_title: jobTitle.trim(),
+          company_name: company.trim(),
+          job_url: jobUrl.trim() || undefined,
+          deadline: deadline || undefined,
+          job_description: jobDescription.trim() || undefined,
+        })
+        // The dashboard shows its own error notice and returns nothing on
+        // failure; keep what the user typed in that case.
+        if (created) resetAll()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save the application.')
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white">Just Apply</h2>
+          <p className="text-navy-300 mt-1 max-w-2xl">
+            Found a job worth going for? Save it here. The posting, link and deadline stay together with your cover
+            letter, and you can track it all the way to an offer.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6 items-start">
+          <form onSubmit={handleSave} className="space-y-4 bg-navy-800 rounded-lg p-6 border border-navy-600">
+            {error && (
+              <div className="bg-red-500/10 border border-red-400/40 rounded-lg p-3 text-sm text-red-300">{error}</div>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="ja-title" className="block text-sm font-medium text-navy-200 mb-1">Job title *</label>
+                <input id="ja-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g. Product Designer" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-company" className="block text-sm font-medium text-navy-200 mb-1">Company *</label>
+                <input id="ja-company" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Acme Inc" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-url" className="block text-sm font-medium text-navy-200 mb-1">Link to the posting</label>
+                <input id="ja-url" type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} placeholder="https://" className={inputClass} />
+              </div>
+              <div>
+                <label htmlFor="ja-deadline" className="block text-sm font-medium text-navy-200 mb-1">Deadline</label>
+                <input id="ja-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputClass} />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="ja-jd" className="block text-sm font-medium text-navy-200 mb-1">Job description</label>
+              <textarea
+                id="ja-jd"
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full posting. Job ads often disappear once the role closes, and you'll want it before the interview."
+                className={`${inputClass} py-3 resize-y h-48`}
+              />
+            </div>
+            <Button type="submit" loading={savingApplication} className="w-full">
+              Save application
+            </Button>
+            <p className="text-xs text-navy-400">
+              Next: write your cover letter in the application, and export it to Word or PDF.
+            </p>
+          </form>
+
+          <div className="space-y-6 lg:sticky lg:top-6">
+            <FitPreview posting={jobDescription} components={components} exclude={[company]} onAddComponent={onAddComponent} />
+            <AiFeatureTeaser
+              feature="match_analysis"
+              title="Go deeper with AI match analysis"
+              pitch="AI would read the posting for meaning, not just shared words: what the employer really prioritises, why you fit in one line, and a first-draft cover letter built from your best-fit components."
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─────────────────────────────── STEP 1: INPUT ───────────────────────────────
+  if (step === 'input') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white">Just Apply</h2>
+          <p className="text-navy-300 mt-1">
+            Paste a job posting. We&apos;ll show you which parts of your library to highlight before
+            generating a tailored cover letter and advice on your uploaded CV.
+          </p>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="flex items-center gap-2 font-medium text-blue-600">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">1</span>
+            Paste job
+          </span>
+          <span className="text-navy-500">→</span>
+          <span className="flex items-center gap-2 text-navy-400">
+            <span className="w-6 h-6 rounded-full bg-navy-700 text-navy-300 flex items-center justify-center text-xs">2</span>
+            Review highlights
+          </span>
+        </div>
+
+        <form onSubmit={handleAnalyze} className="space-y-6 bg-navy-800 rounded-lg p-6 border border-navy-600">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <h3 className="font-semibold text-white">Job Details (Optional)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job Title</label>
+                <input
+                  type="text"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="e.g., Senior React Developer"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Company</label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g., Acme Inc"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-navy-200 mb-2">Job Description *</label>
+            <textarea
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste the full job posting here..."
+              className="w-full px-4 py-3 bg-navy-900 border-2 border-navy-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-900/40 resize-none h-64"
+            />
+            <p className="text-xs text-navy-400 mt-2">Minimum 50 characters required</p>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={analyzing || jobDescription.trim().length < 50}
+            loading={analyzing}
+            className="w-full"
+          >
+            {analyzing ? 'Analysing the role...' : 'Analyze & suggest highlights →'}
+          </Button>
+
+          <p className="text-xs text-navy-300 bg-navy-900 rounded p-3 border border-navy-600">
+            Tip: Include the full job description for better results. Next, you&apos;ll confirm which
+            achievements, skills, and roles to spotlight.
+          </p>
+        </form>
+      </div>
+    )
+  }
+
+  // ──────────────────────────── STEP 2: PROPOSAL ───────────────────────────────
+  const selectedCount = selectedIds.size
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold text-white">Review highlights</h2>
+        <p className="text-navy-300 mt-1">
+          Here&apos;s what we&apos;d highlight for{' '}
+          <span className="font-medium">{jobTitle || 'this role'}</span>
+          {company ? <> at <span className="font-medium">{company}</span></> : null}. Adjust the
+          selection, then generate.
+        </p>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="flex items-center gap-2 text-navy-400">
+          <span className="w-6 h-6 rounded-full bg-navy-700 text-navy-300 flex items-center justify-center text-xs">1</span>
+          Paste job
+        </span>
+        <span className="text-navy-500">→</span>
+        <span className="flex items-center gap-2 font-medium text-blue-600">
+          <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">2</span>
+          Review highlights
+        </span>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
+      {/* Match thesis */}
+      {analysis?.thesis && (
+        <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+          <p className="text-sm font-semibold text-blue-200 mb-1">Why you&apos;re a fit</p>
+          <p className="text-sm text-blue-200">{analysis.thesis}</p>
+        </div>
+      )}
+
+      {/* Employer keywords */}
+      {analysis && analysis.keywords.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-white mb-2">Keywords this employer cares about</p>
+          <div className="flex flex-wrap gap-2">
+            {analysis.keywords.map((kw, i) => (
+              <span
+                key={i}
+                className="px-3 py-1 rounded-full bg-navy-700 text-navy-200 text-xs font-medium border border-navy-600"
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Component selection */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-white">
+            Components to highlight ({selectedCount} selected)
+          </p>
+          {components.length > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedIds(
+                  selectedCount === components.length
+                    ? new Set()
+                    : new Set(components.map((c) => c.id))
+                )
+              }
+              className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+            >
+              {selectedCount === components.length ? 'Clear all' : 'Select all'}
+            </button>
+          )}
+        </div>
+
+        {components.length === 0 ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+            You don&apos;t have any saved career components yet. We&apos;ll generate from your profile,
+            but adding components in your Library produces much stronger, more tailored results.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+            {orderedComponents.map((c) => {
+              const checked = selectedIds.has(c.id)
+              const recommended = recommendedIds.has(c.id)
+              const reason = reasonById.get(c.id)
+              return (
+                <label
+                  key={c.id}
+                  className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                    checked ? 'border-blue-400 bg-primary/10' : 'border-navy-600 bg-navy-800 hover:border-navy-500'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(c.id)}
+                    className="mt-1 h-4 w-4 text-blue-600 rounded border-navy-500 focus:ring-blue-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-white">{c.title}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-navy-700 text-navy-300">
+                        {TYPE_LABELS[c.type] || c.type}
+                      </span>
+                      {recommended && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-green-100 text-green-700">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                    {c.organization_name && (
+                      <p className="text-xs text-navy-400 mt-0.5">{c.organization_name}</p>
+                    )}
+                    {reason && (
+                      <p className="text-xs text-blue-300 mt-1">
+                        <span className="font-medium">Why:</span> {reason}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <CvPicker authToken={authToken} value={selectedCvId} onChange={setSelectedCvId} className="pt-2" />
+      <ToneLengthPicker tone={tone} length={length} onToneChange={setTone} onLengthChange={setLength} className="pt-2" />
+
+      {/* Reversible navigation — always a way back and a way forward */}
+      <div className="flex gap-3 pt-2 border-t border-navy-600">
+        <button
+          type="button"
+          onClick={() => {
+            setError('')
+            setStep('input')
+          }}
+          disabled={loading}
+          className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+        >
+          ← Back to edit
+        </button>
+        <Button
+          type="button"
+          onClick={handleGenerate}
+          loading={loading}
+          disabled={loading}
+          className="flex-[2]"
+        >
+          {loading
+            ? 'Generating your documents...'
+            : selectedCount > 0
+              ? `Generate with ${selectedCount} highlight${selectedCount === 1 ? '' : 's'} →`
+              : 'Generate from full library →'}
+        </Button>
+      </div>
+    </div>
+  )
+}

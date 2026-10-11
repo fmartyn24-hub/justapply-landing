@@ -1,0 +1,206 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { createClient } from '@supabase/supabase-js'
+import { extractText } from '@/lib/pdfExtraction'
+import { randomUUID } from 'crypto'
+
+interface UploadResponse {
+  success: boolean
+  cvId?: string
+  filename?: string
+  extractedTextLength?: number
+  extractedText?: string
+  error?: string
+  details?: string
+  status?: number
+}
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<UploadResponse>
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' })
+  }
+
+  try {
+    // Get auth token from headers
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+
+    const token = authHeader.substring(7)
+
+    // Create service role Supabase client (for server-side operations - bypasses RLS)
+    const serverSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Verify token and get user (with service role client)
+    const { data: { user }, error: userError } = await serverSupabase.auth.getUser(token)
+
+    if (userError || !user?.id) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+
+    const userId = user.id
+
+    // Parse request body
+    const contentType = req.headers['content-type']
+    if (!contentType?.includes('application/octet-stream')) {
+      return res.status(400).json({ success: false, error: 'Invalid content type' })
+    }
+
+    const fileBuffer = req.body as Buffer
+    const filename = req.headers['x-filename'] as string
+    const mimeType = req.headers['x-mime-type'] as string
+
+    // Validate file
+    const maxSize = 10 * 1024 * 1024 // 10 MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      return res.status(400).json({ success: false, error: 'No file provided' })
+    }
+
+    if (fileBuffer.length > maxSize) {
+      return res.status(413).json({ success: false, error: 'File must be under 10 MB' })
+    }
+
+    if (!allowedTypes.includes(mimeType)) {
+      return res.status(400).json({ success: false, error: 'Only PDF and DOCX files are supported' })
+    }
+
+    if (!filename) {
+      return res.status(400).json({ success: false, error: 'Filename is required' })
+    }
+
+    // Extract text from file (optional - non-blocking)
+    let extractedText = ''
+    try {
+      extractedText = await extractText(fileBuffer, mimeType)
+      console.log('✅ Text extraction successful, extracted', extractedText.length, 'characters')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.warn('⚠️ Text extraction failed (continuing without text):', errorMessage)
+      // Non-blocking - continue with fallback message
+      extractedText = `[Text extraction failed: ${errorMessage}]`
+    }
+
+    // Truncate text if too long (50k chars)
+    const maxTextLength = 50000
+    if (extractedText.length > maxTextLength) {
+      extractedText = extractedText.substring(0, maxTextLength)
+    }
+
+    // Generate storage path: /user_id/uuid-filename
+    const fileExtension = mimeType === 'application/pdf' ? 'pdf' : 'docx'
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 100)
+    const uuid = randomUUID()
+    const storagePath = `${userId}/${uuid}-${sanitizedFilename}.${fileExtension}`
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await serverSupabase.storage
+      .from('cvs')
+      .upload(storagePath, fileBuffer, {
+        contentType: mimeType,
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('Storage upload error:', {
+        message: uploadError.message,
+        statusCode: uploadError.statusCode,
+        details: JSON.stringify(uploadError),
+        storagePath,
+        fileSize: fileBuffer.length,
+      })
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to upload file to storage',
+        details: uploadError.message
+      })
+    }
+
+    // Cover letters sometimes land in this same upload path (e.g. via the
+    // "Import your information" flow, which accepts any past document for
+    // extraction) — flag them so the CV Advice picker never mistakes one for
+    // an actual CV/resume.
+    const documentType = /cover[ _-]?letter/i.test(filename) ? 'other' : 'cv'
+
+    // Save metadata to cvs table
+    const { data: cvRecord, error: dbError } = await serverSupabase
+      .from('cvs')
+      .insert({
+        user_id: userId,
+        filename: sanitizedFilename,
+        storage_path: storagePath,
+        file_size_bytes: fileBuffer.length,
+        mime_type: mimeType,
+        extracted_text: extractedText,
+        document_type: documentType,
+        metadata: {
+          originalFilename: filename,
+          uploadedAt: new Date().toISOString(),
+        },
+      } as any)
+      .select('id')
+      .single()
+
+    if (dbError) {
+      console.error('Database insert error:', {
+        message: dbError.message,
+        details: dbError.details,
+        hint: dbError.hint,
+        code: dbError.code,
+      })
+      // Attempt to clean up storage
+      await serverSupabase.storage.from('cvs').remove([storagePath])
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save CV metadata',
+        details: dbError.message,
+      })
+    }
+
+    // Update user_profiles to mark cv_uploaded = true
+    const { error: updateError } = await serverSupabase
+      .from('user_profiles')
+      .update({ cv_uploaded: true, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    if (updateError) {
+      console.error('Profile update error:', updateError)
+      // Don't fail the upload if this fails, but log it
+    }
+
+    return res.status(200).json({
+      success: true,
+      cvId: cvRecord.id,
+      filename: sanitizedFilename,
+      extractedTextLength: extractedText.length,
+      // Returned so the client can immediately extract components from this
+      // upload and show the review modal, instead of leaving the user at a
+      // dead-end with the CV stored but nothing surfaced.
+      extractedText,
+    })
+  } catch (error) {
+    console.error('Upload handler error:', error)
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+    })
+  }
+}

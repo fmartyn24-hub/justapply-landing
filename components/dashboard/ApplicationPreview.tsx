@@ -1,0 +1,761 @@
+import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/common/Button'
+import { ExportTemplateSelector } from './ExportTemplateSelector'
+import { type ApplicationStatus } from '@/lib/applicationStatus'
+import { StatusSelect } from '@/components/common/StatusSelect'
+import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
+import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { FitPreview } from './FitPreview'
+import { InterviewPrep } from './InterviewPrep'
+import { COVER_LETTER_TEMPLATES, buildCoverLetter, type CoverLetterTemplateId } from '@/lib/coverLetterTemplates'
+import { matchComponentsToPosting } from '@/lib/componentMatch'
+
+const ONE_PAGE_WORD_LIMIT = 320
+
+interface LibraryComponent {
+  id: string
+  type: string
+  title: string
+  organization_name?: string
+  description?: string
+  impact_metrics?: string
+  tags?: string[]
+  related_terms?: string
+}
+
+// A starting line for a component inserted into the cover letter: the facts,
+// for the user to turn into their own sentence. No dashes (see cover letter style).
+function componentSnippet(c: LibraryComponent): string {
+  const where = c.organization_name ? ` at ${c.organization_name}` : ''
+  const proof = c.impact_metrics || c.description || ''
+  return `${c.title}${where}${proof ? `: ${proof.trim().replace(/\s+/g, ' ')}` : ''}`
+}
+
+interface CvAdviceImprovement {
+  area?: string
+  advice: string
+}
+
+interface CvAdviceStructured {
+  matchScore?: number
+  matchSummary?: string
+  strengths?: string[]
+  improvements?: CvAdviceImprovement[]
+}
+
+interface ApplicationPreviewProps {
+  id?: string
+  coverLetter: string
+  cvAdvice?: string
+  cvAdviceJson?: CvAdviceStructured | null
+  jobTitle?: string
+  company?: string
+  jobDescription?: string
+  jobUrl?: string
+  deadline?: string
+  personsOfInterest?: string
+  status?: ApplicationStatus
+  components?: LibraryComponent[]
+  onSave?: (id: string, data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }) => Promise<void>
+  onStatusChange?: (status: ApplicationStatus) => Promise<void>
+  onGenerated?: (id: string, data: { generated_cover_letter?: string; cv_advice?: string; cv_advice_json?: CvAdviceStructured | null }) => void
+  onClose: () => void
+  saving?: boolean
+  authToken?: string
+  aiLocked?: boolean
+  applicantName?: string
+}
+
+function AiBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
+      <AiBoltIcon size={10} />
+      AI Powered
+    </span>
+  )
+}
+
+// Same bolt used by the sidebar's "AI-Powered" section marker — a compact
+// way to flag a control as an AI feature (one that would be gated behind a
+// paid plan) without the full pill taking over a small toolbar button.
+function AiBoltIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+      <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+    </svg>
+  )
+}
+
+function MatchScoreBadge({ score }: { score: number }) {
+  const color =
+    score >= 75
+      ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
+      : score >= 50
+      ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+      : 'text-red-400 border-red-500/40 bg-red-500/10'
+
+  return (
+    <div className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-full border-2 ${color}`}>
+      <span className="text-base font-bold leading-none">{score}</span>
+      <span className="text-[9px] font-medium leading-none mt-0.5">/100</span>
+    </div>
+  )
+}
+
+export function ApplicationPreview({
+  id,
+  coverLetter,
+  cvAdvice,
+  cvAdviceJson,
+  jobTitle,
+  company,
+  jobDescription,
+  jobUrl,
+  deadline,
+  personsOfInterest,
+  status,
+  components = [],
+  onSave,
+  onStatusChange,
+  onGenerated,
+  onClose,
+  saving,
+  authToken,
+  aiLocked,
+  applicantName,
+}: ApplicationPreviewProps) {
+  // Lock the page behind the modal so scrolling to the end of this panel
+  // doesn't chain into scrolling the dashboard underneath it.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  // Interview prep appears once an application reaches the interview stage.
+  const prepStatuses: ApplicationStatus[] = ['interviewing', 'heard_back', 'offer']
+  const showPrep = prepStatuses.includes((status || 'draft') as ApplicationStatus)
+  const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details' | 'prep'>(
+    status === 'interviewing' ? 'prep' : 'details'
+  )
+  const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
+  const [currentCvAdvice, setCurrentCvAdvice] = useState(cvAdvice || '')
+  const [currentCvAdviceJson, setCurrentCvAdviceJson] = useState<CvAdviceStructured | null>(cvAdviceJson || null)
+  const [editedJobTitle, setEditedJobTitle] = useState(jobTitle || '')
+  const [editedCompany, setEditedCompany] = useState(company || '')
+  const [editedJobDescription, setEditedJobDescription] = useState(jobDescription || '')
+  const [editedJobUrl, setEditedJobUrl] = useState(jobUrl || '')
+  const [editedDeadline, setEditedDeadline] = useState(deadline || '')
+  const [editedPersonsOfInterest, setEditedPersonsOfInterest] = useState(personsOfInterest || '')
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
+  const [generating, setGenerating] = useState<'coverLetter' | 'cvAdvice' | null>(null)
+  const [generateError, setGenerateError] = useState('')
+  const [showGenerationOptions, setShowGenerationOptions] = useState(false)
+  // Free path: open the editor on an empty letter so people can write their own.
+  const [writingOwnLetter, setWritingOwnLetter] = useState(false)
+  const letterRef = useRef<HTMLTextAreaElement>(null)
+
+  // Start the letter from a template, with proof points filled from the two
+  // components that best fit this job description.
+  const startFromTemplate = (id: CoverLetterTemplateId | 'blank') => {
+    if (id === 'blank') {
+      setWritingOwnLetter(true)
+      return
+    }
+    const best = matchComponentsToPosting(editedJobDescription, components, { exclude: [editedCompany] })
+      .matches.slice(0, 2)
+      .map((m) => componentSnippet(m.component))
+    setEditedCoverLetter(
+      buildCoverLetter(id, {
+        jobTitle: editedJobTitle,
+        company: editedCompany,
+        name: applicantName,
+        proofPoints: best,
+      })
+    )
+    setWritingOwnLetter(true)
+  }
+
+  // Insert a component's facts at the cursor (or at the end) as its own paragraph.
+  const insertComponent = (c: LibraryComponent) => {
+    const el = letterRef.current
+    const text = componentSnippet(c)
+    const at = el ? el.selectionStart : editedCoverLetter.length
+    const before = editedCoverLetter.slice(0, at).replace(/\s*$/, '')
+    const after = editedCoverLetter.slice(at).replace(/^\s*/, '')
+    const next = `${before}${before ? '\n\n' : ''}${text}${after ? '\n\n' + after : ''}`
+    setEditedCoverLetter(next)
+    requestAnimationFrame(() => {
+      if (!el) return
+      const caret = (before ? before.length + 2 : 0) + text.length
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  // Auto-save functionality — cover letter text + details fields only. Status
+  // changes save immediately on select (see handleStatusChange); CV advice
+  // is AI output, not something typed character-by-character, so it isn't
+  // part of this debounce.
+  useEffect(() => {
+    if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
+
+    if (
+      editedCoverLetter === coverLetter &&
+      editedJobTitle === (jobTitle || '') &&
+      editedCompany === (company || '') &&
+      editedJobDescription === (jobDescription || '') &&
+      editedJobUrl === jobUrl &&
+      editedDeadline === deadline &&
+      editedPersonsOfInterest === personsOfInterest
+    ) {
+      return
+    }
+
+    setAutoSaveStatus('saving')
+
+    const timeout = setTimeout(async () => {
+      if (onSave && id) {
+        try {
+          await onSave(id, {
+            generated_cover_letter: editedCoverLetter,
+            job_title: editedJobTitle || undefined,
+            company_name: editedCompany || undefined,
+            job_description: editedJobDescription || undefined,
+            job_url: editedJobUrl || undefined,
+            deadline: editedDeadline || undefined,
+            persons_of_interest: editedPersonsOfInterest || undefined,
+          })
+          setAutoSaveStatus('saved')
+          setTimeout(() => setAutoSaveStatus('idle'), 2000)
+        } catch (err) {
+          console.error('Auto-save error:', err)
+          setAutoSaveStatus('idle')
+        }
+      }
+    }, 1500)
+
+    setAutoSaveTimeout(timeout)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
+  }, [editedCoverLetter, editedJobTitle, editedCompany, editedJobDescription, editedJobUrl, editedDeadline, editedPersonsOfInterest])
+
+  const handleStatusChange = async (newStatus: ApplicationStatus) => {
+    if (!onStatusChange) return
+    setChangingStatus(true)
+    try {
+      await onStatusChange(newStatus)
+      if (newStatus === 'interviewing') setActiveTab('prep')
+    } finally {
+      setChangingStatus(false)
+    }
+  }
+
+  const handleGenerate = async (choices: GenerationChoices) => {
+    if (!id || !authToken) return
+    if (aiLocked) {
+      setGenerateError('AI features are in beta and not available on your account yet.')
+      setShowGenerationOptions(false)
+      return
+    }
+    if (!editedJobDescription.trim()) {
+      setGenerateError('Add a job description in Details first — generation needs it to tailor the content.')
+      setActiveTab('details')
+      setShowGenerationOptions(false)
+      return
+    }
+    setGenerateError('')
+    setGenerating('coverLetter')
+    try {
+      const res = await fetch(`/api/applications/${id}/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(choices),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Generation failed')
+      setEditedCoverLetter(body.data.generated_cover_letter || '')
+      setCurrentCvAdvice(body.data.cv_advice || '')
+      setCurrentCvAdviceJson(body.data.cv_advice_json || null)
+      onGenerated?.(id, {
+        generated_cover_letter: body.data.generated_cover_letter,
+        cv_advice: body.data.cv_advice,
+        cv_advice_json: body.data.cv_advice_json,
+      })
+      setShowGenerationOptions(false)
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Generation failed')
+    } finally {
+      setGenerating(null)
+    }
+  }
+
+  const inputClass =
+    'w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:outline-none focus:border-blue-500'
+
+  const wordCount = editedCoverLetter.trim() ? editedCoverLetter.trim().split(/\s+/).length : 0
+
+  return (
+    <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 m-0">
+      <div className="bg-navy-800 border border-navy-600 rounded-none sm:rounded-lg w-screen h-[100dvh] sm:w-[95vw] sm:h-[95vh] max-w-7xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-navy-600">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-white">Edit Application</h2>
+            {jobTitle && company && (
+              <p className="text-navy-300 mt-1">
+                {jobTitle} at {company}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {autoSaveStatus === 'saving' && (
+              <p className="text-sm text-navy-300">Saving...</p>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <p className="text-sm text-green-400">Saved</p>
+            )}
+            {onStatusChange && (
+              <StatusSelect
+                value={status || 'draft'}
+                onChange={handleStatusChange}
+                disabled={changingStatus}
+              />
+            )}
+            <button
+              onClick={onClose}
+              className="text-navy-300 hover:text-white text-2xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs — free/CRUD first (Details), AI-powered features after (CV Advice, Cover Letter) */}
+        <div className="flex gap-4 border-b border-navy-600 px-4 sm:px-6 pt-4 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`px-4 py-2 font-medium transition border-b-2 ${
+              activeTab === 'details'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-navy-300 hover:text-white'
+            }`}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab('cvAdvice')}
+            className={`px-4 py-2 font-medium transition border-b-2 ${
+              activeTab === 'cvAdvice'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-navy-300 hover:text-white'
+            }`}
+          >
+            CV/Resume Advice
+          </button>
+          <button
+            onClick={() => setActiveTab('coverLetter')}
+            className={`px-4 py-2 font-medium transition border-b-2 ${
+              activeTab === 'coverLetter'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-navy-300 hover:text-white'
+            }`}
+          >
+            Cover Letter
+          </button>
+          {showPrep && (
+            <button
+              onClick={() => setActiveTab('prep')}
+              className={`px-4 py-2 font-medium transition border-b-2 whitespace-nowrap ${
+                activeTab === 'prep'
+                  ? 'border-purple-400 text-purple-300'
+                  : 'border-transparent text-purple-300/70 hover:text-purple-200'
+              }`}
+            >
+              Interview prep
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 bg-navy-900">
+          {generateError && (
+            <div className="mb-4 bg-red-500/10 border border-red-400/40 rounded-lg p-3 text-sm text-red-300">
+              {generateError}
+            </div>
+          )}
+
+          {activeTab === 'coverLetter' && (
+            editedCoverLetter || writingOwnLetter ? (
+              <div className="h-full flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs ${wordCount > ONE_PAGE_WORD_LIMIT ? 'text-amber-400' : 'text-navy-400'}`}>
+                    {wordCount} words {wordCount > ONE_PAGE_WORD_LIMIT ? '— likely over one page, consider trimming' : '(fits one page)'}
+                  </p>
+                  <div className="flex gap-2">
+                    {!aiLocked && (
+                      <button
+                        onClick={() => setShowGenerationOptions(true)}
+                        disabled={generating === 'coverLetter'}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+                      >
+                        <AiBoltIcon />
+                        Regenerate
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowTemplateSelector(true)}
+                      disabled={showTemplateSelector || !id || !authToken}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+                    >
+                      Word / PDF
+                    </button>
+                    <a
+                      href={id && authToken ? undefined : undefined}
+                      onClick={async (e) => {
+                        e.preventDefault()
+                        if (!id || !authToken) return
+                        const res = await fetch(`/api/applications/export-txt?id=${id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'CoverLetter.txt'
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition cursor-pointer"
+                    >
+                      TXT
+                    </a>
+                    <a
+                      onClick={async (e) => {
+                        e.preventDefault()
+                        if (!id || !authToken) return
+                        const res = await fetch(`/api/applications/export-odt?id=${id}`, { headers: { Authorization: `Bearer ${authToken}` } })
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'CoverLetter.odt'
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition cursor-pointer"
+                    >
+                      ODT
+                    </a>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 grid lg:grid-cols-[1fr_340px] gap-4">
+                  <textarea
+                    ref={letterRef}
+                    value={editedCoverLetter}
+                    onChange={(e) => setEditedCoverLetter(e.target.value)}
+                    className="w-full h-full min-h-[320px] bg-navy-800 text-white p-6 rounded-lg border border-navy-600 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    placeholder={"Dear hiring manager,\n\nStart with why this role and this company. Then pick two or three things from your library that prove you can do the job, with numbers where you have them.\n\nKeep it under a page."}
+                  />
+                  <div className="min-h-0 overflow-y-auto">
+                    <FitPreview
+                      posting={editedJobDescription}
+                      components={components}
+                      exclude={[editedCompany]}
+                      compact
+                      renderAction={(m) => (
+                        <button
+                          onClick={() => insertComponent(m.component)}
+                          title="Insert its facts at your cursor"
+                          className="px-2 py-1 text-xs font-semibold rounded-md border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                        >
+                          Insert
+                        </button>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-2 gap-6 items-start max-w-5xl mx-auto pt-4">
+                <div className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Write your cover letter</h3>
+                  <p className="text-sm text-navy-300">
+                    Pick a starting point. We&apos;ll fill in the role, the company and your two best-fit experiences
+                    from your library; you write the rest. It saves as you type and exports to Word, PDF, ODT or text.
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {COVER_LETTER_TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => startFromTemplate(t.id)}
+                        className="text-left rounded-lg border border-navy-600 bg-navy-900 p-3 hover:border-blue-400 transition"
+                      >
+                        <span className="block text-sm font-semibold text-white">{t.label}</span>
+                        <span className="block text-xs text-navy-400 mt-0.5">{t.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => startFromTemplate('blank')}
+                    className="text-sm text-blue-400 font-semibold hover:underline"
+                  >
+                    Or start from a blank page
+                  </button>
+                </div>
+                {aiLocked ? (
+                  <AiFeatureTeaser
+                    feature="cover_letter"
+                    title="Or get a first draft in seconds"
+                    pitch="With AI, we'd draft a cover letter for this exact job description from the components in your library, in your tone and at your chosen length. You edit from there."
+                  />
+                ) : (
+                  <div className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
+                    <AiBadge />
+                    <h3 className="text-lg font-semibold text-white">Or generate a first draft</h3>
+                    <p className="text-sm text-navy-300">Tailored to this job description and your career library.</p>
+                    <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
+                      Generate Cover Letter
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )
+          )}
+
+          {activeTab === 'cvAdvice' && (
+            currentCvAdvice ? (
+              <div className="bg-navy-800 border border-navy-600 rounded-lg p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-white font-semibold">Advice for your uploaded CV</h3>
+                  {!aiLocked && (
+                    <button
+                      onClick={() => setShowGenerationOptions(true)}
+                      disabled={generating === 'coverLetter'}
+                      className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50"
+                    >
+                      <AiBoltIcon size={10} />
+                      Regenerate
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-navy-400">
+                  We don't rewrite your CV — this is guidance on what to change in the document you already have.
+                </p>
+
+                {currentCvAdviceJson ? (
+                  <>
+                    {typeof currentCvAdviceJson.matchScore === 'number' && (
+                      <div className="flex items-center gap-3">
+                        <MatchScoreBadge score={currentCvAdviceJson.matchScore} />
+                        {currentCvAdviceJson.matchSummary && (
+                          <p className="text-navy-200 text-sm">{currentCvAdviceJson.matchSummary}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {Array.isArray(currentCvAdviceJson.strengths) && currentCvAdviceJson.strengths.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2">What's good</p>
+                        <ul className="space-y-1.5">
+                          {currentCvAdviceJson.strengths.map((s, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-navy-100">
+                              <span className="text-emerald-400 flex-shrink-0">+</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {Array.isArray(currentCvAdviceJson.improvements) && currentCvAdviceJson.improvements.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-2">What to change</p>
+                        <ul className="space-y-1.5">
+                          {currentCvAdviceJson.improvements.map((imp, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-navy-100">
+                              <span className="text-amber-400 flex-shrink-0">•</span>
+                              <span>
+                                {imp.area && <span className="font-medium text-white">{imp.area}: </span>}
+                                {imp.advice}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    {currentCvAdvice.split('\n').filter(Boolean).map((line, i) => (
+                      <p key={i} className="text-navy-100 text-sm leading-relaxed">{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : aiLocked ? (
+              <div className="max-w-2xl mx-auto pt-4">
+                <AiFeatureTeaser
+                  feature="cv_advice"
+                  title="Know exactly what to change on your CV"
+                  pitch="With AI, we'd compare your uploaded CV with this job description and tell you what's working, what's missing and what to reword. Not a rewrite: specific changes to the CV you already have."
+                  bullets={[
+                    'A match score for this role',
+                    "What's already strong, and what to cut",
+                    'Concrete edits, section by section',
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
+                <AiBadge />
+                <p className="text-navy-300 max-w-sm">
+                  No advice yet. Pick a CV and we'll compare this job description against it and suggest specific changes.
+                </p>
+                <Button onClick={() => setShowGenerationOptions(true)} loading={generating === 'coverLetter'}>
+                  Generate CV Advice
+                </Button>
+              </div>
+            )
+          )}
+
+          {activeTab === 'prep' && (
+            <InterviewPrep
+              applicationId={id}
+              jobTitle={editedJobTitle}
+              company={editedCompany}
+              jobDescription={editedJobDescription}
+              personsOfInterest={editedPersonsOfInterest}
+              components={components}
+              onEditDetails={() => setActiveTab('details')}
+            />
+          )}
+
+          {activeTab === 'details' && (
+            <div className="bg-navy-800 border border-navy-600 p-6 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-2">
+                    Job Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editedJobTitle}
+                    onChange={(e) => setEditedJobTitle(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-2">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    value={editedCompany}
+                    onChange={(e) => setEditedCompany(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-2">
+                  Job Description (Optional)
+                </label>
+                <textarea
+                  value={editedJobDescription}
+                  onChange={(e) => setEditedJobDescription(e.target.value)}
+                  placeholder="Paste the job description here — needed for Generate Cover Letter / CV Advice"
+                  className={`${inputClass} text-sm`}
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-2">
+                  Job URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={editedJobUrl}
+                  onChange={(e) => setEditedJobUrl(e.target.value)}
+                  placeholder="https://company.com/careers/job-title"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-2">
+                  Application Deadline (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={editedDeadline}
+                  onChange={(e) => setEditedDeadline(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-2">
+                  Persons of Interest (Optional)
+                </label>
+                <p className="text-xs text-navy-400 mb-2">
+                  Names, titles, and/or emails of people at the company you'd like to address
+                </p>
+                <textarea
+                  value={editedPersonsOfInterest}
+                  onChange={(e) => setEditedPersonsOfInterest(e.target.value)}
+                  placeholder="e.g., John Smith (Hiring Manager, john@company.com)&#10;Sarah Johnson (VP Engineering, sarah@company.com)"
+                  className={`${inputClass} font-mono text-sm`}
+                  rows={5}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3 p-6 border-t border-navy-600 bg-navy-800">
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white disabled:opacity-50 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <ExportTemplateSelector
+          isOpen={showTemplateSelector}
+          applicationId={id || ''}
+          onClose={() => setShowTemplateSelector(false)}
+        />
+      )}
+
+      <GenerationOptionsModal
+        isOpen={showGenerationOptions}
+        onClose={() => setShowGenerationOptions(false)}
+        onGenerate={handleGenerate}
+        components={components}
+        authToken={authToken}
+        generating={generating === 'coverLetter'}
+        title={editedCoverLetter ? 'Regenerate cover letter & CV advice' : 'Generate cover letter & CV advice'}
+        locked={aiLocked}
+      />
+    </div>
+  )
+}

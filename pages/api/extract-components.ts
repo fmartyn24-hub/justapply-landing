@@ -1,0 +1,347 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
+import {
+  requireAiUserOrFreeImport,
+  recordAiUsage,
+  freeTierModel,
+  FREE_IMPORT_FEATURE,
+} from '@/lib/aiAccess'
+import Anthropic from '@anthropic-ai/sdk'
+
+interface ExtractedComponent {
+  type: string
+  title: string
+  organization_name?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  primary_location?: string | null
+  description?: string | null
+  impact_metrics?: string | null
+  tags?: string[]
+}
+
+// The career_components.start_date / end_date columns are Postgres `date`
+// types, so loose values from the model ("2018-06", "2018", "Present") must be
+// coerced to a full YYYY-MM-DD date or null before insert.
+function normalizeDate(raw: any): string | null {
+  if (!raw || typeof raw !== 'string') return null
+  const s = raw.trim()
+  if (!s || /^(present|current|now|ongoing|n\/?a)$/i.test(s)) return null
+  const m = s.match(/(\d{4})(?:[-/.](\d{1,2}))?(?:[-/.](\d{1,2}))?/)
+  if (!m) return null
+  const year = m[1]
+  const month = (m[2] || '01').padStart(2, '0')
+  const day = (m[3] || '01').padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+interface ExtractResponse {
+  success: boolean
+  componentsAdded?: number
+  components?: ExtractedComponent[]
+  error?: string
+}
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+})
+
+// Free-tier imports are billed to their own key (see lib/aiAccess).
+const freeTierAnthropic = process.env.ANTHROPIC_API_KEY_FREE_TIER
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY_FREE_TIER })
+  : null
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ExtractResponse>
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' })
+  }
+
+  try {
+    const ctx = await requireAiUserOrFreeImport(req, res)
+    if (!ctx) return
+    const { user, serverSupabase, mode } = ctx
+    const isFreeImport = mode === 'free_import'
+
+    // Resolve the source text to extract from. Two modes:
+    //   1. Body text provided (e.g. freshly pasted CV from the Analyze flow):
+    //      extract directly from that text.
+    //   2. No body text (e.g. the "Extract components now" button): fall back to
+    //      the user's stored CVs.
+    const bodyText =
+      typeof req.body?.text === 'string' ? req.body.text.trim() : ''
+
+    let combinedText: string
+
+    if (isFreeImport && bodyText.length === 0) {
+      return res.status(400).json({ success: false, error: 'Send the CV text to import' })
+    }
+
+    if (bodyText.length > 0) {
+      combinedText = bodyText
+      console.log('=== CV Component Extraction Debug (body text) ===')
+      console.log('Body text length:', combinedText.length)
+      console.log('First 500 chars:', combinedText.substring(0, 500))
+      console.log('================================================')
+    } else {
+      // Fetch all user's stored CVs
+      const { data: cvs, error: cvError } = await serverSupabase
+        .from('cvs')
+        .select('filename, extracted_text')
+        .eq('user_id', user.id)
+
+      if (cvError || !cvs || cvs.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No CVs found to extract from',
+        })
+      }
+
+      // Combine all CV texts
+      combinedText = cvs
+        .map((cv) => `### ${cv.filename}\n${cv.extracted_text}`)
+        .join('\n\n---\n\n')
+
+      // Log details for debugging
+      console.log('=== CV Component Extraction Debug (stored CVs) ===')
+      console.log('Number of CVs found:', cvs.length)
+      cvs.forEach((cv, idx) => {
+        const textLength = cv.extracted_text?.length || 0
+        console.log(`CV ${idx + 1}: "${cv.filename}"`)
+        console.log(`  - extracted_text length: ${textLength}`)
+        if (cv.extracted_text?.includes('[Text extraction failed')) {
+          console.warn(`  - ⚠️ Contains extraction error message`)
+        }
+        if (textLength < 100) {
+          console.warn(`  - ⚠️ Very short text (< 100 chars)`)
+        }
+      })
+      console.log('Combined text length:', combinedText.length)
+      console.log('First 500 chars of combined text:', combinedText.substring(0, 500))
+      console.log('=================================================')
+    }
+
+    // Use Claude to extract components. Free imports run on a cheaper model
+    // with low effort (a single structured extraction doesn't need more) and
+    // a larger output cap so long CVs aren't cut off.
+    const client = isFreeImport ? freeTierAnthropic! : anthropic
+    const model = isFreeImport ? freeTierModel() : 'claude-opus-4-6'
+    const message = await client.messages.create({
+      model,
+      max_tokens: isFreeImport ? 8000 : 3000,
+      // effort isn't in this SDK version's types; the API accepts it.
+      ...(isFreeImport ? ({ output_config: { effort: 'low' } } as any) : {}),
+      messages: [
+        {
+          role: 'user',
+          content: `You are an expert career coach. Analyze the following CV(s) and extract career components that will be used to build a professional profile.
+
+Extract ONLY information that is explicitly stated in the documents. For each component, be specific and data-driven.
+
+IMPORTANT — career progression: Create a SEPARATE "role" component for EVERY distinct position the person has held, INCLUDING multiple positions within the SAME company over time (promotions, title changes, lateral moves). Do NOT collapse a company into a single role and do NOT keep only the most recent title — each position is its own role component. For every role, include start_date and end_date (use "YYYY-MM" format, or "YYYY" if only the year is known) so growth within a company is preserved. For a role the person currently holds, set end_date to null. Include primary_location (e.g. "London, UK") when stated.
+
+Return ONLY valid JSON in this exact format:
+{
+  "components": [
+    {
+      "type": "achievement",
+      "title": "specific achievement title",
+      "description": "what was accomplished and why it matters",
+      "impact_metrics": "quantified result if available",
+      "tags": ["relevant", "tags"]
+    },
+    {
+      "type": "project",
+      "title": "project name",
+      "description": "what the project was and your role",
+      "impact_metrics": "outcome/result",
+      "tags": ["technology", "area"]
+    },
+    {
+      "type": "kpi",
+      "title": "metric or KPI achieved",
+      "description": "what this measures",
+      "impact_metrics": "the specific number/percentage",
+      "tags": ["area"]
+    },
+    {
+      "type": "skill",
+      "title": "skill name",
+      "description": "brief description of proficiency",
+      "tags": ["category"]
+    },
+    {
+      "type": "role",
+      "title": "job title or position",
+      "organization_name": "company or organization name",
+      "start_date": "YYYY-MM when this position started (or YYYY if only year known)",
+      "end_date": "YYYY-MM when this position ended, or null if it is the current role",
+      "primary_location": "city, country if stated",
+      "description": "key responsibilities and achievements",
+      "impact_metrics": "key achievement in role",
+      "tags": ["industry"]
+    },
+    {
+      "type": "voice",
+      "title": "communication style aspect",
+      "description": "observed communication style from the documents",
+      "tags": ["trait"]
+    },
+    {
+      "type": "education",
+      "title": "degree name and field of study",
+      "organization_name": "school or university name",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "relevant coursework, honors, or focus area",
+      "tags": ["field"]
+    },
+    {
+      "type": "certification",
+      "title": "certification or license name",
+      "organization_name": "issuing body",
+      "start_date": "YYYY-MM or YYYY when obtained",
+      "end_date": "YYYY-MM or YYYY when it expires, or null if it doesn't expire",
+      "description": "what it certifies",
+      "tags": ["area"]
+    },
+    {
+      "type": "program",
+      "title": "program, bootcamp, fellowship, or training name",
+      "organization_name": "organization that ran it",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "what the program covered",
+      "tags": ["area"]
+    },
+    {
+      "type": "volunteer",
+      "title": "volunteer role or activity",
+      "organization_name": "organization",
+      "start_date": "YYYY-MM or YYYY when this started",
+      "end_date": "YYYY-MM or YYYY when this ended, or null if ongoing",
+      "primary_location": "city, country if stated",
+      "description": "what was done",
+      "tags": ["area"]
+    }
+  ]
+}
+
+Only include "education", "certification", "program", and "volunteer" components when the document explicitly describes a degree, certification, structured program/bootcamp/fellowship, or volunteer work — do not invent one if none is present.
+
+Documents to analyze:
+${combinedText}`,
+        },
+      ],
+    })
+
+    // Extract JSON from the text block (newer models may put thinking blocks first).
+    const textBlock = message.content.find((b) => b.type === 'text')
+    const responseText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
+
+    console.log('Claude response length:', responseText.length)
+    console.log('Claude response first 500 chars:', responseText.substring(0, 500))
+
+    let extractedComponents
+    try {
+      // Try to extract JSON from markdown code blocks if present
+      let jsonText = responseText
+      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim()
+      }
+      extractedComponents = JSON.parse(jsonText)
+      console.log('Successfully parsed JSON, components found:', extractedComponents.components?.length || 0)
+      // Count a free import only once it produced something usable, so a
+      // failed parse doesn't use up someone's allowance.
+      if (isFreeImport) {
+        await recordAiUsage(serverSupabase, {
+          user_id: user.id,
+          feature: FREE_IMPORT_FEATURE,
+          model,
+          input_tokens: message.usage?.input_tokens,
+          output_tokens: message.usage?.output_tokens,
+        })
+      }
+    } catch (parseError) {
+      console.error('JSON parse error:', responseText)
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to parse extracted components',
+      })
+    }
+
+    // Save components to database
+    if (!extractedComponents.components || extractedComponents.components.length === 0) {
+      console.log('No components found in extraction response')
+      return res.status(200).json({
+        success: true,
+        componentsAdded: 0,
+        components: [],
+      })
+    }
+
+    // Preview mode: return the extracted components for user review/approval
+    // WITHOUT writing them to the library yet. The client adds the approved
+    // ones via a follow-up insert. Triggered with ?preview=1.
+    if (req.query.preview === '1') {
+      const previewComponents: ExtractedComponent[] = extractedComponents.components.map(
+        (component: any) => ({
+          type: component.type,
+          title: component.title,
+          organization_name: component.organization_name || null,
+          start_date: normalizeDate(component.start_date),
+          end_date: normalizeDate(component.end_date),
+          primary_location: component.primary_location || null,
+          description: component.description || null,
+          impact_metrics: component.impact_metrics || null,
+          tags: Array.isArray(component.tags) ? component.tags : [],
+        })
+      )
+      return res.status(200).json({
+        success: true,
+        components: previewComponents,
+      })
+    }
+
+    const { error: insertError } = await serverSupabase
+      .from('career_components')
+      .insert(
+        extractedComponents.components.map((component: any) => ({
+          user_id: user.id,
+          type: component.type,
+          title: component.title,
+          organization_name: component.organization_name || null,
+          start_date: normalizeDate(component.start_date),
+          end_date: normalizeDate(component.end_date),
+          primary_location: component.primary_location || null,
+          description: component.description || null,
+          impact_metrics: component.impact_metrics || null,
+          tags: component.tags || [],
+          source: 'parsed_from_documents',
+        }))
+      )
+
+    if (insertError) {
+      console.error('Insert error:', insertError)
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save extracted components',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      componentsAdded: extractedComponents.components.length,
+    })
+  } catch (error) {
+    console.error('Extraction error:', error)
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+    })
+  }
+}

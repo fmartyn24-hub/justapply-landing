@@ -1,0 +1,2713 @@
+import { useState, useEffect } from 'react'
+import { withAuth } from '@/lib/middleware/withAuth'
+import { useAuth } from '@/lib/context/AuthContext'
+import { Button } from '@/components/common/Button'
+import { PasteAnalyzer } from '@/components/dashboard/PasteAnalyzer'
+import { CVUploadZone } from '@/components/upload/CVUploadZone'
+import { CvManager } from '@/components/dashboard/CvManager'
+import { ComponentLibraryUI } from '@/components/dashboard/ComponentLibraryUI'
+import { CareerTimeline } from '@/components/dashboard/CareerTimeline'
+import { JustApplyTab } from '@/components/dashboard/JustApplyTab'
+import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
+import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
+import { DashboardHome } from '@/components/dashboard/DashboardHome'
+import { NoticeModal } from '@/components/common/NoticeModal'
+import { AiFeatureTeaser, AiBoltIcon } from '@/components/common/AiFeatureTeaser'
+import { FreeImportPanel } from '@/components/dashboard/FreeImportPanel'
+import { parseCvText } from '@/lib/cvHeuristicParser'
+import { DEFAULT_ADMIN_EMAIL } from '@/lib/aiAccess'
+import { normalizeComponentType } from '@/lib/componentTypeMapping'
+import { supabase } from '@/lib/supabaseClient'
+import type { ApplicationStatus } from '@/lib/applicationStatus'
+
+interface CareerComponent {
+  id: string
+  type: string
+  title: string
+  organization_name?: string
+  description?: string
+  start_date?: string
+  end_date?: string
+  impact_metrics?: string
+  primary_location?: string
+  tags: string[]
+  tone_keywords?: string
+  related_terms?: string
+  created_at: string
+}
+
+interface CV {
+  id: string
+  filename: string
+  file_size_bytes: number
+  created_at: string
+  storage_path: string
+}
+
+interface NewComponent {
+  type: 'kpi' | 'project' | 'achievement' | 'skill' | 'role' | 'voice' | 'context' | 'education' | 'certification' | 'program' | 'volunteer'
+  title: string
+  description: string
+  organization_name?: string
+  start_date?: string
+  end_date?: string
+  impact_metrics?: string
+  primary_location?: string
+  tags: string[]
+  tone_keywords?: string
+  related_terms?: string
+}
+
+interface ExtractedComponentPreview {
+  type: string
+  title: string
+  organization_name?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  primary_location?: string | null
+  description?: string | null
+  impact_metrics?: string | null
+  tags: string[]
+  // True when a component matching this one already exists in the library, so
+  // the review UI can flag it as "Already in library" and skip it by default.
+  isExisting?: boolean
+}
+
+interface Application {
+  id: string
+  job_title: string
+  company_name: string
+  job_description?: string
+  job_url?: string
+  generated_cv: string
+  generated_cover_letter: string
+  generated_cv_json?: any
+  generated_cover_letter_json?: any
+  cv_advice?: string
+  cv_advice_json?: any
+  cv_id?: string | null
+  deadline?: string
+  persons_of_interest?: string
+  status: ApplicationStatus
+  created_at: string
+  updated_at: string
+}
+
+// Format a role's start/end dates ("YYYY-MM-DD") into a year range like
+// "2015 – 2018" or "2018 – Present". Years are parsed from the string directly
+// to avoid timezone off-by-one issues with Date().
+function formatComponentDateRange(start?: string | null, end?: string | null): string {
+  const year = (d?: string | null) => (d && /^\d{4}/.test(d) ? d.slice(0, 4) : null)
+  const sy = year(start)
+  const ey = year(end)
+  if (sy && ey) return `${sy} – ${ey}`
+  if (sy && !ey) return `${sy} – Present`
+  if (!sy && ey) return ey
+  return ''
+}
+
+// A normalized identity key for a component, used to detect whether an
+// extracted component already exists in the library (so re-uploading a CV
+// surfaces only what's genuinely new). Roles are keyed by title + organization
+// so multiple positions at the same company are treated as distinct.
+function componentMatchKey(c: {
+  type: string
+  title?: string | null
+  organization_name?: string | null
+}): string {
+  const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+  return `${norm(c.type)}::${norm(c.title)}::${norm(c.organization_name)}`
+}
+
+// One-line explanations shown under the type picker, so people know which
+// bucket a piece of their experience belongs in.
+const COMPONENT_TYPE_HINTS: Record<string, string> = {
+  role: 'A job or position you held: full-time, part-time, internship or freelance.',
+  achievement: 'Something you made happen, ideally with a result: "Cut onboarding time by 30%".',
+  project: 'A piece of work with a clear outcome: at work, university, or on your own.',
+  skill: 'A tool, method or ability you can evidence: "SQL", "Stakeholder management".',
+  kpi: 'A number you moved or owned: revenue, growth, satisfaction, time saved.',
+  education: 'A degree, diploma or course of study.',
+  certification: 'A professional certificate or licence.',
+  program: 'A bootcamp, fellowship, accelerator or training programme.',
+  volunteer: 'Unpaid work, societies, community roles. These count.',
+  voice: 'How you like to come across in writing: e.g. direct, warm, analytical.',
+  context: 'Background that explains a term, product or company someone might not know.',
+}
+
+function Dashboard() {
+  const [components, setComponents] = useState<CareerComponent[]>([])
+  const [cvs, setCvs] = useState<CV[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddApplicationForm, setShowAddApplicationForm] = useState(false)
+  const [notice, setNotice] = useState<{ message: string; variant: 'success' | 'error' | 'info' } | null>(null)
+  const showNotice = (message: string, variant: 'success' | 'error' | 'info' = 'error') => setNotice({ message, variant })
+  const [savingManualApplication, setSavingManualApplication] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [reviewComponents, setReviewComponents] = useState<ExtractedComponentPreview[]>([])
+  const [reviewSelected, setReviewSelected] = useState<boolean[]>([])
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [approvingComponents, setApprovingComponents] = useState(false)
+  // Voice tone keywords detected during the Analyze flow, applied (create/update
+  // the "My Voice" component) only when the user approves the review.
+  const [pendingVoice, setPendingVoice] = useState<string | null>(null)
+  // Where the components in the review modal came from, and the text they were
+  // read from, so a rule-based read can be redone with the free AI import.
+  const [reviewSource, setReviewSource] = useState<'ai' | 'heuristic'>('ai')
+  const [reviewSourceText, setReviewSourceText] = useState('')
+  // Free accounts: how many AI imports are left (0 when not offered).
+  const [freeImportsLeft, setFreeImportsLeft] = useState(0)
+  const [freeImporting, setFreeImporting] = useState(false)
+  const [lastUploadedText, setLastUploadedText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deletingComponent, setDeletingComponent] = useState<string | null>(null)
+  const [deleteConfirmComponent, setDeleteConfirmComponent] = useState<string | null>(null)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  // Status shown INSIDE the Import modal while/after analyzing pasted text,
+  // so feedback appears where the user is working rather than as a banner on
+  // the page behind the modal.
+  const [analyzeStatus, setAnalyzeStatus] = useState<{ text: string; variant: 'info' | 'success' | 'error' } | null>(null)
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'security'>('profile')
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    basedIn: '',
+    openToRelocation: false,
+    relocationLocations: '',
+    remotePreference: '',
+    website: '',
+    linkedinUrl: '',
+  })
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [formData, setFormData] = useState<NewComponent>({
+    type: 'achievement',
+    title: '',
+    description: '',
+    tags: [],
+    tone_keywords: '',
+    related_terms: '',
+    organization_name: '',
+    start_date: '',
+    end_date: '',
+    impact_metrics: '',
+    primary_location: '',
+  })
+  const [analyzing, setAnalyzing] = useState(false)
+  const [activeTab, setActiveTab] = useState<DashboardTab>('home')
+  const [justGeneratedApplicationId, setJustGeneratedApplicationId] = useState<string | null>(null)
+  const [editingComponent, setEditingComponent] = useState<CareerComponent | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<CareerComponent>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importTab, setImportTab] = useState<'paste' | 'upload'>('paste')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importUploading, setImportUploading] = useState(false)
+  const [importUploadError, setImportUploadError] = useState('')
+  const [importUploadSuccess, setImportUploadSuccess] = useState(false)
+  const [expandedRole, setExpandedRole] = useState<CareerComponent | null>(null)
+  const [applications, setApplications] = useState<Application[]>([])
+  const [generatingApplication, setGeneratingApplication] = useState(false)
+  const [savingApplicationStatus, setSavingApplicationStatus] = useState<string | null>(null)
+  const { user, signOut } = useAuth()
+  const { session } = useAuth()
+
+  // AI features are in beta: locked for everyone unless the deployment sets
+  // NEXT_PUBLIC_AI_FEATURES=on (the API routes enforce the same rule — see
+  // lib/aiAccess). Admins always have AI, and can toggle a preview of the
+  // free experience from the sidebar.
+  const isAdmin = user?.email === DEFAULT_ADMIN_EMAIL
+  const [previewPlan, setPreviewPlan] = useState<'paid' | 'free'>('paid')
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('justapply-preview-plan') : null
+    if (stored === 'paid' || stored === 'free') setPreviewPlan(stored)
+  }, [])
+  const togglePreviewPlan = () => {
+    setPreviewPlan((prev) => {
+      const next = prev === 'paid' ? 'free' : 'paid'
+      window.localStorage.setItem('justapply-preview-plan', next)
+      return next
+    })
+  }
+  const aiLocked = isAdmin ? previewPlan === 'free' : process.env.NEXT_PUBLIC_AI_FEATURES !== 'on'
+
+  useEffect(() => {
+    if (!session?.access_token) return
+    fetch('/api/ai-allowance', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setFreeImportsLeft(d?.freeImport?.available ? d.freeImport.remaining || 0 : 0))
+      .catch(() => setFreeImportsLeft(0))
+  }, [session?.access_token])
+
+  const closeImportModal = () => {
+    setShowImportModal(false)
+    setImportFile(null)
+    setImportUploadError('')
+    setImportUploadSuccess(false)
+    setAnalyzeStatus(null)
+  }
+
+  // Free accounts land on Upload (which works without AI); AI accounts on Paste.
+  const openImportModal = () => {
+    setImportTab(aiLocked ? 'upload' : 'paste')
+    setShowImportModal(true)
+  }
+
+  const openAddForm = (type: NewComponent['type'] = 'achievement') => {
+    setFormData((prev) => ({ ...prev, type }))
+    setShowAddForm(true)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.access_token) return
+
+    setSavingProfile(true)
+    try {
+      const response = await fetch('/api/save-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(profileData),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save profile')
+      }
+
+      setSuccessMessage('Profile updated!')
+      setTimeout(() => setSuccessMessage(''), 4000)
+    } catch (err) {
+      console.error('Save error:', err)
+      showNotice(err instanceof Error ? err.message : 'Failed to save profile')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.access_token || !user?.email) return
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage('Passwords do not match')
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage('Password must be at least 6 characters')
+      return
+    }
+
+    setSavingPassword(true)
+    setPasswordMessage('')
+    try {
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: user.email,
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change password')
+      }
+
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      })
+      setPasswordMessage('Password changed successfully!')
+      setTimeout(() => setPasswordMessage(''), 4000)
+    } catch (err) {
+      console.error('Password change error:', err)
+      setPasswordMessage(err instanceof Error ? err.message : 'Failed to change password')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  // Fetch components, CVs, and user profile
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!session?.user?.id) return
+
+      // Fetch user profile
+      const { data: rawProfileData } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name, phone, address, based_in, open_to_relocation, relocation_locations, remote_preference, website, linkedin_url')
+        .eq('id', session.user.id)
+        .single()
+
+      if (rawProfileData) {
+        const profileData = rawProfileData as any
+        setProfileData({
+          firstName: profileData.first_name || '',
+          lastName: profileData.last_name || '',
+          phone: profileData.phone || '',
+          address: profileData.address || '',
+          // Fall back to the legacy free-text address so existing users keep
+          // their location until they re-save with the structured field.
+          basedIn: profileData.based_in || profileData.address || '',
+          openToRelocation: !!profileData.open_to_relocation,
+          relocationLocations: profileData.relocation_locations || '',
+          remotePreference: profileData.remote_preference || '',
+          website: profileData.website || '',
+          linkedinUrl: profileData.linkedin_url || '',
+        })
+      }
+
+      // Fetch components
+      const { data: componentData } = await supabase
+        .from('career_components')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (componentData) {
+        // Normalize component types from database format to app format
+        const normalizedComponents = componentData.map((comp: any) => ({
+          ...comp,
+          type: normalizeComponentType(comp.type),
+        }))
+        setComponents(normalizedComponents)
+      }
+
+      // Fetch CVs
+      const { data: cvData } = await supabase
+        .from('cvs')
+        .select('id, filename, file_size_bytes, created_at, storage_path')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (cvData) {
+        setCvs(cvData)
+      }
+
+      // Fetch applications
+      const { data: applicationData } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (applicationData) {
+        setApplications(applicationData)
+      }
+
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [session])
+
+  // CvManager uploads/deletes on its own, so refresh the CV count shown on Home.
+  useEffect(() => {
+    if (activeTab === 'home') refetchCvs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
+  // Normalize raw extracted components from the API into review previews and
+  // flag any that already exist in the current library.
+  const prepareReviewComponents = (raw: any[]): ExtractedComponentPreview[] => {
+    const existingKeys = new Set(components.map((c) => componentMatchKey(c)))
+    return (raw || []).map((c: any) => {
+      const type = normalizeComponentType(c.type)
+      const title = c.title || 'Untitled'
+      const organization_name = c.organization_name || null
+      return {
+        type,
+        title,
+        organization_name,
+        start_date: c.start_date || null,
+        end_date: c.end_date || null,
+        primary_location: c.primary_location || null,
+        description: c.description || null,
+        impact_metrics: c.impact_metrics || null,
+        tags: Array.isArray(c.tags) ? c.tags : [],
+        isExisting: existingKeys.has(componentMatchKey({ type, title, organization_name })),
+      }
+    })
+  }
+
+  // Open the review modal with new (non-duplicate) components pre-selected.
+  const openReviewModal = (extracted: ExtractedComponentPreview[]) => {
+    setReviewComponents(extracted)
+    setReviewSelected(extracted.map((c) => !c.isExisting))
+    setShowReviewModal(true)
+  }
+
+  const handleExtractComponents = async () => {
+    if (!session?.access_token) return
+    if (aiLocked) {
+      showNotice('AI features are in beta and not available on your account yet.')
+      return
+    }
+
+    setExtracting(true)
+    try {
+      // Preview mode: get the extracted components back WITHOUT saving them,
+      // so the user can review and approve/deny before they hit the library.
+      const response = await fetch('/api/extract-components?preview=1', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Extraction failed')
+      }
+
+      const data = await response.json()
+      const extracted = prepareReviewComponents(data.components || [])
+
+      if (extracted.length === 0) {
+        showNotice("We couldn't extract anything new. Either the document's text couldn't be read (common with scanned or image-based PDFs), or everything in it already matches components you've already saved.")
+        return
+      }
+
+      // Close the import modal (if open) and open the review modal. Pre-select
+      // only the components that aren't already in the library so re-extracting
+      // surfaces the update loop instead of duplicating everything.
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      setImportFile(null)
+      openReviewModal(extracted)
+    } catch (err) {
+      console.error('Extraction error:', err)
+      showNotice(err instanceof Error ? err.message : 'Failed to extract components')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const toggleReviewComponent = (index: number) => {
+    setReviewSelected((prev) => prev.map((sel, i) => (i === index ? !sel : sel)))
+  }
+
+  const setAllReviewSelected = (value: boolean) => {
+    setReviewSelected(reviewComponents.map(() => value))
+  }
+
+  const closeReviewModal = () => {
+    setShowReviewModal(false)
+    setReviewSource('ai')
+    setReviewSourceText('')
+    setReviewComponents([])
+    setReviewSelected([])
+    setPendingVoice(null)
+  }
+
+  // Approve: insert the selected components into the library.
+  const handleApproveComponents = async () => {
+    if (!session?.user?.id) return
+
+    const approved = reviewComponents.filter((_, i) => reviewSelected[i])
+    if (approved.length === 0) {
+      showNotice('Select at least one component to add, or discard them all.')
+      return
+    }
+
+    setApprovingComponents(true)
+    try {
+      const { error: insertError } = await (supabase.from('career_components') as any).insert(
+        approved.map((c) => ({
+          user_id: session.user.id,
+          type: c.type,
+          title: c.title,
+          organization_name: c.organization_name || null,
+          start_date: c.start_date || null,
+          end_date: c.end_date || null,
+          primary_location: c.primary_location || null,
+          description: c.description || null,
+          impact_metrics: c.impact_metrics || null,
+          tags: c.tags || [],
+          source: 'parsed_from_documents',
+        }))
+      )
+
+      if (insertError) throw new Error(insertError.message)
+
+      // Apply any voice detected during analysis (create or update "My Voice").
+      let voiceApplied = false
+      if (pendingVoice) {
+        const existingVoice = components.find((c) => c.type === 'voice')
+        if (existingVoice) {
+          await (supabase.from('career_components') as any)
+            .update({
+              tone_keywords: pendingVoice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingVoice.id)
+        } else {
+          await (supabase.from('career_components') as any).insert({
+            user_id: session.user.id,
+            type: 'voice',
+            title: 'My Voice',
+            description: 'Your communication style and tone extracted from cover letters',
+            tone_keywords: pendingVoice,
+            tags: [],
+            source: 'auto-extracted',
+          })
+        }
+        voiceApplied = true
+      }
+
+      // Refetch components so the library reflects the additions.
+      const { data: updatedComponents } = await supabase
+        .from('career_components')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (updatedComponents) {
+        setComponents(
+          updatedComponents.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+        )
+      }
+
+      closeReviewModal()
+      setActiveTab('library')
+      const voiceMsg = voiceApplied ? ' + Voice profile updated' : ''
+      setSuccessMessage(`Added ${approved.length} component${approved.length !== 1 ? 's' : ''} to your library${voiceMsg}`)
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      console.error('Approve components error:', err)
+      showNotice(err instanceof Error ? err.message : 'Failed to add components')
+    } finally {
+      setApprovingComponents(false)
+    }
+  }
+
+  // Deny: discard the extracted components without saving anything.
+  const handleDenyComponents = () => {
+    closeReviewModal()
+  }
+
+  const refetchCvs = async () => {
+    if (!session?.user?.id) return
+    const { data: cvData } = await supabase
+      .from('cvs')
+      .select('id, filename, file_size_bytes, created_at, storage_path')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    if (cvData) {
+      setCvs(cvData)
+    }
+  }
+
+  const handleImportUpload = async () => {
+    if (!importFile) {
+      setImportUploadError('Please select a file')
+      return
+    }
+    if (!session?.access_token) {
+      setImportUploadError('Authentication failed. Please log in again.')
+      return
+    }
+
+    setImportUploading(true)
+    setImportUploadError('')
+    setImportUploadSuccess(false)
+
+    try {
+      const arrayBuffer = await importFile.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+
+      const response = await fetch('/api/upload-cv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-Filename': importFile.name,
+          'X-Mime-Type': importFile.type,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: uint8Array.buffer,
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Upload failed')
+      }
+
+      const uploadResult = await response.json().catch(() => ({} as any))
+      await refetchCvs()
+      setImportUploadSuccess(true)
+      setImportFile(null)
+
+      // Don't leave the user at a dead-end: immediately extract components from
+      // the file they just uploaded and surface them in the review modal.
+      const uploadedText: string = uploadResult?.extractedText || ''
+      setLastUploadedText(uploadedText)
+      if (uploadedText.trim().length > 0) {
+        if (aiLocked) reviewWithoutAi(uploadedText)
+        else await extractAndReviewFromText(uploadedText)
+      }
+    } catch (err) {
+      console.error('Import upload error:', err)
+      setImportUploadError(err instanceof Error ? err.message : 'An error occurred during upload')
+    } finally {
+      setImportUploading(false)
+    }
+  }
+
+  // Extract components (preview) from a single chunk of text and open the review
+  // modal. Shared by the file-upload and paste-analyze flows.
+  // Free tier: read CV text with the rule-based parser and open the review.
+  // Returns false when nothing could be read.
+  const reviewWithoutAi = (text: string): boolean => {
+    const extracted = prepareReviewComponents(parseCvText(text))
+    if (extracted.length === 0) {
+      showNotice(
+        "We couldn't read entries from that automatically. Try pasting the text instead, or add your most recent role by hand.",
+        'info'
+      )
+      return false
+    }
+    setReviewSource('heuristic')
+    setReviewSourceText(text)
+    setShowImportModal(false)
+    setImportUploadSuccess(false)
+    openReviewModal(extracted)
+    return true
+  }
+
+  // Free tier: spend the account's free AI import on this text.
+  const runFreeAiImport = async (text: string) => {
+    if (!session?.access_token || !text.trim()) return
+    setFreeImporting(true)
+    try {
+      const r = await fetch('/api/extract-components?preview=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ text }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'The AI import failed')
+      const extracted = prepareReviewComponents(d.components || [])
+      setFreeImportsLeft((n) => Math.max(0, n - 1))
+      if (extracted.length === 0) {
+        showNotice("The AI import couldn't find any entries in that text.", 'info')
+        return
+      }
+      setReviewSource('ai')
+      setReviewSourceText(text)
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : 'The AI import failed')
+    } finally {
+      setFreeImporting(false)
+    }
+  }
+
+  const extractAndReviewFromText = async (text: string) => {
+    if (!session?.access_token) return
+    try {
+      const r = await fetch('/api/extract-components?preview=1', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Extraction failed')
+      }
+      const d = await r.json()
+      const extracted = prepareReviewComponents(d.components || [])
+      if (extracted.length === 0) {
+        setSuccessMessage('Uploaded — but we couldn’t pull any components out of that file.')
+        setTimeout(() => setSuccessMessage(''), 4000)
+        return
+      }
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      console.error('Extract-after-upload error:', err)
+      // Non-fatal: the CV is saved; the user can still use "Extract components now".
+      setSuccessMessage('Uploaded. Click “Extract components now” to add components.')
+      setTimeout(() => setSuccessMessage(''), 4000)
+    }
+  }
+
+  const handleDeleteCV = async (cvId: string, storagePath: string) => {
+    if (!session?.user?.id) return
+
+    setDeleting(cvId)
+    try {
+      await supabase.storage.from('cvs').remove([storagePath])
+      await supabase.from('cvs').delete().eq('id', cvId)
+      setCvs(cvs.filter((cv) => cv.id !== cvId))
+      setDeleteConfirm(null)
+    } catch (err) {
+      console.error('Delete error:', err)
+      showNotice('Failed to delete CV')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleDeleteComponent = async (componentId: string) => {
+    if (!session?.user?.id) return
+
+    setDeletingComponent(componentId)
+    try {
+      await supabase.from('career_components').delete().eq('id', componentId)
+      setComponents(components.filter((c) => c.id !== componentId))
+      setDeleteConfirmComponent(null)
+    } catch (err) {
+      console.error('Delete error:', err)
+      showNotice('Failed to delete component')
+    } finally {
+      setDeletingComponent(null)
+    }
+  }
+
+  const handleAddComponent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.user?.id) return
+
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('career_components').insert({
+        user_id: session.user.id,
+        type: formData.type,
+        title: formData.title,
+        organization_name: formData.organization_name || null,
+        description: formData.description,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        impact_metrics: formData.impact_metrics || null,
+        primary_location: formData.primary_location || null,
+        tags: formData.tags,
+        tone_keywords: formData.tone_keywords || null,
+        related_terms: formData.related_terms || null,
+        source: 'manual',
+      } as any)
+
+      if (!error) {
+        const { data } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (data) {
+          const normalizedComponents = data.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
+        }
+
+        setFormData({
+          type: 'achievement',
+          title: '',
+          description: '',
+          tags: [],
+          tone_keywords: '',
+          related_terms: '',
+          primary_location: '',
+        })
+        setShowAddForm(false)
+      }
+    } catch (err) {
+      console.error('Error adding component:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAnalyzeText = async (text: string) => {
+    if (!session?.access_token || !session?.user?.id) return
+    if (aiLocked) {
+      showNotice('AI features are in beta and not available on your account yet.')
+      return
+    }
+
+    setAnalyzing(true)
+    setAnalyzeStatus({
+      text: 'Analyzing your documents… This can take a moment.',
+      variant: 'info',
+    })
+
+    try {
+      // Step 1: Classify and split the pasted text into documents + voice.
+      const classifyResponse = await fetch('/api/analyze-mixed-documents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text }),
+      })
+
+      if (!classifyResponse.ok) {
+        const data = await classifyResponse.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to classify documents')
+      }
+
+      const { documents, voice } = await classifyResponse.json()
+
+      if (!documents || documents.length === 0) {
+        throw new Error('No documents found in the pasted text')
+      }
+
+      const docs = documents as Array<{ type: 'cv' | 'coverLetter'; content: string }>
+
+      setAnalyzeStatus({
+        text: 'Pulling out your roles, skills and achievements…',
+        variant: 'info',
+      })
+
+      // Step 2: Extract components from EACH document in preview mode. The text
+      // is passed in the request body so we extract from exactly what was
+      // pasted (not stale stored CVs). Nothing is saved yet — the user reviews
+      // and approves below.
+      const previewResults = await Promise.all(
+        docs.map(async (doc) => {
+          try {
+            const r = await fetch('/api/extract-components?preview=1', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ text: doc.content }),
+            })
+            if (!r.ok) {
+              const d = await r.json().catch(() => ({}))
+              throw new Error(d.error || `Extraction failed for a ${doc.type}`)
+            }
+            const d = await r.json()
+            return (d.components || []) as any[]
+          } catch (err) {
+            console.error(`Failed to extract components from ${doc.type}:`, err)
+            return [] as any[]
+          }
+        })
+      )
+
+      // Flatten, then de-duplicate within this batch (the same role can appear
+      // in multiple pasted docs) by identity key.
+      const seen = new Set<string>()
+      const rawComponents: any[] = []
+      for (const comp of previewResults.flat()) {
+        const key = componentMatchKey({
+          type: normalizeComponentType(comp.type),
+          title: comp.title,
+          organization_name: comp.organization_name,
+        })
+        if (seen.has(key)) continue
+        seen.add(key)
+        rawComponents.push(comp)
+      }
+
+      const extracted = prepareReviewComponents(rawComponents)
+
+      if (extracted.length === 0) {
+        setAnalyzeStatus({
+          text: 'We couldn’t pull any components out of that text. Try pasting a more detailed CV.',
+          variant: 'error',
+        })
+        return
+      }
+
+      // Stash voice so it's applied only if the user approves the review.
+      setPendingVoice(voice?.toneKeywords || null)
+
+      // Hand off to the review modal. The user sees exactly what was found
+      // (including multiple roles at the same company) and what's new vs.
+      // already in their library, then approves.
+      setAnalyzeStatus(null)
+      setShowImportModal(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      console.error('Analysis error:', err)
+      setAnalyzeStatus({
+        text: err instanceof Error ? err.message : 'Failed to analyze text',
+        variant: 'error',
+      })
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const handleEditComponent = (component: CareerComponent) => {
+    setEditingComponent(component)
+    setEditFormData({
+      type: component.type as any,
+      title: component.title,
+      description: component.description,
+      start_date: component.start_date,
+      end_date: component.end_date,
+      impact_metrics: component.impact_metrics,
+      organization_name: component.organization_name,
+      primary_location: component.primary_location,
+      tags: component.tags || [],
+    })
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.user?.id || !editingComponent?.id) return
+
+    setSavingEdit(true)
+    try {
+      const { error } = await (supabase
+        .from('career_components') as any)
+        .update({
+          type: editFormData.type,
+          title: editFormData.title,
+          description: editFormData.description || null,
+          start_date: editFormData.start_date || null,
+          end_date: editFormData.end_date || null,
+          impact_metrics: editFormData.impact_metrics || null,
+          organization_name: editFormData.organization_name || null,
+          primary_location: editFormData.primary_location || null,
+          tags: editFormData.tags || [],
+          tone_keywords: editFormData.tone_keywords || null,
+          related_terms: editFormData.related_terms || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingComponent.id)
+
+      if (!error) {
+        // Refetch components
+        const { data } = await supabase
+          .from('career_components')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (data) {
+          const normalizedComponents = data.map((comp: any) => ({
+            ...comp,
+            type: normalizeComponentType(comp.type),
+          }))
+          setComponents(normalizedComponents)
+        }
+
+        setEditingComponent(null)
+        setEditFormData({})
+      }
+    } catch (err) {
+      console.error('Error updating component:', err)
+      showNotice('Failed to update component')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  // Advice step: analyse a pasted job ad against the user's career library and
+  // return employer keywords + recommended components to highlight. Errors
+  // bubble up so the wizard can stay on the input step and show a message.
+  const handleAnalyzeJob = async (
+    jobDescription: string,
+    jobTitle?: string,
+    company?: string
+  ) => {
+    if (!session?.access_token) throw new Error('Not authenticated')
+    if (aiLocked) throw new Error('AI features are in beta and not available on your account yet.')
+
+    const response = await fetch('/api/analyze-job', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ jobDescription, jobTitle, company }),
+    })
+
+    if (!response.ok) {
+      const d = await response.json().catch(() => ({}))
+      throw new Error(d.error || 'Failed to analyse job')
+    }
+
+    return response.json() as Promise<{
+      success: boolean
+      keywords: string[]
+      thesis: string
+      recommendations: Array<{ id: string; title: string; type: string; reason: string }>
+    }>
+  }
+
+  const handleGenerateApplication = async (
+    jobDescription: string,
+    jobTitle?: string,
+    company?: string,
+    selectedComponentIds?: string[],
+    cvId?: string | null,
+    tone?: string,
+    length?: string
+  ) => {
+    if (!session?.access_token || !session?.user?.id) return
+    if (aiLocked) {
+      showNotice('AI features are in beta and not available on your account yet.')
+      return
+    }
+
+    setGeneratingApplication(true)
+    try {
+      const response = await fetch('/api/generate-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ jobDescription, jobTitle, company, selectedComponentIds, cvId, tone, length }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to generate application')
+      }
+
+      const data = await response.json()
+
+      // Insert the application into the database. We persist Claude's STRUCTURED
+      // JSON (the source of truth for exports) alongside the flattened text, so
+      // templates render real fields instead of regex-guessing them back.
+      // No AI-generated CV document anymore — generated_cv stays empty and the
+      // model's guidance on the candidate's own uploaded CV lives in cv_advice.
+      const { data: inserted, error } = await supabase
+        .from('applications')
+        .insert({
+          user_id: session.user.id,
+          job_title: jobTitle || 'Untitled Position',
+          company_name: company || 'Unknown Company',
+          job_description: jobDescription,
+          generated_cv: '',
+          generated_cover_letter: data.coverLetter,
+          generated_cover_letter_json: data.coverLetterStructured ?? null,
+          cv_advice: data.cvAdvice,
+          cv_advice_json: data.cvAdviceStructured ?? null,
+          cv_id: cvId || null,
+          status: 'draft',
+        } as any)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Refetch applications
+      const { data: appData } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (appData) {
+        setApplications(appData)
+      }
+
+      showNotice('Application generated successfully!', 'success')
+      const insertedId = (inserted as any)?.id
+      if (insertedId) {
+        setActiveTab('applications')
+        setJustGeneratedApplicationId(insertedId)
+      }
+      return inserted
+    } catch (err) {
+      console.error('Generation error:', err)
+      throw err
+    } finally {
+      setGeneratingApplication(false)
+    }
+  }
+
+  const handleCreateManualApplication = async (data: {
+    job_title: string
+    company_name: string
+    job_url?: string
+    deadline?: string
+    job_description?: string
+  }) => {
+    if (!session?.user?.id) return
+
+    setSavingManualApplication(true)
+    try {
+      const { data: inserted, error } = await supabase
+        .from('applications')
+        .insert({
+          user_id: session.user.id,
+          job_title: data.job_title,
+          company_name: data.company_name,
+          job_url: data.job_url || null,
+          deadline: data.deadline || null,
+          job_description: data.job_description || null,
+          generated_cv: '',
+          generated_cover_letter: '',
+          status: 'draft',
+        } as any)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setApplications((prev) => [inserted, ...prev])
+      setShowAddApplicationForm(false)
+      // Open the new application so the user lands on its details/cover letter.
+      const insertedId = (inserted as any)?.id
+      if (insertedId) {
+        setActiveTab('applications')
+        setJustGeneratedApplicationId(insertedId)
+      }
+      return inserted
+    } catch (err) {
+      console.error('Manual application create error:', err)
+      showNotice(err instanceof Error ? err.message : 'Failed to create application')
+    } finally {
+      setSavingManualApplication(false)
+    }
+  }
+
+  const handleDeleteApplication = async (id: string) => {
+    if (!session?.user?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+
+      if (error) throw error
+
+      setApplications(applications.filter((app) => app.id !== id))
+    } catch (err) {
+      console.error('Delete error:', err)
+      throw err
+    }
+  }
+
+  const handleUpdateApplicationStatus = async (id: string, status: ApplicationStatus) => {
+    if (!session?.access_token) return
+
+    setSavingApplicationStatus(id)
+    try {
+      const response = await fetch(`/api/applications/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update application')
+      }
+
+      const data = await response.json()
+
+      // Update local state
+      setApplications(applications.map((app) => (app.id === id ? data.data : app)))
+    } catch (err) {
+      console.error('Update application error:', err)
+      throw err
+    } finally {
+      setSavingApplicationStatus(null)
+    }
+  }
+
+  const handleUpdateApplication = async (
+    id: string,
+    data: { generated_cover_letter: string; job_title?: string; company_name?: string; job_description?: string; job_url?: string; deadline?: string; persons_of_interest?: string; status?: ApplicationStatus }
+  ) => {
+    if (!session?.access_token) return
+
+    try {
+      const response = await fetch(`/api/applications/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const responseData = await response.json()
+        throw new Error(responseData.error || 'Failed to update application')
+      }
+
+      const responseData = await response.json()
+
+      // Update local state
+      setApplications(applications.map((app) => (app.id === id ? responseData.data : app)))
+    } catch (err) {
+      console.error('Update application error:', err)
+      throw err
+    }
+  }
+
+  // The on-demand "Generate Cover Letter"/"Generate CV Advice" endpoint saves
+  // directly to the DB itself — this just syncs the local list so the card
+  // reflects the new content without a full refetch.
+  const handleApplicationGenerated = (id: string, data: { generated_cover_letter?: string; cv_advice?: string; cv_advice_json?: any }) => {
+    setApplications((prev) => prev.map((app) => (app.id === id ? { ...app, ...data } : app)))
+  }
+
+
+  return (
+    <DashboardShell
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      onSignOut={handleLogout}
+      hasComponents={components.length > 0}
+      applicationsCount={applications.length}
+      isAdmin={isAdmin}
+      previewPlan={previewPlan}
+      onTogglePreviewPlan={togglePreviewPlan}
+    >
+        <div className="w-full space-y-4">
+            {activeTab === 'home' && (
+              <DashboardHome
+                firstName={profileData.firstName}
+                componentsCount={components.length}
+                applicationsCount={applications.length}
+                appliedCount={applications.filter((a) => a.status === 'applied').length}
+                cvsCount={cvs.length}
+                onJustApply={() => setActiveTab('justApply')}
+                onCompleteProfile={() => setActiveTab('settings')}
+                onAddRole={() => openAddForm('role')}
+                onUploadCv={() => setActiveTab('cvs')}
+              />
+            )}
+
+            {activeTab !== 'home' && (
+              <>
+                {/* Success Banner — hidden while any modal is open so status never
+                    appears on the dimmed page behind a pop-up; the modals surface
+                    their own in-context status instead. */}
+                {successMessage &&
+                  !showImportModal &&
+                  activeTab !== 'settings' &&
+                  !showReviewModal &&
+                  !showAddForm &&
+                  !editingComponent &&
+                  !expandedRole && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                      <p className="text-blue-700">{successMessage}</p>
+                    </div>
+                  )}
+
+                {/* Tell Us More About You - if first name not set */}
+                {!profileData.firstName && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-medium text-blue-900 mb-1 text-sm">Complete your profile</h3>
+                    <p className="text-blue-800 text-xs mb-3">
+                      Add your name and contact info to personalize your applications.
+                    </p>
+                    <Button onClick={() => setActiveTab('settings')} variant="outline" className="text-sm">
+                      Complete Profile
+                    </Button>
+                  </div>
+                )}
+
+                {/* Component Library */}
+                {activeTab === 'library' && components.length > 0 && (
+                  <ComponentLibraryUI
+                    components={components}
+                    onEdit={handleEditComponent}
+                    onDelete={handleDeleteComponent}
+                    onAdd={() => openAddForm()}
+                    onImport={openImportModal}
+                    isDeleting={(id) => deletingComponent === id}
+                  />
+                )}
+
+                {/* Career Timeline */}
+                {activeTab === 'timeline' && components.length > 0 && (
+                  <CareerTimeline
+                    components={components}
+                    expandedRole={expandedRole}
+                    onRoleClick={setExpandedRole}
+                  />
+                )}
+
+                {/* CVs Tab */}
+                {activeTab === 'cvs' && <CvManager authToken={session?.access_token} />}
+
+                {/* Just Apply Tab */}
+                {activeTab === 'justApply' && (
+                  <JustApplyTab
+                    onAnalyze={handleAnalyzeJob}
+                    onSubmit={handleGenerateApplication}
+                    components={components}
+                    loading={generatingApplication}
+                    authToken={session?.access_token}
+                    aiLocked={aiLocked}
+                    onSaveApplication={handleCreateManualApplication}
+                    savingApplication={savingManualApplication}
+                    onAddComponent={() => openAddForm()}
+                  />
+                )}
+
+                {/* Applications Tab (list + kanban views) */}
+                {activeTab === 'applications' && (
+                  <ApplicationsView
+                    applications={applications}
+                    onStatusChange={handleUpdateApplicationStatus}
+                    onDelete={handleDeleteApplication}
+                    onUpdateApplication={handleUpdateApplication}
+                    onGenerated={handleApplicationGenerated}
+                    onCreateManual={() => setShowAddApplicationForm(true)}
+                    loading={generatingApplication}
+                    authToken={session?.access_token}
+                    openApplicationId={justGeneratedApplicationId}
+                    onApplicationOpened={() => setJustGeneratedApplicationId(null)}
+                    components={components}
+                    aiLocked={aiLocked}
+                    applicantName={[profileData.firstName, profileData.lastName].filter(Boolean).join(' ')}
+                  />
+                )}
+
+                {/* Empty State for Components (library/timeline only) */}
+                {!loading && components.length === 0 && (activeTab === 'library' || activeTab === 'timeline') && (
+                  <div className="bg-navy-800 rounded-xl border border-navy-700 p-8 space-y-5">
+                    <div>
+                      <h2 className="text-xl font-semibold text-white">Start your career library</h2>
+                      <p className="text-navy-300 text-sm mt-2 max-w-xl">
+                        {aiLocked
+                          ? 'Your library is a set of reusable building blocks: roles, projects, achievements, skills. Start with your most recent role. Every application you write will draw on it.'
+                          : "Import your CV or paste your experience and we'll pull out your roles, achievements and skills. Or add them one at a time."}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {aiLocked ? (
+                        <>
+                          <Button onClick={() => openAddForm('role')}>Add your first role</Button>
+                          <button
+                            onClick={openImportModal}
+                            className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Upload your CV
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Button onClick={openImportModal}>Import your experience</Button>
+                          <button
+                            onClick={() => openAddForm()}
+                            className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Add component
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-navy-400">
+                      Not much work experience yet? Internships, university projects, societies, volunteering and
+                      part-time jobs all count.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+        </div>
+
+      {/* Settings */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6 max-w-2xl">
+          <div>
+            <h2 className="text-2xl font-semibold text-white">Settings</h2>
+            <p className="text-navy-300 mt-1">Your personal info and account preferences.</p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-4 border-b border-navy-700">
+            <button
+              onClick={() => setSettingsTab('profile')}
+              className={`px-1 pb-3 font-medium transition border-b-2 ${
+                settingsTab === 'profile'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-navy-300 hover:text-white'
+              }`}
+            >
+              About Me
+            </button>
+            <button
+              onClick={() => setSettingsTab('security')}
+              className={`px-1 pb-3 font-medium transition border-b-2 ${
+                settingsTab === 'security'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-navy-300 hover:text-white'
+              }`}
+            >
+              Account
+            </button>
+          </div>
+
+          <div className="bg-navy-800 border border-navy-700 rounded-lg p-6 space-y-4">
+              {/* Success Message */}
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                  {successMessage}
+                </div>
+              )}
+              {passwordMessage && (
+                <div className={`rounded-lg p-3 text-sm ${
+                  passwordMessage.includes('✅')
+                    ? 'bg-green-50 border border-green-200 text-green-800'
+                    : 'bg-red-50 border border-red-200 text-red-800'
+                }`}>
+                  {passwordMessage}
+                </div>
+              )}
+
+              {/* Profile Tab */}
+              {settingsTab === 'profile' && (
+                <form onSubmit={handleSaveProfile} className="space-y-4">
+                  {/* Email Display */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-900 text-navy-300 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-navy-400 mt-1">This is the email you signed up with</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.firstName}
+                      onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.lastName}
+                      onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* About Me — Location. Two cards: where the user is based
+                      (authoritative source for the CV header location) and
+                      whether they're open to relocating. */}
+                  <div className="pt-2">
+                    <h3 className="text-sm font-semibold text-white mb-3">Location</h3>
+                    <div className="space-y-3">
+                      {/* Card 1: Where are you based? */}
+                      <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <label className="block text-sm font-medium text-white">
+                            Where are you based?
+                          </label>
+                        </div>
+                        <p className="text-xs text-navy-400 mb-2">
+                          This is shown on your CV. Use the format “City, Country”.
+                        </p>
+                        <input
+                          type="text"
+                          value={profileData.basedIn}
+                          onChange={(e) => setProfileData({ ...profileData, basedIn: e.target.value })}
+                          className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
+                          placeholder="e.g., Brussels, Belgium"
+                        />
+                      </div>
+
+                      {/* Card 2: Open to relocation? */}
+                      <div className="rounded-lg border border-navy-700 bg-navy-900 p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <label htmlFor="openToRelocation" className="block text-sm font-medium text-white">
+                              Open to relocation?
+                            </label>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              id="openToRelocation"
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={profileData.openToRelocation}
+                              onChange={(e) => setProfileData({ ...profileData, openToRelocation: e.target.checked })}
+                            />
+                            <div className="w-11 h-6 bg-navy-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                          </label>
+                        </div>
+
+                        {profileData.openToRelocation && (
+                          <div className="mt-3 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-navy-300 mb-1">
+                                Where would you relocate to?
+                              </label>
+                              <input
+                                type="text"
+                                value={profileData.relocationLocations}
+                                onChange={(e) => setProfileData({ ...profileData, relocationLocations: e.target.value })}
+                                className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
+                                placeholder="e.g., London, Amsterdam, anywhere in the EU"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-navy-300 mb-1">
+                                Work-location preference
+                              </label>
+                              <select
+                                value={profileData.remotePreference}
+                                onChange={(e) => setProfileData({ ...profileData, remotePreference: e.target.value })}
+                                className="w-full px-4 py-2 border border-navy-600 rounded-lg bg-navy-800 text-white focus:ring-2 focus:ring-primary"
+                              >
+                                <option value="">No preference</option>
+                                <option value="onsite">On-site</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="remote">Remote</option>
+                                <option value="flexible">Flexible</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Professional Website or Portfolio
+                    </label>
+                    <input
+                      type="url"
+                      value={profileData.website}
+                      onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder="https://yourportfolio.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      LinkedIn Profile URL
+                    </label>
+                    <input
+                      type="url"
+                      value={profileData.linkedinUrl}
+                      onChange={(e) => setProfileData({ ...profileData, linkedinUrl: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder="https://linkedin.com/in/yourprofile"
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t border-navy-700">
+                    <Button type="submit" loading={savingProfile} className="w-full">
+                      Save Profile
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {/* Security Tab */}
+              {settingsTab === 'security' && (
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Current Password *
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      New Password *
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                    <p className="text-xs text-navy-400 mt-1">Minimum 6 characters</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Confirm Password *
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t border-navy-700">
+                    <Button type="submit" loading={savingPassword} className="w-full">
+                      Change Password
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">{aiLocked ? 'Add your experience' : 'Import your information'}</h2>
+              <button
+                onClick={closeImportModal}
+                aria-label="Close"
+                className="text-navy-300 hover:text-white text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Analyze status — shown inside the modal so feedback stays where
+                the user is working */}
+            {analyzeStatus && (
+              <div
+                className={`rounded-lg p-3 text-sm mb-6 border ${
+                  analyzeStatus.variant === 'success'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : analyzeStatus.variant === 'error'
+                    ? 'bg-red-50 border-red-200 text-red-800'
+                    : 'bg-blue-50 border-blue-200 text-blue-700'
+                }`}
+              >
+                {analyzeStatus.text}
+              </div>
+            )}
+
+            {aiLocked && (
+              <p className="text-sm text-navy-300 mb-6">
+                Upload your CV to keep it on file, then add your experience one piece at a time.{' '}
+                <button
+                  onClick={() => {
+                    closeImportModal()
+                    openAddForm('role')
+                  }}
+                  className="text-blue-400 font-semibold hover:underline"
+                >
+                  Add a role manually
+                </button>
+              </p>
+            )}
+
+            {/* Tabs */}
+            <div className="flex gap-4 border-b border-navy-600 mb-6">
+              {(aiLocked ? (['upload', 'paste'] as const) : (['paste', 'upload'] as const)).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setImportTab(tab)}
+                  className={`px-4 py-3 font-medium transition border-b-2 ${
+                    importTab === tab
+                      ? 'border-blue-500 text-blue-400'
+                      : 'border-transparent text-navy-300 hover:text-white'
+                  }`}
+                >
+                  {tab === 'upload' ? 'Upload File' : aiLocked ? 'Paste text' : 'Paste Information'}
+                </button>
+              ))}
+            </div>
+
+            {/* Paste Tab */}
+            {importTab === 'paste' &&
+              (aiLocked ? (
+                <div className="space-y-4">
+                  <FreeImportPanel
+                    onReadWithoutAi={reviewWithoutAi}
+                    onFreeAiImport={freeImportsLeft > 0 ? runFreeAiImport : undefined}
+                    freeRemaining={freeImportsLeft}
+                    busy={freeImporting}
+                  />
+                  {freeImportsLeft === 0 && (
+                    <AiFeatureTeaser
+                      feature="import"
+                      title="Smarter import with AI"
+                      pitch="AI import reads messy layouts, several documents at once and your past cover letters, and picks up your writing voice as well as your roles and achievements."
+                    />
+                  )}
+                </div>
+              ) : (
+                <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} aiLocked={aiLocked} />
+              ))}
+
+            {/* Upload Tab */}
+            {importTab === 'upload' && (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-white">Upload your CV or documents</h3>
+                    {!aiLocked && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-primary/20 text-blue-300 border border-primary/40">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                          <path d="M13 2 3 14h7l-1 8 11-14h-7l0-6Z" />
+                        </svg>
+                        AI Powered
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-navy-300 text-sm mt-1">
+                    {aiLocked
+                      ? "PDF or DOCX. We'll save it under CVs and read it into draft entries for you to check."
+                      : "Upload PDF or DOCX files. We'll extract and analyze your experience."}
+                  </p>
+                </div>
+
+                {importUploadSuccess ? (
+                  aiLocked ? (
+                    <div className="space-y-4">
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                        <p className="font-semibold text-emerald-300">CV saved</p>
+                        <p className="text-sm text-navy-200 mt-1">
+                          We couldn&apos;t read entries from this file automatically. Add your most recent role by
+                          hand, try the Paste text tab, or use your free AI import.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {freeImportsLeft > 0 && lastUploadedText.trim() && (
+                            <Button size="sm" onClick={() => runFreeAiImport(lastUploadedText)} loading={freeImporting}>
+                              <AiBoltIcon /> Use free AI import ({freeImportsLeft} left)
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              closeImportModal()
+                              openAddForm('role')
+                            }}
+                          >
+                            Add a role
+                          </Button>
+                          <button
+                            onClick={() => {
+                              setImportUploadSuccess(false)
+                              setImportUploadError('')
+                            }}
+                            className="px-3 py-2 rounded-lg text-sm font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                          >
+                            Upload another file
+                          </button>
+                        </div>
+                      </div>
+                      <AiFeatureTeaser
+                        feature="import"
+                        title="Skip the typing next time"
+                        pitch="With AI import, we'd read the CV you just uploaded and turn it into roles, skills and achievements for you to review."
+                      />
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center space-y-4">
+                      <div className="text-4xl">✓</div>
+                      <div>
+                        <p className="font-semibold text-green-900">CV uploaded successfully</p>
+                        <p className="text-sm text-green-800 mt-1">
+                          Turn it into career components, or upload another file.
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button onClick={handleExtractComponents} loading={extracting}>
+                          Extract components now
+                        </Button>
+                        <button
+                          onClick={() => {
+                            setImportUploadSuccess(false)
+                            setImportUploadError('')
+                          }}
+                          className="px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                        >
+                          Upload another file
+                        </button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <CVUploadZone
+                      onFileSelect={(file) => {
+                        setImportFile(file)
+                        setImportUploadError('')
+                      }}
+                      isLoading={importUploading}
+                    />
+
+                    {importUploadError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                        {importUploadError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleImportUpload}
+                        loading={importUploading}
+                        disabled={!importFile}
+                        className="flex-1"
+                      >
+                        Upload CV
+                      </Button>
+                    </div>
+
+                    {!aiLocked && (
+                      <p className="text-xs text-navy-400 text-center">
+                        PDF or DOCX up to 10 MB. Not sure how to export your CV? Try the{' '}
+                        <button onClick={() => setImportTab('paste')} className="text-blue-600 font-semibold hover:underline">
+                          Paste Information
+                        </button>{' '}
+                        tab instead.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Review Extracted Components Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  {reviewSource === 'heuristic' ? 'Check your draft entries' : 'Review extracted components'}
+                </h2>
+                <p className="text-navy-300 text-sm mt-1">
+                  {(() => {
+                    const newCount = reviewComponents.filter((c) => !c.isExisting).length
+                    const existingCount = reviewComponents.length - newCount
+                    return (
+                      <>
+                        We found {reviewComponents.length} component{reviewComponents.length !== 1 ? 's' : ''} in your
+                        document{reviewComponents.length !== 1 ? 's' : ''}
+                        {existingCount > 0 ? (
+                          <> — <span className="font-semibold text-green-700">{newCount} new</span> and {existingCount} already in your library</>
+                        ) : (
+                          <> — all new</>
+                        )}
+                        . New ones are pre-selected; uncheck anything you don't want.
+                      </>
+                    )
+                  })()}
+                </p>
+              </div>
+              <button
+                onClick={handleDenyComponents}
+                className="text-navy-300 hover:text-white text-2xl font-bold ml-4"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {reviewSource === 'heuristic' && (
+              <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                <p className="flex-1">
+                  We read your CV without AI, so some titles, organisations or dates may be in the wrong place. Check
+                  each one; you can fix anything after adding it.
+                </p>
+                {freeImportsLeft > 0 && reviewSourceText && (
+                  <button
+                    onClick={() => runFreeAiImport(reviewSourceText)}
+                    disabled={freeImporting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-white hover:bg-blue-700 disabled:opacity-50 transition flex-shrink-0"
+                  >
+                    <AiBoltIcon size={10} />
+                    {freeImporting ? 'Reading with AI…' : `Redo with free AI import (${freeImportsLeft} left)`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Select all / none */}
+            <div className="flex items-center gap-4 text-sm mb-4">
+              <span className="text-navy-200 font-medium">
+                {reviewSelected.filter(Boolean).length} of {reviewComponents.length} selected
+              </span>
+              <button
+                onClick={() => setAllReviewSelected(true)}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                Select all
+              </button>
+              {reviewComponents.some((c) => c.isExisting) && (
+                <button
+                  onClick={() => setReviewSelected(reviewComponents.map((c) => !c.isExisting))}
+                  className="text-blue-600 font-semibold hover:underline"
+                >
+                  Select new only
+                </button>
+              )}
+              <button
+                onClick={() => setAllReviewSelected(false)}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                Select none
+              </button>
+            </div>
+
+            {/* Component list */}
+            <div className="flex-1 overflow-y-auto space-y-3 -mx-2 px-2">
+              {reviewComponents.map((comp, index) => {
+                const selected = reviewSelected[index]
+                return (
+                  <label
+                    key={index}
+                    className={`flex gap-3 p-4 rounded-lg border cursor-pointer transition ${
+                      selected
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-navy-700 bg-navy-900 opacity-60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleReviewComponent(index)}
+                      className="mt-1 h-4 w-4 flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-block text-xs font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 rounded px-2 py-0.5">
+                          {comp.type}
+                        </span>
+                        {comp.isExisting ? (
+                          <span className="inline-block text-xs font-semibold text-navy-300 bg-navy-700 rounded px-2 py-0.5">
+                            Already in library
+                          </span>
+                        ) : (
+                          <span className="inline-block text-xs font-semibold text-green-700 bg-green-100 rounded px-2 py-0.5">
+                            New
+                          </span>
+                        )}
+                        <span className="font-semibold text-white">{comp.title}</span>
+                      </div>
+                      {(comp.organization_name || comp.start_date || comp.end_date || comp.primary_location) && (
+                        <p className="text-sm text-navy-300 mt-0.5">
+                          {[
+                            comp.organization_name,
+                            formatComponentDateRange(comp.start_date, comp.end_date),
+                            comp.primary_location,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
+                      {comp.description && (
+                        <p className="text-sm text-navy-300 mt-1">{comp.description}</p>
+                      )}
+                      {comp.impact_metrics && (
+                        <p className="text-sm text-navy-300 mt-1">
+                          <span className="font-medium">Impact:</span> {comp.impact_metrics}
+                        </p>
+                      )}
+                      {comp.tags && comp.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {comp.tags.map((tag, t) => (
+                            <span
+                              key={t}
+                              className="text-xs text-navy-300 bg-navy-700 rounded-full px-2 py-0.5"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-navy-600">
+              <Button
+                onClick={handleApproveComponents}
+                loading={approvingComponents}
+                disabled={reviewSelected.filter(Boolean).length === 0}
+                className="flex-1"
+              >
+                Add {reviewSelected.filter(Boolean).length || ''} to library
+              </Button>
+              <button
+                onClick={handleDenyComponents}
+                disabled={approvingComponents}
+                className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition disabled:opacity-50"
+              >
+                Discard all
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Role Modal */}
+      {expandedRole && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{expandedRole.title}</h2>
+                  {expandedRole.start_date && (
+                    <p className="text-sm text-navy-300">
+                      {new Date(expandedRole.start_date).getFullYear()}
+                      {expandedRole.end_date
+                        ? ` - ${new Date(expandedRole.end_date).getFullYear()}`
+                        : ' - Present'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setExpandedRole(null)}
+                className="text-navy-300 hover:text-white text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Description */}
+              {expandedRole.description && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
+                  <p className="text-navy-200 whitespace-pre-wrap">{expandedRole.description}</p>
+                </div>
+              )}
+
+              {/* Impact Metrics */}
+              {expandedRole.impact_metrics && (
+                <div className="bg-navy-700 border border-navy-600 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-white mb-2">Impact & Metrics</h3>
+                  <p className="text-navy-200">{expandedRole.impact_metrics}</p>
+                </div>
+              )}
+
+              {/* Tags */}
+              {expandedRole.tags.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Skills & Technologies</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {expandedRole.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-3 py-1 bg-primary/20 text-blue-200 rounded-full text-sm font-medium"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-6 border-t border-navy-600">
+                <button
+                  onClick={() => {
+                    const role = expandedRole
+                    setExpandedRole(null)
+                    handleEditComponent(role)
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    const roleId = expandedRole.id
+                    setExpandedRole(null)
+                    handleDeleteComponent(roleId)
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-red-400/40 text-red-400 hover:bg-red-400/10 transition"
+                >
+                  Delete
+                </button>
+                <Button
+                  onClick={() => setExpandedRole(null)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Component Modal */}
+      {editingComponent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto relative">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingComponent(null)
+                setEditFormData({})
+              }}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-4 pr-8">Edit {editFormData.type}</h2>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Type *
+                  </label>
+                  <select
+                    value={editFormData.type || 'achievement'}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as any })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="achievement">Achievement</option>
+                    <option value="skill">Skill</option>
+                    <option value="role">Role</option>
+                    <option value="project">Project</option>
+                    <option value="kpi">KPI</option>
+                    <option value="voice">Voice</option>
+                    <option value="context">Context</option>
+                    <option value="education">Education</option>
+                    <option value="certification">Certification</option>
+                    <option value="program">Program</option>
+                    <option value="volunteer">Volunteer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.title || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={editFormData.description || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.start_date || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.end_date || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Impact Metrics
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.impact_metrics || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, impact_metrics: e.target.value })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., Increased sales by 40%"
+                />
+              </div>
+
+              {['role', 'education', 'certification', 'program', 'volunteer'].includes(editFormData.type || '') && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      {editFormData.type === 'role' ? 'Company/Organization' : 'Organizing Body'}
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.organization_name || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, organization_name: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder={editFormData.type === 'role' ? 'e.g., Acme Corp, Google, Startup Inc' : 'e.g., Coursera, Harvard University, Red Cross'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.primary_location || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, primary_location: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder="e.g., San Francisco, CA or Remote or Hybrid - London"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={(editFormData.tags || []).join(', ')}
+                  onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value.split(',').map(t => t.trim()) })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., React, TypeScript, Performance"
+                />
+              </div>
+
+              {editFormData.type === 'voice' && (
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Tone Keywords
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.tone_keywords || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, tone_keywords: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., direct, warm, analytical, storytelling-focused"
+                  />
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated keywords describing your communication style</p>
+                </div>
+              )}
+
+              {editFormData.type === 'context' && (
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Related Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.related_terms || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, related_terms: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
+                  />
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated related concepts this term explains</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <Button type="submit" loading={savingEdit} className="flex-1">
+                  Save Changes
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingComponent(null)
+                    setEditFormData({})
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Component Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto relative">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-1 pr-8">Add to your library</h2>
+            <p className="text-sm text-navy-300 mb-4">{COMPONENT_TYPE_HINTS[formData.type]}</p>
+            <form onSubmit={handleAddComponent} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Type *
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="achievement">Achievement</option>
+                    <option value="skill">Skill</option>
+                    <option value="role">Role</option>
+                    <option value="project">Project</option>
+                    <option value="kpi">KPI</option>
+                    <option value="voice">Voice</option>
+                    <option value="context">Context</option>
+                    <option value="education">Education</option>
+                    <option value="certification">Certification</option>
+                    <option value="program">Program</option>
+                    <option value="volunteer">Volunteer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.start_date || ''}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.end_date || ''}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Impact Metrics
+                </label>
+                <input
+                  type="text"
+                  value={formData.impact_metrics || ''}
+                  onChange={(e) => setFormData({ ...formData, impact_metrics: e.target.value })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., Increased sales by 40%"
+                />
+              </div>
+
+              {['role', 'education', 'certification', 'program', 'volunteer'].includes(formData.type) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      {formData.type === 'role' ? 'Company/Organization *' : 'Organizing Body'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.organization_name || ''}
+                      onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder={formData.type === 'role' ? 'e.g., Acme Corp, Google, Startup Inc' : 'e.g., Coursera, Harvard University, Red Cross'}
+                      required={formData.type === 'role'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-navy-200 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.primary_location || ''}
+                      onChange={(e) => setFormData({ ...formData, primary_location: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                      placeholder="e.g., San Francisco, CA or Remote"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={formData.tags.join(', ')}
+                  onChange={(e) => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()) })}
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., React, TypeScript, Performance"
+                />
+              </div>
+
+              {formData.type === 'voice' && (
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Tone Keywords
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.tone_keywords || ''}
+                    onChange={(e) => setFormData({ ...formData, tone_keywords: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., direct, warm, analytical, storytelling-focused"
+                  />
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated keywords describing your communication style</p>
+                </div>
+              )}
+
+              {formData.type === 'context' && (
+                <div>
+                  <label className="block text-sm font-medium text-navy-200 mb-1">
+                    Related Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.related_terms || ''}
+                    onChange={(e) => setFormData({ ...formData, related_terms: e.target.value })}
+                    className="w-full px-4 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Politico Pro, subscription strategy, B2B SaaS"
+                  />
+                  <p className="text-xs text-navy-400 mt-1">Comma-separated related concepts this term explains</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <Button type="submit" loading={saving} className="flex-1">
+                  Add Component
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Application Manually */}
+      {showAddApplicationForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setShowAddApplicationForm(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-navy-300 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold text-white mb-4 pr-8">Add application</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const form = e.target as HTMLFormElement
+                const jobTitle = (form.elements.namedItem('job_title') as HTMLInputElement).value.trim()
+                const companyName = (form.elements.namedItem('company_name') as HTMLInputElement).value.trim()
+                const jobUrl = (form.elements.namedItem('job_url') as HTMLInputElement).value.trim()
+                const deadline = (form.elements.namedItem('deadline') as HTMLInputElement).value
+                const jobDescription = (form.elements.namedItem('job_description') as HTMLTextAreaElement).value.trim()
+                if (!jobTitle || !companyName) return
+                handleCreateManualApplication({
+                  job_title: jobTitle,
+                  company_name: companyName,
+                  job_url: jobUrl || undefined,
+                  deadline: deadline || undefined,
+                  job_description: jobDescription || undefined,
+                })
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job title *</label>
+                <input
+                  name="job_title"
+                  type="text"
+                  required
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Company *</label>
+                <input
+                  name="company_name"
+                  type="text"
+                  required
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job URL</label>
+                <input
+                  name="job_url"
+                  type="url"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Deadline</label>
+                <input
+                  name="deadline"
+                  type="date"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-200 mb-1">Job description</label>
+                <textarea
+                  name="job_description"
+                  rows={4}
+                  placeholder="Paste the posting so you have it to hand, even after the ad comes down"
+                  className="w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-white placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" loading={savingManualApplication} className="flex-1">
+                  Add application
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddApplicationForm(false)}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold border border-navy-600 text-navy-200 hover:bg-navy-700 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <NoticeModal
+        isOpen={!!notice}
+        message={notice?.message || ''}
+        variant={notice?.variant}
+        onClose={() => setNotice(null)}
+      />
+    </DashboardShell>
+  )
+}
+
+export default withAuth(Dashboard)
