@@ -1,5 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { requireAiUser } from '@/lib/aiAccess'
+import {
+  requireAiUserOrFreeImport,
+  recordAiUsage,
+  freeTierModel,
+  FREE_IMPORT_FEATURE,
+} from '@/lib/aiAccess'
 import Anthropic from '@anthropic-ai/sdk'
 
 interface ExtractedComponent {
@@ -40,6 +45,11 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+// Free-tier imports are billed to their own key (see lib/aiAccess).
+const freeTierAnthropic = process.env.ANTHROPIC_API_KEY_FREE_TIER
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY_FREE_TIER })
+  : null
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ExtractResponse>
@@ -49,9 +59,10 @@ export default async function handler(
   }
 
   try {
-    const ctx = await requireAiUser(req, res)
+    const ctx = await requireAiUserOrFreeImport(req, res)
     if (!ctx) return
-    const { user, serverSupabase } = ctx
+    const { user, serverSupabase, mode } = ctx
+    const isFreeImport = mode === 'free_import'
 
     // Resolve the source text to extract from. Two modes:
     //   1. Body text provided (e.g. freshly pasted CV from the Analyze flow):
@@ -62,6 +73,10 @@ export default async function handler(
       typeof req.body?.text === 'string' ? req.body.text.trim() : ''
 
     let combinedText: string
+
+    if (isFreeImport && bodyText.length === 0) {
+      return res.status(400).json({ success: false, error: 'Send the CV text to import' })
+    }
 
     if (bodyText.length > 0) {
       combinedText = bodyText
@@ -107,10 +122,16 @@ export default async function handler(
       console.log('=================================================')
     }
 
-    // Use Claude to extract components
-    const message = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 3000,
+    // Use Claude to extract components. Free imports run on a cheaper model
+    // with low effort (a single structured extraction doesn't need more) and
+    // a larger output cap so long CVs aren't cut off.
+    const client = isFreeImport ? freeTierAnthropic! : anthropic
+    const model = isFreeImport ? freeTierModel() : 'claude-opus-4-6'
+    const message = await client.messages.create({
+      model,
+      max_tokens: isFreeImport ? 8000 : 3000,
+      // effort isn't in this SDK version's types; the API accepts it.
+      ...(isFreeImport ? ({ output_config: { effort: 'low' } } as any) : {}),
       messages: [
         {
           role: 'user',
@@ -217,9 +238,9 @@ ${combinedText}`,
       ],
     })
 
-    // Extract JSON from response
-    const responseText =
-      message.content[0].type === 'text' ? message.content[0].text : ''
+    // Extract JSON from the text block (newer models may put thinking blocks first).
+    const textBlock = message.content.find((b) => b.type === 'text')
+    const responseText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
 
     console.log('Claude response length:', responseText.length)
     console.log('Claude response first 500 chars:', responseText.substring(0, 500))
@@ -234,6 +255,17 @@ ${combinedText}`,
       }
       extractedComponents = JSON.parse(jsonText)
       console.log('Successfully parsed JSON, components found:', extractedComponents.components?.length || 0)
+      // Count a free import only once it produced something usable, so a
+      // failed parse doesn't use up someone's allowance.
+      if (isFreeImport) {
+        await recordAiUsage(serverSupabase, {
+          user_id: user.id,
+          feature: FREE_IMPORT_FEATURE,
+          model,
+          input_tokens: message.usage?.input_tokens,
+          output_tokens: message.usage?.output_tokens,
+        })
+      }
     } catch (parseError) {
       console.error('JSON parse error:', responseText)
       return res.status(500).json({

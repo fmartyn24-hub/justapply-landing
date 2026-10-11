@@ -12,7 +12,9 @@ import { ApplicationsView } from '@/components/dashboard/ApplicationsView'
 import { DashboardShell, type DashboardTab } from '@/components/dashboard/DashboardShell'
 import { DashboardHome } from '@/components/dashboard/DashboardHome'
 import { NoticeModal } from '@/components/common/NoticeModal'
-import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
+import { AiFeatureTeaser, AiBoltIcon } from '@/components/common/AiFeatureTeaser'
+import { FreeImportPanel } from '@/components/dashboard/FreeImportPanel'
+import { parseCvText } from '@/lib/cvHeuristicParser'
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/aiAccess'
 import { normalizeComponentType } from '@/lib/componentTypeMapping'
 import { supabase } from '@/lib/supabaseClient'
@@ -150,6 +152,14 @@ function Dashboard() {
   // Voice tone keywords detected during the Analyze flow, applied (create/update
   // the "My Voice" component) only when the user approves the review.
   const [pendingVoice, setPendingVoice] = useState<string | null>(null)
+  // Where the components in the review modal came from, and the text they were
+  // read from, so a rule-based read can be redone with the free AI import.
+  const [reviewSource, setReviewSource] = useState<'ai' | 'heuristic'>('ai')
+  const [reviewSourceText, setReviewSourceText] = useState('')
+  // Free accounts: how many AI imports are left (0 when not offered).
+  const [freeImportsLeft, setFreeImportsLeft] = useState(0)
+  const [freeImporting, setFreeImporting] = useState(false)
+  const [lastUploadedText, setLastUploadedText] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -231,6 +241,14 @@ function Dashboard() {
     })
   }
   const aiLocked = isAdmin ? previewPlan === 'free' : process.env.NEXT_PUBLIC_AI_FEATURES !== 'on'
+
+  useEffect(() => {
+    if (!session?.access_token) return
+    fetch('/api/ai-allowance', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setFreeImportsLeft(d?.freeImport?.available ? d.freeImport.remaining || 0 : 0))
+      .catch(() => setFreeImportsLeft(0))
+  }, [session?.access_token])
 
   const closeImportModal = () => {
     setShowImportModal(false)
@@ -506,6 +524,8 @@ function Dashboard() {
 
   const closeReviewModal = () => {
     setShowReviewModal(false)
+    setReviewSource('ai')
+    setReviewSourceText('')
     setReviewComponents([])
     setReviewSelected([])
     setPendingVoice(null)
@@ -654,8 +674,10 @@ function Dashboard() {
       // Don't leave the user at a dead-end: immediately extract components from
       // the file they just uploaded and surface them in the review modal.
       const uploadedText: string = uploadResult?.extractedText || ''
-      if (!aiLocked && uploadedText.trim().length > 0) {
-        await extractAndReviewFromText(uploadedText)
+      setLastUploadedText(uploadedText)
+      if (uploadedText.trim().length > 0) {
+        if (aiLocked) reviewWithoutAi(uploadedText)
+        else await extractAndReviewFromText(uploadedText)
       }
     } catch (err) {
       console.error('Import upload error:', err)
@@ -667,6 +689,55 @@ function Dashboard() {
 
   // Extract components (preview) from a single chunk of text and open the review
   // modal. Shared by the file-upload and paste-analyze flows.
+  // Free tier: read CV text with the rule-based parser and open the review.
+  // Returns false when nothing could be read.
+  const reviewWithoutAi = (text: string): boolean => {
+    const extracted = prepareReviewComponents(parseCvText(text))
+    if (extracted.length === 0) {
+      showNotice(
+        "We couldn't read entries from that automatically. Try pasting the text instead, or add your most recent role by hand.",
+        'info'
+      )
+      return false
+    }
+    setReviewSource('heuristic')
+    setReviewSourceText(text)
+    setShowImportModal(false)
+    setImportUploadSuccess(false)
+    openReviewModal(extracted)
+    return true
+  }
+
+  // Free tier: spend the account's free AI import on this text.
+  const runFreeAiImport = async (text: string) => {
+    if (!session?.access_token || !text.trim()) return
+    setFreeImporting(true)
+    try {
+      const r = await fetch('/api/extract-components?preview=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ text }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'The AI import failed')
+      const extracted = prepareReviewComponents(d.components || [])
+      setFreeImportsLeft((n) => Math.max(0, n - 1))
+      if (extracted.length === 0) {
+        showNotice("The AI import couldn't find any entries in that text.", 'info')
+        return
+      }
+      setReviewSource('ai')
+      setReviewSourceText(text)
+      setShowImportModal(false)
+      setImportUploadSuccess(false)
+      openReviewModal(extracted)
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : 'The AI import failed')
+    } finally {
+      setFreeImporting(false)
+    }
+  }
+
   const extractAndReviewFromText = async (text: string) => {
     if (!session?.access_token) return
     try {
@@ -1331,6 +1402,7 @@ function Dashboard() {
                     onApplicationOpened={() => setJustGeneratedApplicationId(null)}
                     components={components}
                     aiLocked={aiLocked}
+                    applicantName={[profileData.firstName, profileData.lastName].filter(Boolean).join(' ')}
                   />
                 )}
 
@@ -1654,7 +1726,7 @@ function Dashboard() {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">{aiLocked ? 'Add your experience' : 'Import your information'}</h2>
               <button
@@ -1709,7 +1781,7 @@ function Dashboard() {
                       : 'border-transparent text-navy-300 hover:text-white'
                   }`}
                 >
-                  {tab === 'upload' ? 'Upload File' : aiLocked ? 'Auto-import with AI' : 'Paste Information'}
+                  {tab === 'upload' ? 'Upload File' : aiLocked ? 'Paste text' : 'Paste Information'}
                 </button>
               ))}
             </div>
@@ -1717,16 +1789,21 @@ function Dashboard() {
             {/* Paste Tab */}
             {importTab === 'paste' &&
               (aiLocked ? (
-                <AiFeatureTeaser
-                  feature="import"
-                  title="Build your career library in minutes"
-                  pitch="Paste or upload your CVs, cover letters or any past document, and we'll pull out your roles, skills and achievements for you, instead of typing them one by one."
-                  bullets={[
-                    'Import from several documents at once',
-                    'Roles, skills, achievements and more extracted automatically',
-                    'Review and approve before anything is saved',
-                  ]}
-                />
+                <div className="space-y-4">
+                  <FreeImportPanel
+                    onReadWithoutAi={reviewWithoutAi}
+                    onFreeAiImport={freeImportsLeft > 0 ? runFreeAiImport : undefined}
+                    freeRemaining={freeImportsLeft}
+                    busy={freeImporting}
+                  />
+                  {freeImportsLeft === 0 && (
+                    <AiFeatureTeaser
+                      feature="import"
+                      title="Smarter import with AI"
+                      pitch="AI import reads messy layouts, several documents at once and your past cover letters, and picks up your writing voice as well as your roles and achievements."
+                    />
+                  )}
+                </div>
               ) : (
                 <PasteAnalyzer onAnalyze={handleAnalyzeText} analyzing={analyzing} aiLocked={aiLocked} />
               ))}
@@ -1748,7 +1825,7 @@ function Dashboard() {
                   </div>
                   <p className="text-navy-300 text-sm mt-1">
                     {aiLocked
-                      ? 'PDF or DOCX. Your CV is saved under CVs, ready to attach to applications.'
+                      ? "PDF or DOCX. We'll save it under CVs and read it into draft entries for you to check."
                       : "Upload PDF or DOCX files. We'll extract and analyze your experience."}
                   </p>
                 </div>
@@ -1759,10 +1836,15 @@ function Dashboard() {
                       <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
                         <p className="font-semibold text-emerald-300">CV saved</p>
                         <p className="text-sm text-navy-200 mt-1">
-                          Next, add your most recent role. It takes about a minute, and every application you write
-                          will draw on it.
+                          We couldn&apos;t read entries from this file automatically. Add your most recent role by
+                          hand, try the Paste text tab, or use your free AI import.
                         </p>
                         <div className="flex flex-wrap gap-2 mt-3">
+                          {freeImportsLeft > 0 && lastUploadedText.trim() && (
+                            <Button size="sm" onClick={() => runFreeAiImport(lastUploadedText)} loading={freeImporting}>
+                              <AiBoltIcon /> Use free AI import ({freeImportsLeft} left)
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             onClick={() => {
@@ -1861,10 +1943,12 @@ function Dashboard() {
       {/* Review Extracted Components Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] flex flex-col">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between mb-2">
               <div>
-                <h2 className="text-2xl font-bold text-white">Review extracted components</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {reviewSource === 'heuristic' ? 'Check your draft entries' : 'Review extracted components'}
+                </h2>
                 <p className="text-navy-300 text-sm mt-1">
                   {(() => {
                     const newCount = reviewComponents.filter((c) => !c.isExisting).length
@@ -1892,6 +1976,25 @@ function Dashboard() {
                 ×
               </button>
             </div>
+
+            {reviewSource === 'heuristic' && (
+              <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                <p className="flex-1">
+                  We read your CV without AI, so some titles, organisations or dates may be in the wrong place. Check
+                  each one; you can fix anything after adding it.
+                </p>
+                {freeImportsLeft > 0 && reviewSourceText && (
+                  <button
+                    onClick={() => runFreeAiImport(reviewSourceText)}
+                    disabled={freeImporting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-white hover:bg-blue-700 disabled:opacity-50 transition flex-shrink-0"
+                  >
+                    <AiBoltIcon size={10} />
+                    {freeImporting ? 'Reading with AI…' : `Redo with free AI import (${freeImportsLeft} left)`}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Select all / none */}
             <div className="flex items-center gap-4 text-sm mb-4">
@@ -2017,7 +2120,7 @@ function Dashboard() {
       {/* Expanded Role Modal */}
       {expandedRole && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div>
@@ -2111,7 +2214,7 @@ function Dashboard() {
       {/* Edit Component Modal */}
       {editingComponent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto relative">
             <button
               type="button"
               onClick={() => {
@@ -2125,7 +2228,7 @@ function Dashboard() {
             </button>
             <h2 className="text-2xl font-bold text-white mb-4 pr-8">Edit {editFormData.type}</h2>
             <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy-200 mb-1">
                     Type *
@@ -2175,7 +2278,7 @@ function Dashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy-200 mb-1">
                     Start Date
@@ -2215,7 +2318,7 @@ function Dashboard() {
               </div>
 
               {['role', 'education', 'certification', 'program', 'volunteer'].includes(editFormData.type || '') && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-navy-200 mb-1">
                       {editFormData.type === 'role' ? 'Company/Organization' : 'Organizing Body'}
@@ -2311,7 +2414,7 @@ function Dashboard() {
       {/* Add Component Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto relative">
+          <div className="bg-navy-800 border border-navy-600 rounded-lg max-w-2xl w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto relative">
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
@@ -2323,7 +2426,7 @@ function Dashboard() {
             <h2 className="text-2xl font-bold text-white mb-1 pr-8">Add to your library</h2>
             <p className="text-sm text-navy-300 mb-4">{COMPONENT_TYPE_HINTS[formData.type]}</p>
             <form onSubmit={handleAddComponent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy-200 mb-1">
                     Type *
@@ -2373,7 +2476,7 @@ function Dashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy-200 mb-1">
                     Start Date
@@ -2413,7 +2516,7 @@ function Dashboard() {
               </div>
 
               {['role', 'education', 'certification', 'program', 'volunteer'].includes(formData.type) && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-navy-200 mb-1">
                       {formData.type === 'role' ? 'Company/Organization *' : 'Organizing Body'}

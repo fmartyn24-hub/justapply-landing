@@ -84,6 +84,12 @@ export function DashboardShell({
   onTogglePreviewPlan,
 }: DashboardShellProps) {
   const { theme, toggleTheme } = useTheme()
+  // Below lg the sidebar is a slide-out drawer opened from the top bar.
+  const [navOpen, setNavOpen] = useState(false)
+  const go = (tab: DashboardTab) => {
+    onTabChange(tab)
+    setNavOpen(false)
+  }
 
   // Everything here works on the free plan. Just Apply sits near the top: it's
   // the main job-to-application flow, with AI as an optional layer inside it.
@@ -103,15 +109,42 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen bg-navy-900 flex" data-theme={theme}>
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-navy-900/95 backdrop-blur border-b border-navy-700 flex items-center justify-between px-4">
+        <Logo className="h-7" />
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Open menu"
+          className="p-2 -mr-2 rounded-lg text-navy-200 hover:bg-navy-800 hover:text-white"
+        >
+          <NavIcon path="M4 6h16M4 12h16M4 18h16" />
+        </button>
+      </div>
+
+      {navOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setNavOpen(false)} aria-hidden="true" />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-navy-900 border-r border-navy-700 flex flex-col fixed inset-y-0 left-0 z-40">
-        <div className="px-5 py-6">
+      <aside
+        className={`w-60 flex-shrink-0 bg-navy-900 border-r border-navy-700 flex flex-col fixed inset-y-0 left-0 z-50 transition-transform lg:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="px-5 py-6 flex items-center justify-between">
           <Logo className="h-8" />
+          <button
+            onClick={() => setNavOpen(false)}
+            aria-label="Close menu"
+            className="lg:hidden text-navy-300 hover:text-white text-2xl leading-none"
+          >
+            ×
+          </button>
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {coreNavItems.map((item) => (
-            <NavButton key={item.tab} item={item} isActive={activeTab === item.tab} onClick={() => onTabChange(item.tab)} />
+            <NavButton key={item.tab} item={item} isActive={activeTab === item.tab} onClick={() => go(item.tab)} />
           ))}
         </nav>
 
@@ -142,7 +175,7 @@ export function DashboardShell({
             <span className="flex-1 text-left">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
           <button
-            onClick={() => onTabChange('settings')}
+            onClick={() => go('settings')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
               activeTab === 'settings' ? 'bg-primary text-white' : 'text-navy-200 hover:bg-navy-800 hover:text-white'
             }`}
@@ -161,8 +194,8 @@ export function DashboardShell({
       </aside>
 
       {/* Content */}
-      <main className="flex-1 ml-60 min-h-screen bg-navy-900">
-        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-8">{children}</div>
+      <main className="flex-1 min-w-0 lg:ml-60 min-h-screen bg-navy-900 pt-14 lg:pt-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">{children}</div>
       </main>
     </div>
   )

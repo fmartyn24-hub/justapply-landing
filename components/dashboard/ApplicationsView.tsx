@@ -38,6 +38,7 @@ interface ApplicationsViewProps {
   onApplicationOpened?: () => void
   components?: { id: string; type: string; title: string; organization_name?: string; description?: string; impact_metrics?: string; tags?: string[]; related_terms?: string }[]
   aiLocked?: boolean
+  applicantName?: string
 }
 
 // Applications (list) and Tracker (kanban) used to be two separate tabs
@@ -57,6 +58,7 @@ export function ApplicationsView({
   onApplicationOpened,
   components,
   aiLocked,
+  applicantName,
 }: ApplicationsViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all')
@@ -375,6 +377,7 @@ export function ApplicationsView({
           saving={savingStatus}
           authToken={authToken}
           aiLocked={aiLocked}
+          applicantName={applicantName}
         />
       )}
 

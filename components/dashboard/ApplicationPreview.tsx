@@ -6,6 +6,9 @@ import { StatusSelect } from '@/components/common/StatusSelect'
 import { GenerationOptionsModal, type GenerationChoices } from './GenerationOptionsModal'
 import { AiFeatureTeaser } from '@/components/common/AiFeatureTeaser'
 import { FitPreview } from './FitPreview'
+import { InterviewPrep } from './InterviewPrep'
+import { COVER_LETTER_TEMPLATES, buildCoverLetter, type CoverLetterTemplateId } from '@/lib/coverLetterTemplates'
+import { matchComponentsToPosting } from '@/lib/componentMatch'
 
 const ONE_PAGE_WORD_LIMIT = 320
 
@@ -60,6 +63,7 @@ interface ApplicationPreviewProps {
   saving?: boolean
   authToken?: string
   aiLocked?: boolean
+  applicantName?: string
 }
 
 function AiBadge() {
@@ -118,6 +122,7 @@ export function ApplicationPreview({
   saving,
   authToken,
   aiLocked,
+  applicantName,
 }: ApplicationPreviewProps) {
   // Lock the page behind the modal so scrolling to the end of this panel
   // doesn't chain into scrolling the dashboard underneath it.
@@ -129,7 +134,12 @@ export function ApplicationPreview({
     }
   }, [])
 
-  const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details'>('details')
+  // Interview prep appears once an application reaches the interview stage.
+  const prepStatuses: ApplicationStatus[] = ['interviewing', 'heard_back', 'offer']
+  const showPrep = prepStatuses.includes((status || 'draft') as ApplicationStatus)
+  const [activeTab, setActiveTab] = useState<'coverLetter' | 'cvAdvice' | 'details' | 'prep'>(
+    status === 'interviewing' ? 'prep' : 'details'
+  )
   const [editedCoverLetter, setEditedCoverLetter] = useState(coverLetter)
   const [currentCvAdvice, setCurrentCvAdvice] = useState(cvAdvice || '')
   const [currentCvAdviceJson, setCurrentCvAdviceJson] = useState<CvAdviceStructured | null>(cvAdviceJson || null)
@@ -149,6 +159,27 @@ export function ApplicationPreview({
   // Free path: open the editor on an empty letter so people can write their own.
   const [writingOwnLetter, setWritingOwnLetter] = useState(false)
   const letterRef = useRef<HTMLTextAreaElement>(null)
+
+  // Start the letter from a template, with proof points filled from the two
+  // components that best fit this job description.
+  const startFromTemplate = (id: CoverLetterTemplateId | 'blank') => {
+    if (id === 'blank') {
+      setWritingOwnLetter(true)
+      return
+    }
+    const best = matchComponentsToPosting(editedJobDescription, components, { exclude: [editedCompany] })
+      .matches.slice(0, 2)
+      .map((m) => componentSnippet(m.component))
+    setEditedCoverLetter(
+      buildCoverLetter(id, {
+        jobTitle: editedJobTitle,
+        company: editedCompany,
+        name: applicantName,
+        proofPoints: best,
+      })
+    )
+    setWritingOwnLetter(true)
+  }
 
   // Insert a component's facts at the cursor (or at the end) as its own paragraph.
   const insertComponent = (c: LibraryComponent) => {
@@ -221,6 +252,7 @@ export function ApplicationPreview({
     setChangingStatus(true)
     try {
       await onStatusChange(newStatus)
+      if (newStatus === 'interviewing') setActiveTab('prep')
     } finally {
       setChangingStatus(false)
     }
@@ -275,9 +307,9 @@ export function ApplicationPreview({
 
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 m-0">
-      <div className="bg-navy-800 border border-navy-600 rounded-lg w-[95vw] h-[95vh] max-w-7xl overflow-hidden flex flex-col">
+      <div className="bg-navy-800 border border-navy-600 rounded-none sm:rounded-lg w-screen h-[100dvh] sm:w-[95vw] sm:h-[95vh] max-w-7xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-navy-600">
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-navy-600">
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-white">Edit Application</h2>
             {jobTitle && company && (
@@ -310,7 +342,7 @@ export function ApplicationPreview({
         </div>
 
         {/* Tabs — free/CRUD first (Details), AI-powered features after (CV Advice, Cover Letter) */}
-        <div className="flex gap-4 border-b border-navy-600 px-6 pt-4">
+        <div className="flex gap-4 border-b border-navy-600 px-4 sm:px-6 pt-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('details')}
             className={`px-4 py-2 font-medium transition border-b-2 ${
@@ -341,10 +373,22 @@ export function ApplicationPreview({
           >
             Cover Letter
           </button>
+          {showPrep && (
+            <button
+              onClick={() => setActiveTab('prep')}
+              className={`px-4 py-2 font-medium transition border-b-2 whitespace-nowrap ${
+                activeTab === 'prep'
+                  ? 'border-purple-400 text-purple-300'
+                  : 'border-transparent text-purple-300/70 hover:text-purple-200'
+              }`}
+            >
+              Interview prep
+            </button>
+          )}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-6 bg-navy-900">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 bg-navy-900">
           {generateError && (
             <div className="mb-4 bg-red-500/10 border border-red-400/40 rounded-lg p-3 text-sm text-red-300">
               {generateError}
@@ -445,14 +489,27 @@ export function ApplicationPreview({
                 <div className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
                   <h3 className="text-lg font-semibold text-white">Write your cover letter</h3>
                   <p className="text-sm text-navy-300">
-                    Start from a blank page. It saves as you type, and exports to Word, PDF, ODT or plain text.
+                    Pick a starting point. We&apos;ll fill in the role, the company and your two best-fit experiences
+                    from your library; you write the rest. It saves as you type and exports to Word, PDF, ODT or text.
                   </p>
-                  <ul className="text-sm text-navy-200 space-y-1.5">
-                    <li className="flex gap-2"><span className="text-blue-400">1.</span>Why this role, at this company</li>
-                    <li className="flex gap-2"><span className="text-blue-400">2.</span>Two or three proof points from your library</li>
-                    <li className="flex gap-2"><span className="text-blue-400">3.</span>A short, confident close</li>
-                  </ul>
-                  <Button onClick={() => setWritingOwnLetter(true)}>Start writing</Button>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {COVER_LETTER_TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => startFromTemplate(t.id)}
+                        className="text-left rounded-lg border border-navy-600 bg-navy-900 p-3 hover:border-blue-400 transition"
+                      >
+                        <span className="block text-sm font-semibold text-white">{t.label}</span>
+                        <span className="block text-xs text-navy-400 mt-0.5">{t.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => startFromTemplate('blank')}
+                    className="text-sm text-blue-400 font-semibold hover:underline"
+                  >
+                    Or start from a blank page
+                  </button>
                 </div>
                 {aiLocked ? (
                   <AiFeatureTeaser
@@ -570,9 +627,21 @@ export function ApplicationPreview({
             )
           )}
 
+          {activeTab === 'prep' && (
+            <InterviewPrep
+              applicationId={id}
+              jobTitle={editedJobTitle}
+              company={editedCompany}
+              jobDescription={editedJobDescription}
+              personsOfInterest={editedPersonsOfInterest}
+              components={components}
+              onEditDetails={() => setActiveTab('details')}
+            />
+          )}
+
           {activeTab === 'details' && (
             <div className="bg-navy-800 border border-navy-600 p-6 rounded-lg space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-navy-200 mb-2">
                     Job Title
